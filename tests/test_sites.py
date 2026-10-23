@@ -1,0 +1,98 @@
+"""Sites, ad units e sites por membro contra o Postgres. A importação é do worker: aqui
+o inventário entra direto pelo Unit of Work."""
+
+import uuid
+from datetime import UTC, datetime
+
+from avant_core.db.uow import SqlAlchemyUnitOfWork
+from avant_core.gam.domain import AdUnit, ConnectionType, Network, Site
+from fastapi.testclient import TestClient
+from sqlalchemy import Engine
+
+from tests.conftest import CapturingMailer
+from tests.test_api import _csrf, _onboard_owner
+from tests.test_team import _member_client
+
+NOW = datetime(2026, 11, 2, 12, 0, tzinfo=UTC)
+
+
+def _inventory(engine: Engine, company_id: uuid.UUID) -> dict[str, uuid.UUID]:
+    with SqlAlchemyUnitOfWork(engine, company_id=company_id) as uow:
+        net = Network(company_id, "123", ConnectionType.SERVICE_ACCOUNT, NOW)
+        uow.networks.add(net)
+        acai = Site(company_id, net.id, "s1", "acai.com.br", NOW, "APPROVED")
+        blog = Site(company_id, net.id, "s2", "blog.com", NOW, "DRAFT")
+        for s in (acai, blog):
+            uow.sites.add(s)
+        root = AdUnit(company_id, net.id, "u1", "acai.com.br", NOW, site_id=acai.id)
+        uow.ad_units.add(root)
+        child = AdUnit(company_id, net.id, "u2", "topo", NOW, parent_id=root.id, site_id=acai.id)
+        uow.ad_units.add(child)
+        loose = AdUnit(company_id, net.id, "u3", "solto", NOW)
+        uow.ad_units.add(loose)
+        uow.commit()
+        return {"acai": acai.id, "blog": blog.id, "root": root.id, "child": child.id}
+
+
+def test_sites_and_assignment(client: TestClient, engine: Engine, mailer: CapturingMailer) -> None:
+    me = _onboard_owner(client, engine, mailer)
+    ids = _inventory(engine, uuid.UUID(me["active_company_id"]))
+    ana = _member_client(client, mailer, "ana@acai.com")  # Financeiro: sites.view, só atribuídos
+    ana_id = next(
+        m["id"] for m in client.get("/api/v1/members").json()["items"] if m["user"]["name"] == "Ana"
+    )
+
+    sites = client.get("/api/v1/sites").json()["items"]
+    assert [(s["domain"], s["ad_units"]) for s in sites] == [("acai.com.br", 2), ("blog.com", 0)]
+    assert [
+        s["domain"] for s in client.get("/api/v1/sites?approval_status=draft").json()["items"]
+    ] == ["blog.com"]
+    unlinked = client.get("/api/v1/ad-units?unlinked=true").json()["items"]
+    assert [u["name"] for u in unlinked] == ["solto"]
+
+    # A Ana não vê nada até ter um site atribuído, e não atribui.
+    assert ana.get("/api/v1/sites").json()["items"] == []
+    assert ana.get(f"/api/v1/sites/{ids['acai']}").status_code == 404
+    put = {"site_ids": [str(ids["acai"])]}
+    denied = ana.put(f"/api/v1/members/{ana_id}/sites", json=put, headers=_csrf(ana))
+    assert denied.status_code == 403 and denied.json()["error"]["code"] == "permission_denied"
+
+    r = client.put(f"/api/v1/members/{ana_id}/sites", json=put, headers=_csrf(client))
+    assert r.status_code == 200, r.text
+    assert [s["domain"] for s in r.json()["items"]] == ["acai.com.br"]
+    assert [s["domain"] for s in client.get(f"/api/v1/members/{ana_id}/sites").json()["items"]] == [
+        "acai.com.br"
+    ]
+
+    detail = ana.get(f"/api/v1/sites/{ids['acai']}").json()
+    assert [u["name"] for u in detail["ad_units"]] == ["acai.com.br", "topo"]
+    assert detail["assigned_to"] is None
+    assert client.get(f"/api/v1/sites/{ids['acai']}").json()["assigned_to"] == [ana_id]
+    assert {u["name"] for u in ana.get("/api/v1/ad-units").json()["items"]} == {
+        "acai.com.br",
+        "topo",
+    }
+    assert ana.get(f"/api/v1/sites/{ids['acai']}/members").status_code == 403
+    members = client.get(f"/api/v1/sites/{ids['acai']}/members").json()["items"]
+    assert {(m["user"]["name"], m["via"]) for m in members} == {
+        ("Dono", "all"),
+        ("Ana", "assigned"),
+    }
+
+    # Ligar a raiz a outro site leva o filho junto; a Ana deixa de ver os dois.
+    url = f"/api/v1/ad-units/{ids['root']}"
+    assert ana.patch(url, json={"site_id": str(ids["blog"])}, headers=_csrf(ana)).status_code == 403
+    moved = client.patch(url, json={"site_id": str(ids["blog"])}, headers=_csrf(client))
+    assert moved.status_code == 200, moved.text
+    assert moved.json()["site_id"] == str(ids["blog"]) and moved.json()["site_manual"] is True
+    assert ana.get("/api/v1/ad-units").json()["items"] == []
+    back = client.patch(url, json={"automatic": True}, headers=_csrf(client))
+    assert back.json()["site_manual"] is False
+
+    unknown = {"site_ids": [str(uuid.uuid4())]}
+    r = client.put(f"/api/v1/members/{ana_id}/sites", json=unknown, headers=_csrf(client))
+    assert r.status_code == 404 and r.json()["error"]["code"] == "not_found"
+    r = client.put(f"/api/v1/members/{ana_id}/sites", json={"site_ids": []}, headers=_csrf(client))
+    assert r.json()["items"] == [] and ana.get("/api/v1/sites").json()["items"] == []
+    audit = client.get("/api/v1/audit").json()["items"]
+    assert {"site.assigned", "site.unassigned", "ad_unit.linked"} <= {e["action"] for e in audit}
