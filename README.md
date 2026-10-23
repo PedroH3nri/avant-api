@@ -25,6 +25,20 @@ Outros repositórios: avant-core, avant-worker, avant-web, avant-infra.
 | `DELETE /auth/mfa` | desliga o 2FA (só clientes) | sessão + código |
 | `GET /invitations` | convites pendentes da Empresa ativa | `team.view` |
 | `POST /invitations` | convida por e-mail e papel | `team.invite` |
+| `POST /invitations/{id}/resend` | token novo e mais 1 dia | `team.invite` |
+| `DELETE /invitations/{id}` | cancela e libera a vaga | `team.invite` |
+| `GET /company` | Empresa ativa, com vagas usadas | membro |
+| `PATCH /company` | nome, cor e preferências | `company.edit` |
+| `GET /members` | equipe; filtros `status`, `role`, `q` | `team.view` |
+| `GET /members/{id}` | detalhe com permissões diretas | `team.view` |
+| `PATCH /members/{id}` | troca papel, suspende ou reativa | `team.manage` |
+| `DELETE /members/{id}` | remove e libera a vaga | `team.manage` |
+| `POST /members/me/leave` | sai da Empresa (o dono não pode) | membro |
+| `PUT /members/{id}/permissions` | lista inteira de permissões diretas | `permissions.grant` |
+| `GET /permissions` | catálogo de cliente com nomes PT/EN/ES | `roles.view` |
+| `GET /roles` | predefinidos e personalizados, com contagem | `roles.view` |
+| `POST /roles`, `PATCH /roles/{id}`, `DELETE /roles/{id}` | papéis personalizados | `roles.manage` |
+| `GET /audit` | histórico; filtros `actor`, `action`, `from`, `to`; cursor | `audit.view` |
 
 Ainda faltam o login com Google e o limite de requisições.
 
