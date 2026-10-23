@@ -26,8 +26,7 @@ Outros repositórios: avant-core, avant-worker, avant-web, avant-infra.
 | `GET /invitations` | convites pendentes da Empresa ativa | `team.view` |
 | `POST /invitations` | convida por e-mail e papel | `team.invite` |
 
-Ainda faltam o login com Google, o envio pelo Resend (hoje o `LogMailer` só
-registra o envio) e o limite de requisições.
+Ainda faltam o login com Google e o limite de requisições.
 
 ## Como funciona
 
@@ -41,6 +40,11 @@ registra o envio) e o limite de requisições.
   só uma pré-sessão de 5 minutos. A equipe Groone sem 2FA recebe `mfa_required` (403) em
   tudo menos `/auth/me`, `/auth/logout` e `/auth/mfa/*`. O segredo é cifrado com
   `MFA_ENCRYPTION_KEY`.
+- **E-mail**: com `RESEND_API_KEY`, os convites saem pelo Resend (remetente em
+  `MAIL_FROM`), em português, inglês ou espanhol conforme o idioma da pessoa. Sem a chave,
+  o `LogMailer` só registra o envio e, em local, mostra o link. A chave é obrigatória em
+  staging e produção. Falha no envio vai para o log e para `avant_mail_failures_total`,
+  e o convite continua pendente.
 - **Permissão**: declarada na rota com `Depends(require("team.invite"))`.
 - **Erros**: sempre `{"error": {"code", "message", "details"}}`; o mapa de código para
   status HTTP está em `errors.py`.
