@@ -22,12 +22,13 @@ from avant_core.identity.application import (
 from avant_core.shared.errors import WrongInvitationKind
 from fastapi import APIRouter, Depends, Request, Response, status
 
-from avant_api.deps import get_auth, get_services, optional_auth
+from avant_api.deps import get_auth, get_services, get_session_auth, optional_auth
 from avant_api.schemas import (
     AcceptInvitationIn,
     ActiveCompanyIn,
     InvitationPreviewOut,
     LoginIn,
+    LoginOut,
     MeOut,
 )
 from avant_api.services import Services
@@ -46,12 +47,16 @@ def _client(request: Request) -> tuple[str | None, str | None]:
     return request.headers.get("User-Agent"), ip
 
 
-def _start(response: Response, services: Services, result: LoginResult) -> Authenticated:
+def _set_cookies(response: Response, services: Services, result: LoginResult) -> None:
     s = services.settings
     max_age = int((result.session.expires_at - services.clock.now()).total_seconds())
     common = {"max_age": max_age, "secure": s.cookie_secure, "samesite": "lax", "path": "/"}
     response.set_cookie(s.session_cookie, result.token, httponly=True, **common)  # type: ignore[arg-type]
     response.set_cookie(s.csrf_cookie, secrets.token_urlsafe(32), httponly=False, **common)  # type: ignore[arg-type]
+
+
+def _start(response: Response, services: Services, result: LoginResult) -> Authenticated:
+    _set_cookies(response, services, result)
     return authenticate(services.trusted_uow(), token=result.token, clock=services.clock)
 
 
@@ -66,7 +71,9 @@ def login(
     request: Request,
     response: Response,
     services: Services = Depends(get_services),
-) -> MeOut:
+) -> LoginOut:
+    """Com 2FA ligado, responde mfa_required e o cookie leva só a pré-sessão de 5 minutos;
+    o próximo passo é POST /auth/mfa/verify."""
     user_agent, ip = _client(request)
     result = login_with_password(
         services.trusted_uow(),
@@ -77,13 +84,16 @@ def login(
         user_agent=user_agent,
         ip=ip,
     )
-    return MeOut.of(_start(response, services, result))
+    if result.mfa_required:
+        _set_cookies(response, services, result)
+        return LoginOut(mfa_required=True, me=None)
+    return LoginOut(mfa_required=False, me=MeOut.of(_start(response, services, result)))
 
 
 @router.post("/logout", status_code=status.HTTP_204_NO_CONTENT)
 def do_logout(
     response: Response,
-    auth: Authenticated = Depends(get_auth),
+    auth: Authenticated = Depends(get_session_auth),
     services: Services = Depends(get_services),
 ) -> None:
     logout(services.trusted_uow(), session_id=auth.session.id, clock=services.clock)
@@ -91,7 +101,7 @@ def do_logout(
 
 
 @router.get("/me")
-def me(auth: Authenticated = Depends(get_auth)) -> MeOut:
+def me(auth: Authenticated = Depends(get_session_auth)) -> MeOut:
     return MeOut.of(auth)
 
 

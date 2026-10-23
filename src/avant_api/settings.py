@@ -12,6 +12,8 @@ class Settings(BaseSettings):
     # Papel avant_app: sem BYPASSRLS e sem ser dono das tabelas.
     database_url: str
     db_pool_size: int = 10
+    # Chave Fernet dos segredos de 2FA. Trocar a chave invalida todos os 2FA ativos.
+    mfa_encryption_key: str
     app_base_url: str = "http://localhost:8080"
     session_cookie: str = "avant_session"
     csrf_cookie: str = "avant_csrf"

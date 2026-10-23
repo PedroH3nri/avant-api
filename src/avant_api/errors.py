@@ -25,6 +25,11 @@ class NoActiveCompany(DomainError):
 
 STATUS: dict[str, int] = {
     "not_authenticated": 401,
+    "mfa_attempts_exceeded": 401,
+    "mfa_required": 403,
+    "mfa_already_enabled": 409,
+    "mfa_not_enabled": 409,
+    "invalid_mfa_code": 422,
     "invalid_credentials": 401,
     "permission_denied": 403,
     "account_disabled": 403,
