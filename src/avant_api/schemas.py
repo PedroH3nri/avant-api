@@ -49,6 +49,7 @@ class CompanyOut(BaseModel):
     slug: str
     accent_color: str | None
     is_owner: bool
+    is_internal: bool  # a Company Groone: o painel mostra o painel interno
 
 
 class MeOut(BaseModel):
@@ -73,6 +74,7 @@ class MeOut(BaseModel):
                     slug=c.company.slug,
                     accent_color=c.company.accent_color,
                     is_owner=c.company.owner_user_id == u.id,
+                    is_internal=c.company.is_internal,
                 )
                 for c in auth.companies
             ],
