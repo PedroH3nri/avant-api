@@ -194,7 +194,7 @@ dev = [
 
 [package.metadata]
 requires-dist = [
-    { name = "avant-core", git = "https://github.com/PedroH3nri/avant-core?branch=feat%2Finternal" },
+    { name = "avant-core", git = "https://github.com/PedroH3nri/avant-core?tag=v0.4.0" },
     { name = "fastapi", specifier = ">=0.115,<1" },
     { name = "httpx", specifier = ">=0.27" },
     { name = "prometheus-client", specifier = ">=0.21" },
@@ -213,7 +213,7 @@ dev = [
 [[package]]
 name = "avant-core"
 version = "0.4.0"
-source = { git = "https://github.com/PedroH3nri/avant-core?branch=feat%2Finternal#6c877ce641643ea9969dbfd05d4d356a4e9a6a33" }
+source = { git = "https://github.com/PedroH3nri/avant-core?tag=v0.4.0#7ceea1c0a7c65d08d5d4a84925cd0449b3303878" }
 dependencies = [
     { name = "alembic" },
     { name = "argon2-cffi" },
