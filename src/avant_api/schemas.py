@@ -16,15 +16,19 @@ from avant_core.company.domain import (
 from avant_core.company.team import CompanyOverview, MemberDetail, MemberView, RoleView
 from avant_core.gam.application import NetworkView
 from avant_core.gam.domain import (
+    AdUnit,
     ConnectionType,
     Delegation,
+    InventoryStatus,
     McmCandidate,
     Network,
     NetworkStatus,
     NetworkSyncRun,
+    Site,
     SyncKind,
     SyncStatus,
 )
+from avant_core.gam.inventory import SiteDetail, SiteMember, SiteView
 from avant_core.identity.application import Authenticated
 from avant_core.identity.domain import Locale, UserStatus
 from avant_core.internal.application import ClientSummary
@@ -540,3 +544,91 @@ class McmCandidateOut(BaseModel):
 
 class AssignNetworkIn(BaseModel):
     company_id: uuid.UUID
+
+
+class SiteOut(BaseModel):
+    id: uuid.UUID
+    network_id: uuid.UUID
+    domain: str
+    approval_status: str | None
+    status: InventoryStatus
+    synced_at: datetime
+
+    @classmethod
+    def of(cls, s: Site) -> "SiteOut":
+        return cls(
+            id=s.id,
+            network_id=s.network_id,
+            domain=s.domain,
+            approval_status=s.approval_status,
+            status=s.status,
+            synced_at=s.synced_at,
+        )
+
+
+class SiteListOut(SiteOut):
+    ad_units: int  # ativos
+
+    @classmethod
+    def of_view(cls, v: SiteView) -> "SiteListOut":
+        return cls(**SiteOut.of(v.site).model_dump(), ad_units=v.ad_units)
+
+
+class AdUnitOut(BaseModel):
+    id: uuid.UUID
+    network_id: uuid.UUID
+    parent_id: uuid.UUID | None
+    site_id: uuid.UUID | None
+    site_manual: bool
+    name: str
+    code: str | None
+    status: InventoryStatus
+    synced_at: datetime
+
+    @classmethod
+    def of(cls, u: AdUnit) -> "AdUnitOut":
+        return cls(
+            id=u.id,
+            network_id=u.network_id,
+            parent_id=u.parent_id,
+            site_id=u.site_id,
+            site_manual=u.site_manual,
+            name=u.name,
+            code=u.ad_unit_code,
+            status=u.status,
+            synced_at=u.synced_at,
+        )
+
+
+class SiteDetailOut(SiteOut):
+    ad_units: list[AdUnitOut]
+    # Ids das Memberships com o site atribuído; só para quem tem sites.assign.
+    assigned_to: list[uuid.UUID] | None
+
+    @classmethod
+    def of_detail(cls, d: SiteDetail) -> "SiteDetailOut":
+        return cls(
+            **SiteOut.of(d.site).model_dump(),
+            ad_units=[AdUnitOut.of(u) for u in d.ad_units],
+            assigned_to=d.assigned_to,
+        )
+
+
+class AdUnitPatchIn(BaseModel):
+    """``site_id`` liga (ou ``null`` desliga) à mão; ``automatic: true`` volta a ligar pelo
+    nome na próxima importação."""
+
+    site_id: uuid.UUID | None = None
+    automatic: bool = False
+
+
+class MemberSitesIn(BaseModel):
+    site_ids: list[uuid.UUID] = Field(max_length=1000)
+
+
+class SiteMemberOut(MemberOut):
+    via: str  # "assigned" ou "all"
+
+    @classmethod
+    def of_site_member(cls, v: SiteMember) -> "SiteMemberOut":
+        return cls(**MemberOut.of(v.member).model_dump(), via=v.via)

@@ -21,6 +21,7 @@ from avant_api.routes import (
     mfa,
     networks,
     roles,
+    sites,
 )
 from avant_api.services import Services
 from avant_api.settings import Settings
@@ -53,6 +54,7 @@ def create_app(services: Services | None = None) -> FastAPI:
         roles,
         audit,
         networks,
+        sites,
         events,
         internal,
     ):
