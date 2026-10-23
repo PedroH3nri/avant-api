@@ -32,6 +32,8 @@ class MeOut(BaseModel):
     permissions: list[str]
     site_scope: SiteScope | None
     is_staff: bool
+    mfa_enabled: bool
+    mfa_setup_required: bool  # equipe Groone sem 2FA: o painel só mostra a configuração
 
     @classmethod
     def of(cls, auth: Authenticated) -> "MeOut":
@@ -52,12 +54,34 @@ class MeOut(BaseModel):
             permissions=sorted(auth.grants.permissions) if auth.grants else [],
             site_scope=auth.grants.site_scope if auth.grants else None,
             is_staff=auth.is_staff,
+            mfa_enabled=u.mfa_enabled,
+            mfa_setup_required=auth.mfa_setup_required,
         )
 
 
 class LoginIn(BaseModel):
     email: EmailStr
     password: str = Field(min_length=1, max_length=1024)
+
+
+class LoginOut(BaseModel):
+    mfa_required: bool
+    me: MeOut | None  # vazio enquanto falta o código do 2FA
+
+
+class MfaCodeIn(BaseModel):
+    """Código de 6 dígitos do app ou um código de recuperação (xxxx-xxxx)."""
+
+    code: str = Field(min_length=6, max_length=16)
+
+
+class MfaSetupOut(BaseModel):
+    secret: str
+    uri: str  # otpauth://..., para o QR code
+
+
+class RecoveryCodesOut(BaseModel):
+    recovery_codes: list[str]  # aparecem só nesta resposta
 
 
 class ActiveCompanyIn(BaseModel):

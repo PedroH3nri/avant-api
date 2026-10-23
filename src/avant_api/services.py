@@ -4,8 +4,9 @@ import uuid
 from dataclasses import dataclass
 
 from avant_core.db.uow import SqlAlchemyUnitOfWork
+from avant_core.identity.crypto import FernetSecretBox
 from avant_core.identity.passwords import Argon2PasswordHasher
-from avant_core.ports import Mailer, PasswordHasher
+from avant_core.ports import Mailer, PasswordHasher, SecretBox
 from avant_core.shared.clock import Clock, SystemClock
 from sqlalchemy import Engine, create_engine
 
@@ -20,6 +21,7 @@ class Services:
     clock: Clock
     hasher: PasswordHasher
     mailer: Mailer
+    box: SecretBox
 
     @classmethod
     def build(cls, settings: Settings) -> "Services":
@@ -35,6 +37,7 @@ class Services:
                 base_url=settings.app_base_url,
                 show_links=settings.avant_env in ("local", "test"),
             ),
+            box=FernetSecretBox(settings.mfa_encryption_key),
         )
 
     def uow(self, company_id: uuid.UUID) -> SqlAlchemyUnitOfWork:

@@ -5,7 +5,7 @@ from collections.abc import Callable
 
 from avant_core.company.application import Actor
 from avant_core.identity.application import Authenticated, authenticate
-from avant_core.shared.errors import NotAuthenticated
+from avant_core.shared.errors import MfaRequired, NotAuthenticated
 from fastapi import Depends, Request
 
 from avant_api.errors import CsrfFailed, NoActiveCompany
@@ -44,9 +44,17 @@ def optional_auth(
     return auth
 
 
-def get_auth(auth: Authenticated | None = Depends(optional_auth)) -> Authenticated:
+def get_session_auth(auth: Authenticated | None = Depends(optional_auth)) -> Authenticated:
+    """Qualquer sessão válida, mesmo da equipe Groone ainda sem 2FA. Só para /me, logout e
+    as rotas de configuração do 2FA."""
     if auth is None:
         raise NotAuthenticated()
+    return auth
+
+
+def get_auth(auth: Authenticated = Depends(get_session_auth)) -> Authenticated:
+    if auth.mfa_setup_required:
+        raise MfaRequired("configure o 2FA para continuar")
     return auth
 
 

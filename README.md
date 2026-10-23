@@ -19,10 +19,14 @@ Outros repositórios: avant-core, avant-worker, avant-web, avant-infra.
 | `POST /auth/me/active-company` | troca a Empresa ativa | sessão |
 | `GET /auth/invitations/{token}` | dados do convite para a tela do link | nenhuma |
 | `POST /auth/invitations/{token}/accept` | aceita: cria conta (e a Empresa, no convite de dono) ou usa a sessão | conforme o caso |
+| `POST /auth/mfa/verify` | código do 2FA depois da senha; troca a pré-sessão pela sessão | pré-sessão |
+| `POST /auth/mfa/setup` e `/confirm` | ativa o 2FA; o confirm devolve os 10 códigos de recuperação | sessão |
+| `POST /auth/mfa/recovery-codes` | gera novos códigos de recuperação | sessão + código |
+| `DELETE /auth/mfa` | desliga o 2FA (só clientes) | sessão + código |
 | `GET /invitations` | convites pendentes da Empresa ativa | `team.view` |
 | `POST /invitations` | convida por e-mail e papel | `team.invite` |
 
-Ainda faltam o 2FA, o login com Google, o envio pelo Resend (hoje o `LogMailer` só
+Ainda faltam o login com Google, o envio pelo Resend (hoje o `LogMailer` só
 registra o envio) e o limite de requisições.
 
 ## Como funciona
@@ -33,6 +37,10 @@ registra o envio) e o limite de requisições.
   cabeçalho `X-CSRF-Token` em todo POST, PATCH, PUT e DELETE.
 - **Empresa ativa**: vem da sessão, nunca da URL. Cada rota abre o Unit of Work do
   avant-core com essa Empresa, e o RLS do Postgres garante o isolamento.
+- **2FA**: com o 2FA ligado, o login responde `{"mfa_required": true}` e o cookie leva
+  só uma pré-sessão de 5 minutos. A equipe Groone sem 2FA recebe `mfa_required` (403) em
+  tudo menos `/auth/me`, `/auth/logout` e `/auth/mfa/*`. O segredo é cifrado com
+  `MFA_ENCRYPTION_KEY`.
 - **Permissão**: declarada na rota com `Depends(require("team.invite"))`.
 - **Erros**: sempre `{"error": {"code", "message", "details"}}`; o mapa de código para
   status HTTP está em `errors.py`.

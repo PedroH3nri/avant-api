@@ -80,7 +80,7 @@ def test_owner_onboarding_and_login(
     assert bad.status_code == 401
     assert bad.json()["error"]["code"] == "invalid_credentials"
     ok = client.post("/api/v1/auth/login", json={"email": "DONO@acai.com", "password": PASSWORD})
-    assert ok.status_code == 200
+    assert ok.status_code == 200 and ok.json()["mfa_required"] is False
     assert client.get("/api/v1/auth/me").json()["active_company_id"] == me["active_company_id"]
 
 

@@ -13,8 +13,10 @@ import pytest
 from alembic import command
 from alembic.config import Config
 from avant_core.company.domain import InvitationKind
+from avant_core.identity.crypto import FernetSecretBox
 from avant_core.identity.passwords import Argon2PasswordHasher
 from avant_core.shared.clock import SystemClock
+from cryptography.fernet import Fernet
 from fastapi.testclient import TestClient
 from sqlalchemy import Engine, create_engine, text
 
@@ -65,12 +67,14 @@ def mailer() -> CapturingMailer:
 
 @pytest.fixture
 def client(engine: Engine, mailer: CapturingMailer) -> Iterator[TestClient]:
+    key = Fernet.generate_key().decode()
     services = Services(
-        settings=Settings(database_url=APP_URL or "", avant_env="test"),
+        settings=Settings(database_url=APP_URL or "", avant_env="test", mfa_encryption_key=key),
         engine=engine,
         clock=SystemClock(),
         hasher=Argon2PasswordHasher(),
         mailer=mailer,
+        box=FernetSecretBox(key),
     )
     with TestClient(create_app(services)) as c:
         yield c
