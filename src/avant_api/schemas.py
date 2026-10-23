@@ -3,8 +3,17 @@
 import uuid
 from datetime import datetime
 
-from avant_core.access.domain import SiteScope
-from avant_core.company.domain import InvitationKind, InvitationStatus
+from avant_core.access.catalog import PermissionDef
+from avant_core.access.domain import Effect, MemberPermission, Role, SiteScope
+from avant_core.audit.domain import ActorKind, AuditEntry
+from avant_core.company.domain import (
+    CompanyPlan,
+    CompanyStatus,
+    InvitationKind,
+    InvitationStatus,
+    MembershipStatus,
+)
+from avant_core.company.team import CompanyOverview, MemberDetail, MemberView, RoleView
 from avant_core.identity.application import Authenticated
 from avant_core.identity.domain import Locale
 from pydantic import BaseModel, EmailStr, Field
@@ -129,3 +138,170 @@ class InvitationOut(BaseModel):
 class ItemsOut[T](BaseModel):
     items: list[T]
     next_cursor: str | None = None
+
+
+HEX_COLOR = r"^#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6})$"
+
+
+class CompanyDetailOut(BaseModel):
+    id: uuid.UUID
+    name: str
+    slug: str
+    accent_color: str | None
+    plan: CompanyPlan
+    status: CompanyStatus
+    seat_limit: int
+    seats_used: int
+    settings: dict[str, object]
+
+    @classmethod
+    def of(cls, v: CompanyOverview) -> "CompanyDetailOut":
+        c = v.company
+        return cls(
+            id=c.id,
+            name=c.name,
+            slug=c.slug,
+            accent_color=c.accent_color,
+            plan=c.plan,
+            status=c.status,
+            seat_limit=c.seat_limit,
+            seats_used=v.seats_used,
+            settings=c.settings,
+        )
+
+
+class CompanyPatchIn(BaseModel):
+    name: str | None = Field(default=None, min_length=2, max_length=120)
+    accent_color: str | None = Field(default=None, pattern=HEX_COLOR)
+    settings: dict[str, object] | None = None
+
+
+class RoleRefOut(BaseModel):
+    id: uuid.UUID
+    key: str
+    name: dict[str, str]
+
+
+class MemberOut(BaseModel):
+    id: uuid.UUID  # id da Membership
+    user: UserOut
+    role: RoleRefOut | None
+    status: MembershipStatus
+    is_owner: bool
+    joined_at: datetime
+
+    @classmethod
+    def of(cls, v: MemberView) -> "MemberOut":
+        u, m, r = v.user, v.membership, v.role
+        return cls(
+            id=m.id,
+            user=UserOut(id=u.id, email=u.email, name=u.name, locale=u.locale),
+            role=RoleRefOut(id=r.id, key=r.key, name=r.name) if r else None,
+            status=m.status,
+            is_owner=v.is_owner,
+            joined_at=m.joined_at,
+        )
+
+
+class DirectPermissionOut(BaseModel):
+    permission: str
+    effect: Effect
+    expires_at: datetime | None
+
+    @classmethod
+    def of(cls, p: MemberPermission) -> "DirectPermissionOut":
+        return cls(permission=p.permission_key, effect=p.effect, expires_at=p.expires_at)
+
+
+class MemberDetailOut(MemberOut):
+    permissions: list[DirectPermissionOut]
+
+    @classmethod
+    def of(cls, v: MemberView) -> "MemberDetailOut":
+        assert isinstance(v, MemberDetail)
+        base = MemberOut.of(v).model_dump()
+        return cls(**base, permissions=[DirectPermissionOut.of(p) for p in v.permissions])
+
+
+class MemberPatchIn(BaseModel):
+    role_id: uuid.UUID | None = None
+    status: MembershipStatus | None = None
+
+
+class DirectPermissionIn(BaseModel):
+    permission: str
+    effect: Effect
+    expires_at: datetime | None = None
+
+
+class MemberPermissionsIn(BaseModel):
+    permissions: list[DirectPermissionIn] = Field(max_length=64)
+
+
+class PermissionOut(BaseModel):
+    key: str
+    group: str
+    name: dict[str, str]
+
+    @classmethod
+    def of(cls, p: PermissionDef) -> "PermissionOut":
+        return cls(key=p.key, group=p.group, name=p.label)
+
+
+class RoleOut(BaseModel):
+    id: uuid.UUID
+    key: str
+    name: dict[str, str]
+    permissions: list[str]
+    site_scope: SiteScope
+    is_system: bool
+    member_count: int
+
+    @classmethod
+    def of(cls, v: RoleView) -> "RoleOut":
+        r: Role = v.role
+        return cls(
+            id=r.id,
+            key=r.key,
+            name=r.name,
+            permissions=sorted(r.permissions),
+            site_scope=r.site_scope,
+            is_system=r.company_id is None,
+            member_count=v.member_count,
+        )
+
+
+class RoleIn(BaseModel):
+    name: str = Field(min_length=1, max_length=60)
+    permissions: list[str] = Field(default_factory=list, max_length=32)
+    site_scope: SiteScope = SiteScope.ASSIGNED
+
+
+class RolePatchIn(BaseModel):
+    name: str | None = Field(default=None, min_length=1, max_length=60)
+    permissions: list[str] | None = Field(default=None, max_length=32)
+    site_scope: SiteScope | None = None
+
+
+class AuditOut(BaseModel):
+    id: uuid.UUID
+    action: str
+    actor_kind: ActorKind
+    actor_user_id: uuid.UUID | None
+    target_type: str | None
+    target_id: uuid.UUID | None
+    data: dict[str, object]
+    created_at: datetime
+
+    @classmethod
+    def of(cls, e: AuditEntry) -> "AuditOut":
+        return cls(
+            id=e.id,
+            action=e.action,
+            actor_kind=e.actor_kind,
+            actor_user_id=e.actor_user_id,
+            target_type=e.target_type,
+            target_id=e.target_id,
+            data=e.data,
+            created_at=e.created_at,
+        )

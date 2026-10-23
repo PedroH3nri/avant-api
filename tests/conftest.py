@@ -88,6 +88,7 @@ def client(engine: Engine, mailer: CapturingMailer) -> Iterator[TestClient]:
             "user_credentials",
         ):
             conn.execute(text(f"DELETE FROM {table}"))
+        conn.execute(text("DELETE FROM audit_logs"))
         conn.execute(text("DELETE FROM roles WHERE company_id IS NOT NULL"))
         conn.execute(text("DELETE FROM companies"))
         conn.execute(text("DELETE FROM users"))
