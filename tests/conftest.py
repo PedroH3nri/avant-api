@@ -15,6 +15,7 @@ from alembic.config import Config
 from avant_core.company.domain import InvitationKind
 from avant_core.identity.crypto import FernetSecretBox
 from avant_core.identity.passwords import Argon2PasswordHasher
+from avant_core.ports import Notice
 from avant_core.shared.clock import SystemClock
 from cryptography.fernet import Fernet
 from fastapi.testclient import TestClient
@@ -39,11 +40,19 @@ class Sent:
 @dataclass
 class CapturingMailer:
     sent: list[Sent] = field(default_factory=list)
+    resets: list[tuple[str, str]] = field(default_factory=list)  # (para, token)
+    notices: list[tuple[str, Notice]] = field(default_factory=list)
 
     def send_invitation(
         self, *, to: str, token: str, kind: InvitationKind, company_name: str | None, locale: str
     ) -> None:
         self.sent.append(Sent(to, token, kind))
+
+    def send_password_reset(self, *, to: str, token: str, locale: str) -> None:
+        self.resets.append((to, token))
+
+    def send_notice(self, *, to: str, notice: Notice, locale: str) -> None:
+        self.notices.append((to, notice))
 
 
 @pytest.fixture(scope="session")
@@ -86,6 +95,7 @@ def client(engine: Engine, mailer: CapturingMailer) -> Iterator[TestClient]:
             "memberships",
             "invitations",
             "user_credentials",
+            "password_resets",
         ):
             conn.execute(text(f"DELETE FROM {table}"))
         conn.execute(text("DELETE FROM audit_logs"))

@@ -19,10 +19,12 @@ from avant_core.identity.application import (
     start_session,
     switch_active_company,
 )
-from avant_core.shared.errors import WrongInvitationKind
+from avant_core.identity.domain import normalize_email
+from avant_core.shared.errors import InvalidCredentials, WrongInvitationKind
 from fastapi import APIRouter, Depends, Request, Response, status
 
 from avant_api.deps import get_auth, get_services, get_session_auth, optional_auth
+from avant_api.limits import LOGIN_EMAIL, LOGIN_IP
 from avant_api.schemas import (
     AcceptInvitationIn,
     ActiveCompanyIn,
@@ -73,17 +75,27 @@ def login(
     services: Services = Depends(get_services),
 ) -> LoginOut:
     """Com 2FA ligado, responde mfa_required e o cookie leva só a pré-sessão de 5 minutos;
-    o próximo passo é POST /auth/mfa/verify."""
+    o próximo passo é POST /auth/mfa/verify.
+
+    Limite: 5 senhas erradas por e-mail e 20 por IP em 15 minutos; depois, 429."""
     user_agent, ip = _client(request)
-    result = login_with_password(
-        services.trusted_uow(),
-        email=body.email,
-        password=body.password,
-        hasher=services.hasher,
-        clock=services.clock,
-        user_agent=user_agent,
-        ip=ip,
-    )
+    email = normalize_email(body.email)
+    keys = ((LOGIN_EMAIL, email), (LOGIN_IP, ip))
+    services.limiter.check(*keys)
+    try:
+        result = login_with_password(
+            services.trusted_uow(),
+            email=email,
+            password=body.password,
+            hasher=services.hasher,
+            clock=services.clock,
+            user_agent=user_agent,
+            ip=ip,
+        )
+    except InvalidCredentials:
+        services.limiter.fail(*keys)
+        raise
+    services.limiter.clear(LOGIN_EMAIL, email)
     if result.mfa_required:
         _set_cookies(response, services, result)
         return LoginOut(mfa_required=True, me=None)

@@ -1,7 +1,7 @@
 """Os adaptadores que a API entrega aos casos de uso. Um por processo."""
 
 import uuid
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 from avant_core.db.uow import SqlAlchemyUnitOfWork
 from avant_core.identity.crypto import FernetSecretBox
@@ -10,6 +10,8 @@ from avant_core.ports import Mailer, PasswordHasher, SecretBox
 from avant_core.shared.clock import Clock, SystemClock
 from sqlalchemy import Engine, create_engine
 
+from avant_api.google import GoogleAuth, GoogleOAuth
+from avant_api.limits import Limiter, MemoryCounter, RedisCounter
 from avant_api.mail import LogMailer, ResendMailer
 from avant_api.settings import Settings
 
@@ -22,6 +24,8 @@ class Services:
     hasher: PasswordHasher
     mailer: Mailer
     box: SecretBox
+    limiter: Limiter = field(default_factory=lambda: Limiter(MemoryCounter()))
+    google: GoogleAuth | None = None  # sem cliente OAuth configurado, não há login com Google
 
     @classmethod
     def build(cls, settings: Settings) -> "Services":
@@ -35,6 +39,10 @@ class Services:
             hasher=Argon2PasswordHasher(),
             mailer=_mailer(settings),
             box=FernetSecretBox(settings.mfa_encryption_key),
+            limiter=Limiter(
+                RedisCounter.from_url(settings.redis_url) if settings.redis_url else MemoryCounter()
+            ),
+            google=_google(settings),
         )
 
     def uow(self, company_id: uuid.UUID) -> SqlAlchemyUnitOfWork:
@@ -55,4 +63,14 @@ def _mailer(settings: Settings) -> Mailer:
         )
     return LogMailer(
         base_url=settings.app_base_url, show_links=settings.avant_env in ("local", "test")
+    )
+
+
+def _google(settings: Settings) -> GoogleAuth | None:
+    if not (settings.google_oauth_client_id and settings.google_oauth_client_secret):
+        return None
+    return GoogleOAuth(
+        client_id=settings.google_oauth_client_id,
+        client_secret=settings.google_oauth_client_secret,
+        redirect_uri=f"{settings.app_base_url.rstrip('/')}/api/v1/auth/google/callback",
     )

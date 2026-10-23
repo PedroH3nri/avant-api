@@ -381,3 +381,40 @@ class PersonOut(BaseModel):
 class StaffInviteIn(BaseModel):
     email: EmailStr
     role_id: uuid.UUID
+
+
+# --- Conta ---------------------------------------------------------------------------
+
+
+class ForgotPasswordIn(BaseModel):
+    email: EmailStr
+
+
+class ResetPasswordIn(BaseModel):
+    token: str = Field(min_length=10, max_length=200)
+    password: str = Field(min_length=1, max_length=1024)
+    mfa_code: str | None = Field(default=None, min_length=6, max_length=16)  # só com 2FA
+
+
+class ChangePasswordIn(BaseModel):
+    current_password: str = Field(min_length=1, max_length=1024)
+    new_password: str = Field(min_length=1, max_length=1024)
+
+
+class SessionOut(BaseModel):
+    id: uuid.UUID
+    created_at: datetime
+    last_seen_at: datetime
+    expires_at: datetime
+    user_agent: str | None
+    ip: str | None
+    current: bool
+
+
+class RevokedOut(BaseModel):
+    revoked: int
+
+
+class GoogleStatusOut(BaseModel):
+    available: bool  # a Groone configurou o cliente OAuth
+    linked: bool

@@ -23,6 +23,26 @@ class NoActiveCompany(DomainError):
     code = "no_active_company"
 
 
+class TooManyAttempts(DomainError):
+    """Passou do limite de tentativas; o cabeçalho Retry-After diz quando tentar de novo."""
+
+    code = "too_many_attempts"
+
+    def __init__(self, message: str = "muitas tentativas", *, retry_after: int) -> None:
+        super().__init__(message)
+        self.retry_after = retry_after
+
+
+class GoogleUnavailable(DomainError):
+    code = "google_unavailable"
+
+
+class GoogleFailed(DomainError):
+    """O Google recusou o código ou devolveu um id_token que não confere."""
+
+    code = "google_failed"
+
+
 STATUS: dict[str, int] = {
     "not_authenticated": 401,
     "mfa_attempts_exceeded": 401,
@@ -51,6 +71,15 @@ STATUS: dict[str, int] = {
     "wrong_invitation_kind": 422,
     "invalid_permission": 422,
     "weak_password": 422,
+    "too_many_attempts": 429,
+    "invalid_token": 422,
+    "google_unavailable": 503,
+    "google_failed": 502,
+    "google_not_linked": 403,
+    "no_access": 403,
+    "email_not_verified": 403,
+    "google_email_mismatch": 409,
+    "google_already_linked": 409,
 }
 
 
@@ -61,7 +90,14 @@ def error_body(code: str, message: str, details: dict[str, Any] | None = None) -
 def install(app: FastAPI) -> None:
     @app.exception_handler(DomainError)
     async def domain_error(_: Request, exc: DomainError) -> JSONResponse:
-        return JSONResponse(error_body(exc.code, str(exc)), status_code=STATUS.get(exc.code, 400))
+        headers = (
+            {"Retry-After": str(exc.retry_after)} if isinstance(exc, TooManyAttempts) else None
+        )
+        return JSONResponse(
+            error_body(exc.code, str(exc)),
+            status_code=STATUS.get(exc.code, 400),
+            headers=headers,
+        )
 
     @app.exception_handler(RequestValidationError)
     async def validation_error(_: Request, exc: RequestValidationError) -> JSONResponse:
