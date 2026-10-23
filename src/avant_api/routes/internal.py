@@ -9,6 +9,7 @@ import uuid
 
 from avant_core.company.application import Actor
 from avant_core.company.domain import CompanyStatus, Invitation
+from avant_core.gam.application import assign_mcm_candidate, list_mcm_candidates
 from avant_core.internal.application import (
     PersonView,
     change_owner,
@@ -33,7 +34,9 @@ from fastapi import APIRouter, Depends, Query, status
 
 from avant_api.deps import get_services, require_staff
 from avant_api.routes.invitations import invitation_out
+from avant_api.routes.networks import enqueue_sync
 from avant_api.schemas import (
+    AssignNetworkIn,
     AuditOut,
     ClientDetailOut,
     ClientIn,
@@ -42,7 +45,9 @@ from avant_api.schemas import (
     CompanyRefOut,
     InvitationOut,
     ItemsOut,
+    McmCandidateOut,
     MemberOut,
+    NetworkOut,
     OwnerChangeIn,
     OwnerInvitationOut,
     PersonOut,
@@ -320,3 +325,34 @@ def invite(
         mailer=services.mailer,
     )
     return invitation_out(invitation)
+
+
+# --- MCM sem dono ----------------------------------------------------------------------
+
+
+@router.get("/networks/unassigned")
+def unassigned_networks(
+    actor: Actor = Depends(require_staff("internal.networks.assign")),
+    services: Services = Depends(get_services),
+) -> ItemsOut[McmCandidateOut]:
+    """Networks MCM aprovadas cujo e-mail não é dono de nenhuma Empresa."""
+    candidates = list_mcm_candidates(services.trusted_uow(), actor=actor)
+    return ItemsOut(items=[McmCandidateOut.of(c) for c in candidates])
+
+
+@router.post("/networks/{candidate_id}/assign", status_code=status.HTTP_202_ACCEPTED)
+def assign_network(
+    candidate_id: uuid.UUID,
+    body: AssignNetworkIn,
+    actor: Actor = Depends(require_staff("internal.networks.assign")),
+    services: Services = Depends(get_services),
+) -> NetworkOut:
+    network = assign_mcm_candidate(
+        services.trusted_uow(),
+        actor=actor,
+        candidate_id=candidate_id,
+        company_id=body.company_id,
+        clock=services.clock,
+    )
+    enqueue_sync(services, network)
+    return NetworkOut.of(network)

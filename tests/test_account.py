@@ -9,6 +9,7 @@ from urllib.parse import parse_qs, urlparse
 
 import pytest
 from avant_core.identity.account import GoogleIdentity
+from avant_core.mail import render_notice, render_password_reset
 from avant_core.ports import Notice
 from fastapi.testclient import TestClient
 from sqlalchemy import Engine
@@ -16,7 +17,6 @@ from sqlalchemy import Engine
 from avant_api.errors import GoogleFailed
 from avant_api.google import identity_from_id_token
 from avant_api.limits import Limiter, MemoryCounter, RedisCounter, Rule
-from avant_api.mail import render_notice, render_password_reset
 from tests.conftest import CapturingMailer
 from tests.test_api import PASSWORD, _csrf, _onboard_owner
 

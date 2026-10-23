@@ -24,6 +24,11 @@ class Settings(BaseSettings):
     # Login com Google. Sem as duas, as rotas /auth/google respondem google_unavailable.
     google_oauth_client_id: str | None = None
     google_oauth_client_secret: str | None = None
+    # Fila do avant-worker. Sem ela (local e testes), as tarefas só ficam registradas.
+    celery_broker_url: str | None = None
+    # E-mail da conta de serviço da Groone no Ad Manager, mostrado no guia de conexão.
+    # Não é segredo: a chave fica só nos workers da fila gam.
+    gam_service_account_email: str = "avant@groone-ads.iam.gserviceaccount.com"
     session_cookie: str = "avant_session"
     csrf_cookie: str = "avant_csrf"
 
@@ -34,6 +39,8 @@ class Settings(BaseSettings):
         if self.avant_env in ("staging", "production") and not self.redis_url:
             # Com várias instâncias, contador em memória não limita nada.
             raise ValueError("REDIS_URL é obrigatória em staging e produção")
+        if self.avant_env in ("staging", "production") and not self.celery_broker_url:
+            raise ValueError("CELERY_BROKER_URL é obrigatória em staging e produção")
         return self
 
     @property

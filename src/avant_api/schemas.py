@@ -14,6 +14,17 @@ from avant_core.company.domain import (
     MembershipStatus,
 )
 from avant_core.company.team import CompanyOverview, MemberDetail, MemberView, RoleView
+from avant_core.gam.application import NetworkView
+from avant_core.gam.domain import (
+    ConnectionType,
+    Delegation,
+    McmCandidate,
+    Network,
+    NetworkStatus,
+    NetworkSyncRun,
+    SyncKind,
+    SyncStatus,
+)
 from avant_core.identity.application import Authenticated
 from avant_core.identity.domain import Locale, UserStatus
 from avant_core.internal.application import ClientSummary
@@ -418,3 +429,114 @@ class RevokedOut(BaseModel):
 class GoogleStatusOut(BaseModel):
     available: bool  # a Groone configurou o cliente OAuth
     linked: bool
+
+
+# --- GAM -------------------------------------------------------------------------------
+
+
+class SyncRunOut(BaseModel):
+    id: uuid.UUID
+    kind: SyncKind
+    status: SyncStatus
+    started_at: datetime
+    finished_at: datetime | None
+    counts: dict[str, int]
+    error_code: str | None
+    error_message: str | None
+
+    @classmethod
+    def of(cls, r: NetworkSyncRun) -> "SyncRunOut":
+        return cls(
+            id=r.id,
+            kind=r.kind,
+            status=r.status,
+            started_at=r.started_at,
+            finished_at=r.finished_at,
+            counts=dict(r.counts),
+            error_code=r.error_code,
+            error_message=r.error_message,
+        )
+
+
+class NetworkOut(BaseModel):
+    id: uuid.UUID
+    network_code: str
+    display_name: str | None
+    connection_type: ConnectionType
+    delegation: Delegation | None
+    status: NetworkStatus
+    last_error: str | None
+    failures: int
+    last_checked_at: datetime | None
+    last_synced_at: datetime | None
+    sync_requested_at: datetime | None
+    created_at: datetime
+
+    @classmethod
+    def of(cls, n: Network) -> "NetworkOut":
+        return cls(
+            id=n.id,
+            network_code=n.network_code,
+            display_name=n.display_name,
+            connection_type=n.connection_type,
+            delegation=n.delegation,
+            status=n.status,
+            last_error=n.last_error,
+            failures=n.failures,
+            last_checked_at=n.last_checked_at,
+            last_synced_at=n.last_synced_at,
+            sync_requested_at=n.sync_requested_at,
+            created_at=n.created_at,
+        )
+
+
+class NetworkDetailOut(NetworkOut):
+    sites: int  # ativos
+    last_runs: dict[SyncKind, SyncRunOut]
+
+    @classmethod
+    def of_view(cls, v: NetworkView) -> "NetworkDetailOut":
+        return cls(
+            **NetworkOut.of(v.network).model_dump(),
+            sites=v.sites,
+            last_runs={k: SyncRunOut.of(r) for k, r in v.last_runs.items()},
+        )
+
+
+class NetworkIn(BaseModel):
+    network_code: str = Field(min_length=1, max_length=20)
+
+
+class ServiceAccountOut(BaseModel):
+    """O que o guia de conexão mostra: o e-mail a adicionar como administrador no GAM."""
+
+    email: str
+    role: str = "Administrator"
+
+
+class McmCandidateOut(BaseModel):
+    id: uuid.UUID
+    network_code: str
+    display_name: str | None
+    email: str
+    delegation: Delegation | None
+    account_status: str
+    first_seen_at: datetime
+    last_seen_at: datetime
+
+    @classmethod
+    def of(cls, c: McmCandidate) -> "McmCandidateOut":
+        return cls(
+            id=c.id,
+            network_code=c.network_code,
+            display_name=c.display_name,
+            email=c.email,
+            delegation=c.delegation,
+            account_status=c.account_status,
+            first_seen_at=c.first_seen_at,
+            last_seen_at=c.last_seen_at,
+        )
+
+
+class AssignNetworkIn(BaseModel):
+    company_id: uuid.UUID
