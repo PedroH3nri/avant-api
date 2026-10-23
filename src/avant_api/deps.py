@@ -5,7 +5,7 @@ from collections.abc import Callable
 
 from avant_core.company.application import Actor
 from avant_core.identity.application import Authenticated, authenticate
-from avant_core.shared.errors import MfaRequired, NotAuthenticated
+from avant_core.shared.errors import MfaRequired, NotAuthenticated, StaffOnly
 from fastapi import Depends, Request
 
 from avant_api.errors import CsrfFailed, NoActiveCompany
@@ -70,5 +70,21 @@ def require(permission: str) -> Callable[[Actor], Actor]:
     def dependency(actor: Actor = Depends(get_actor)) -> Actor:
         actor.grants.require(permission)
         return actor
+
+    return dependency
+
+
+def require_staff(permission: str) -> Callable[[Authenticated], Actor]:
+    """Painel interno: a Company Groone ativa, 2FA verificado nesta sessão e a permissão.
+
+    O core confere de novo a Company Groone em cada caso de uso."""
+
+    def dependency(auth: Authenticated = Depends(get_auth)) -> Actor:
+        if auth.active is None or auth.grants is None or not auth.active.company.is_internal:
+            raise StaffOnly("só a equipe Groone, com a Company Groone ativa")
+        if auth.session.mfa_verified_at is None:
+            raise MfaRequired("entre com o 2FA para usar o painel interno")
+        auth.grants.require(permission)
+        return Actor(user_id=auth.user.id, company_id=auth.active.company.id, grants=auth.grants)
 
     return dependency

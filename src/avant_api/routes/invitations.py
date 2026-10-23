@@ -18,7 +18,7 @@ from avant_api.services import Services
 router = APIRouter(prefix="/invitations", tags=["team"])
 
 
-def _out(i: Invitation) -> InvitationOut:
+def invitation_out(i: Invitation) -> InvitationOut:
     return InvitationOut(
         id=i.id,
         email=i.email,
@@ -35,7 +35,7 @@ def list_invitations(
     services: Services = Depends(get_services),
 ) -> ItemsOut[InvitationOut]:
     items = list_pending_invitations(services.uow(actor.company_id), actor=actor)
-    return ItemsOut(items=[_out(i) for i in items])
+    return ItemsOut(items=[invitation_out(i) for i in items])
 
 
 @router.post("", status_code=status.HTTP_201_CREATED)
@@ -52,7 +52,7 @@ def create_invitation(
         clock=services.clock,
         mailer=services.mailer,
     )
-    return _out(invitation)
+    return invitation_out(invitation)
 
 
 @router.post("/{invitation_id}/resend")
@@ -69,7 +69,7 @@ def resend(
         clock=services.clock,
         mailer=services.mailer,
     )
-    return _out(invitation)
+    return invitation_out(invitation)
 
 
 @router.delete("/{invitation_id}", status_code=status.HTTP_204_NO_CONTENT)
