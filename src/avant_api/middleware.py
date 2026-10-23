@@ -38,6 +38,9 @@ async def observe(
     REQUESTS.labels(request.method, route, str(response.status_code)).inc()
     LATENCY.labels(request.method, route).observe(elapsed)
     response.headers["X-Request-Id"] = request_id
+    # Chaves de API: a dependência deixa o estado do balde para o cabeçalho.
+    for name, value in getattr(request.state, "rate_limit", {}).items():
+        response.headers[name] = value
     if route != "/api/v1/metrics":
         log.info(
             "request",

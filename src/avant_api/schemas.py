@@ -3,6 +3,7 @@
 import uuid
 from datetime import datetime
 
+from avant_core.access.api_keys import MAX_DAYS, ApiKeyView
 from avant_core.access.catalog import PermissionDef
 from avant_core.access.domain import Effect, MemberPermission, Role, SiteScope
 from avant_core.audit.domain import ActorKind, AuditEntry
@@ -632,3 +633,40 @@ class SiteMemberOut(MemberOut):
     @classmethod
     def of_site_member(cls, v: SiteMember) -> "SiteMemberOut":
         return cls(**MemberOut.of(v.member).model_dump(), via=v.via)
+
+
+class ApiKeyOut(BaseModel):
+    id: uuid.UUID
+    name: str
+    prefix: str  # para reconhecer: avk_{prefix}...
+    permissions: list[str]
+    owner: UserOut
+    created_at: datetime
+    expires_at: datetime
+    last_used_at: datetime | None
+    revoked_at: datetime | None
+
+    @classmethod
+    def of(cls, v: ApiKeyView) -> "ApiKeyOut":
+        k, u = v.key, v.owner
+        return cls(
+            id=k.id,
+            name=k.name,
+            prefix=k.prefix,
+            permissions=list(k.permissions),
+            owner=UserOut(id=u.id, email=u.email, name=u.name, locale=u.locale),
+            created_at=k.created_at,
+            expires_at=k.expires_at,
+            last_used_at=k.last_used_at,
+            revoked_at=k.revoked_at,
+        )
+
+
+class ApiKeyCreatedOut(ApiKeyOut):
+    token: str  # aparece só nesta resposta
+
+
+class ApiKeyIn(BaseModel):
+    name: str = Field(min_length=1, max_length=100)
+    permissions: list[str] = Field(min_length=1, max_length=50)
+    expires_in_days: int = Field(default=MAX_DAYS, ge=1, le=MAX_DAYS)

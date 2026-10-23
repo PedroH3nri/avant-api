@@ -33,6 +33,16 @@ class TooManyAttempts(DomainError):
         self.retry_after = retry_after
 
 
+class RateLimited(DomainError):
+    """A chave de API passou do limite de requisições."""
+
+    code = "rate_limited"
+
+    def __init__(self, message: str = "limite de requisições", *, retry_after: int) -> None:
+        super().__init__(message)
+        self.retry_after = retry_after
+
+
 class GoogleUnavailable(DomainError):
     code = "google_unavailable"
 
@@ -83,6 +93,8 @@ STATUS: dict[str, int] = {
     "network_code_taken": 409,
     "network_disconnected": 409,
     "sync_too_soon": 429,
+    "rate_limited": 429,
+    "api_key_limit_reached": 409,
 }
 
 
@@ -93,7 +105,7 @@ def error_body(code: str, message: str, details: dict[str, Any] | None = None) -
 def install(app: FastAPI) -> None:
     @app.exception_handler(DomainError)
     async def domain_error(_: Request, exc: DomainError) -> JSONResponse:
-        retry_after = getattr(exc, "retry_after", None)  # TooManyAttempts, SyncTooSoon
+        retry_after = getattr(exc, "retry_after", None)  # TooManyAttempts, SyncTooSoon, RateLimited
         headers = {"Retry-After": str(retry_after)} if retry_after is not None else None
         return JSONResponse(
             error_body(exc.code, str(exc)),

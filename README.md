@@ -54,6 +54,9 @@ Outros repositórios: avant-core, avant-worker, avant-web, avant-infra.
 | `GET /networks/{id}`, `/sync-runs` | detalhe e histórico das etapas | `network.view` |
 | `POST /networks/{id}/sync` | "sincronizar agora"; 1 vez a cada 10 minutos (429 com `Retry-After`) | `network.sync` |
 | `POST /networks/{id}/disconnect` | para as sincronizações; o histórico fica | `network.disconnect` |
+| `GET /api-keys` | chaves da Empresa (com `api_keys.manage`) ou só as próprias | membro |
+| `POST /api-keys` | cria uma chave; o valor `avk_...` volta só nesta resposta; só pela sessão | `api_keys.manage` |
+| `DELETE /api-keys/{id}` | revoga; a dona da chave ou quem gerencia | membro |
 | `GET /sites` | sites da Empresa (filtros `network_id`, `approval_status`, `q`, `include_archived`); quem não vê todos recebe só os atribuídos | `sites.view` |
 | `GET /sites/{id}` | detalhe com os ad units; `assigned_to` só para quem atribui | `sites.view` |
 | `GET /sites/{id}/members` | quem vê o site: atribuído ou por ver todos | `sites.assign` |
@@ -118,6 +121,12 @@ Painel interno, em `/api/v1/internal` (Company Groone ativa e 2FA verificado na 
   EventSource reconecta, conferindo a sessão de novo. O proxy precisa de
   `proxy_buffering off` nessa rota (a resposta também manda `X-Accel-Buffering: no`).
   Eventos de agora: `network.updated` (`network.view`), com `network_id`.
+- **Chaves de API**: `Authorization: Bearer avk_...` vale nas rotas de Empresa, sem CSRF,
+  com as permissões da chave que o membro ainda tem. Login, 2FA, conta, sessões, criar
+  chave, sair da Empresa e o painel interno são só pela sessão. Cada chave tem um balde de
+  2 requisições por segundo com rajada de 20 (`X-RateLimit-Limit` e
+  `X-RateLimit-Remaining`); passou, 429 `rate_limited` com `Retry-After`, e mais de 20
+  recusas em um minuto bloqueiam a chave por 30 s. O balde fica no Redis.
 - **Permissão**: declarada na rota com `Depends(require("team.invite"))`.
 - **Erros**: sempre `{"error": {"code", "message", "details"}}`; o mapa de código para
   status HTTP está em `errors.py`.
