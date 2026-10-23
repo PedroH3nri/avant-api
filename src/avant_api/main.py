@@ -13,6 +13,7 @@ from avant_api.routes import (
     audit,
     auth,
     company,
+    events,
     health,
     internal,
     invitations,
@@ -52,6 +53,7 @@ def create_app(services: Services | None = None) -> FastAPI:
         roles,
         audit,
         networks,
+        events,
         internal,
     ):
         app.include_router(module.router, prefix=API_PREFIX)
