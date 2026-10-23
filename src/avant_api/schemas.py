@@ -15,7 +15,8 @@ from avant_core.company.domain import (
 )
 from avant_core.company.team import CompanyOverview, MemberDetail, MemberView, RoleView
 from avant_core.identity.application import Authenticated
-from avant_core.identity.domain import Locale
+from avant_core.identity.domain import Locale, UserStatus
+from avant_core.internal.application import ClientSummary
 from pydantic import BaseModel, EmailStr, Field
 
 
@@ -305,3 +306,78 @@ class AuditOut(BaseModel):
             data=e.data,
             created_at=e.created_at,
         )
+
+
+class ClientOut(BaseModel):
+    id: uuid.UUID
+    name: str
+    slug: str
+    plan: CompanyPlan
+    status: CompanyStatus
+    seat_limit: int
+    seats_used: int
+    owner: UserOut
+
+    @classmethod
+    def of(cls, v: ClientSummary) -> "ClientOut":
+        c, o = v.company, v.owner
+        return cls(
+            id=c.id,
+            name=c.name,
+            slug=c.slug,
+            plan=c.plan,
+            status=c.status,
+            seat_limit=c.seat_limit,
+            seats_used=v.seats_used,
+            owner=UserOut(id=o.id, email=o.email, name=o.name, locale=o.locale),
+        )
+
+
+class ClientDetailOut(ClientOut):
+    members: list[MemberOut]
+    invitations: list[InvitationOut]
+
+
+class ClientIn(BaseModel):
+    email: EmailStr
+    seat_limit: int = Field(ge=1, le=10_000)
+    plan: CompanyPlan
+
+
+class ClientPatchIn(BaseModel):
+    seat_limit: int | None = Field(default=None, ge=1, le=10_000)
+    plan: CompanyPlan | None = None
+
+
+class OwnerChangeIn(BaseModel):
+    membership_id: uuid.UUID
+
+
+class OwnerInvitationOut(BaseModel):
+    id: uuid.UUID
+    email: str
+    status: InvitationStatus
+    seat_limit: int | None
+    plan: CompanyPlan | None
+    expires_at: datetime
+    invited_by: uuid.UUID
+
+
+class CompanyRefOut(BaseModel):
+    id: uuid.UUID
+    name: str
+    slug: str
+    is_internal: bool
+
+
+class PersonOut(BaseModel):
+    user: UserOut
+    status: UserStatus
+    mfa_enabled: bool
+    last_login_at: datetime | None
+    companies: list[CompanyRefOut]
+
+
+class StaffInviteIn(BaseModel):
+    email: EmailStr
+    role_id: uuid.UUID

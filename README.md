@@ -40,6 +40,19 @@ Outros repositórios: avant-core, avant-worker, avant-web, avant-infra.
 | `POST /roles`, `PATCH /roles/{id}`, `DELETE /roles/{id}` | papéis personalizados | `roles.manage` |
 | `GET /audit` | histórico; filtros `actor`, `action`, `from`, `to`; cursor | `audit.view` |
 
+Painel interno, em `/api/v1/internal` (Company Groone ativa e 2FA verificado na sessão):
+
+| Rota | Faz | Permissão |
+| --- | --- | --- |
+| `GET /internal/clients`, `POST /internal/clients` | lista clientes; cadastra (convite de dono) | `internal.clients.view` / `.manage` |
+| `GET /internal/clients/{id}`, `/audit` | página de suporte e histórico, só leitura | `internal.clients.view` |
+| `PATCH /internal/clients/{id}` | vagas e plano | `internal.clients.manage` |
+| `POST /internal/clients/{id}/suspend`, `/reactivate` | suspende ou reativa | `internal.clients.manage` |
+| `POST /internal/clients/{id}/owner` | troca o dono | `internal.owner.change` |
+| `GET /internal/owner-invitations`, `POST .../{id}/resend`, `DELETE .../{id}` | convites de dono | `internal.clients.view` / `.manage` |
+| `GET /internal/users?q=`, `POST /internal/users/{id}/disable`, `/enable`, `/reset-mfa` | pessoas | `internal.users.manage` |
+| `GET /internal/staff`, `POST /internal/staff/invitations` | equipe Groone | `internal.staff.manage` |
+
 Ainda faltam o login com Google e o limite de requisições.
 
 ## Como funciona

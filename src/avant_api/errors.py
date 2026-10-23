@@ -35,6 +35,8 @@ STATUS: dict[str, int] = {
     "account_disabled": 403,
     "csrf_failed": 403,
     "no_active_company": 403,
+    "staff_only": 403,
+    "seat_limit_below_usage": 409,
     "not_found": 404,
     "seat_limit_reached": 409,
     "already_member": 409,
