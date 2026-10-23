@@ -70,6 +70,7 @@ def test_owner_onboarding_and_login(
     assert me["user"]["email"] == "dono@acai.com"
     assert me["companies"][0]["slug"] == "acai-sites"
     assert me["companies"][0]["is_owner"] is True
+    assert me["companies"][0]["is_internal"] is False
     assert me["permissions"] == ["*"] and me["site_scope"] == "all"
     assert client.cookies.get("avant_session")
 

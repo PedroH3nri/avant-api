@@ -24,6 +24,7 @@ def _staff(client: TestClient, engine: Engine) -> TestClient:
     staff = TestClient(client.app)
     r = staff.post("/api/v1/auth/login", json={"email": "admin@groone.com", "password": PASSWORD})
     assert r.status_code == 200 and r.json()["me"]["mfa_setup_required"] is True
+    assert [c["is_internal"] for c in r.json()["me"]["companies"]] == [True]
     # Sem 2FA, nem o painel interno abre.
     assert staff.get("/api/v1/internal/clients").status_code == 403
     _enable(staff)  # a confirmação marca esta sessão como verificada
