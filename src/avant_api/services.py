@@ -11,6 +11,7 @@ from avant_core.ports import Mailer, PasswordHasher, SecretBox
 from avant_core.shared.clock import Clock, SystemClock
 from sqlalchemy import Engine, create_engine
 
+from avant_api.events import EventSource, NoEvents, RedisEvents
 from avant_api.google import GoogleAuth, GoogleOAuth
 from avant_api.limits import Limiter, MemoryCounter, RedisCounter
 from avant_api.settings import Settings
@@ -28,6 +29,7 @@ class Services:
     limiter: Limiter = field(default_factory=lambda: Limiter(MemoryCounter()))
     google: GoogleAuth | None = None  # sem cliente OAuth configurado, não há login com Google
     tasks: TaskQueue = field(default_factory=RecordingQueue)
+    events: EventSource = field(default_factory=NoEvents)
 
     @classmethod
     def build(cls, settings: Settings) -> "Services":
@@ -48,6 +50,7 @@ class Services:
             tasks=CeleryQueue(settings.celery_broker_url)
             if settings.celery_broker_url
             else RecordingQueue(),
+            events=RedisEvents(settings.redis_url) if settings.redis_url else NoEvents(),
         )
 
     def uow(self, company_id: uuid.UUID) -> SqlAlchemyUnitOfWork:

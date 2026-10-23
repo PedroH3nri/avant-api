@@ -54,6 +54,7 @@ Outros repositórios: avant-core, avant-worker, avant-web, avant-infra.
 | `GET /networks/{id}`, `/sync-runs` | detalhe e histórico das etapas | `network.view` |
 | `POST /networks/{id}/sync` | "sincronizar agora"; 1 vez a cada 10 minutos (429 com `Retry-After`) | `network.sync` |
 | `POST /networks/{id}/disconnect` | para as sincronizações; o histórico fica | `network.disconnect` |
+| `GET /events` | avisos em tempo real (SSE) da Empresa ativa, filtrados pela permissão | membro |
 
 Painel interno, em `/api/v1/internal` (Company Groone ativa e 2FA verificado na sessão):
 
@@ -103,6 +104,13 @@ Painel interno, em `/api/v1/internal` (Company Groone ativa e 2FA verificado na 
   (`CELERY_BROKER_URL`, obrigatória em staging e produção) depois do commit. Se o
   RabbitMQ não responder, a rota não falha: o erro vai para o log e o agendador do worker
   passa pela network no ciclo seguinte. O guia mostra `GAM_SERVICE_ACCOUNT_EMAIL`.
+- **Tempo real**: `GET /events` é um `text/event-stream`. O worker publica
+  `{"type", "data"}` no canal Redis `avant:events:{company_id}` e qualquer instância da
+  API repassa; cada tipo de evento exige uma permissão (`events.PERMISSION_FOR`) e o que
+  não está no mapa não sai. Heartbeat a cada 15 s; depois de 30 minutos a API fecha e o
+  EventSource reconecta, conferindo a sessão de novo. O proxy precisa de
+  `proxy_buffering off` nessa rota (a resposta também manda `X-Accel-Buffering: no`).
+  Eventos de agora: `network.updated` (`network.view`), com `network_id`.
 - **Permissão**: declarada na rota com `Depends(require("team.invite"))`.
 - **Erros**: sempre `{"error": {"code", "message", "details"}}`; o mapa de código para
   status HTTP está em `errors.py`.
