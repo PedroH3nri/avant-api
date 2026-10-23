@@ -51,6 +51,10 @@ uv run pytest
 
 Os testes recriam o schema do banco de testes com as migrations do avant-core.
 
+A CI (`.github/workflows/ci.yml`) roda tudo isso em todo PR, com um Postgres 16. Para
+baixar o avant-core, que é privado, ela usa o secret `AVANT_CORE_ACCESS`: um token
+*fine-grained* só com leitura do avant-core.
+
 Para rodar a API, com o compose do avant-infra no ar:
 
 ```bash
