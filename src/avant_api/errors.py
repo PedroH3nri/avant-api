@@ -1,0 +1,78 @@
+"""Corpo de erro do contrato: {"error": {"code", "message", "details"}}.
+
+O frontend traduz pelo code; a mensagem é só para quem lê o log ou a API.
+"""
+
+import logging
+from typing import Any
+
+from avant_core.shared.errors import DomainError
+from fastapi import FastAPI, Request
+from fastapi.exceptions import RequestValidationError
+from fastapi.responses import JSONResponse
+from starlette.exceptions import HTTPException
+
+log = logging.getLogger("avant.api")
+
+
+class CsrfFailed(DomainError):
+    code = "csrf_failed"
+
+
+class NoActiveCompany(DomainError):
+    code = "no_active_company"
+
+
+STATUS: dict[str, int] = {
+    "not_authenticated": 401,
+    "invalid_credentials": 401,
+    "permission_denied": 403,
+    "account_disabled": 403,
+    "csrf_failed": 403,
+    "no_active_company": 403,
+    "not_found": 404,
+    "seat_limit_reached": 409,
+    "already_member": 409,
+    "invitation_not_pending": 409,
+    "invitation_expired": 409,
+    "invitation_email_mismatch": 409,
+    "cannot_change_owner": 409,
+    "wrong_invitation_kind": 422,
+    "invalid_permission": 422,
+    "weak_password": 422,
+}
+
+
+def error_body(code: str, message: str, details: dict[str, Any] | None = None) -> dict[str, Any]:
+    return {"error": {"code": code, "message": message, "details": details or {}}}
+
+
+def install(app: FastAPI) -> None:
+    @app.exception_handler(DomainError)
+    async def domain_error(_: Request, exc: DomainError) -> JSONResponse:
+        return JSONResponse(error_body(exc.code, str(exc)), status_code=STATUS.get(exc.code, 400))
+
+    @app.exception_handler(RequestValidationError)
+    async def validation_error(_: Request, exc: RequestValidationError) -> JSONResponse:
+        fields = [{"loc": list(e["loc"]), "type": e["type"], "msg": e["msg"]} for e in exc.errors()]
+        return JSONResponse(
+            error_body("validation_error", "dados inválidos", {"fields": fields}),
+            status_code=422,
+        )
+
+    @app.exception_handler(HTTPException)
+    async def http_error(_: Request, exc: HTTPException) -> JSONResponse:
+        code = {404: "not_found", 405: "method_not_allowed"}.get(exc.status_code, "http_error")
+        return JSONResponse(error_body(code, str(exc.detail)), status_code=exc.status_code)
+
+    @app.exception_handler(Exception)
+    async def unexpected(request: Request, exc: Exception) -> JSONResponse:
+        log.error(
+            "erro inesperado",
+            exc_info=exc,
+            extra={
+                "path": request.url.path,
+                "request_id": getattr(request.state, "request_id", None),
+            },
+        )
+        return JSONResponse(error_body("internal_error", "erro interno"), status_code=500)
