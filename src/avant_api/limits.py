@@ -1,6 +1,8 @@
-"""Limite de tentativas nas rotas sem sessão (login, esqueci a senha, redefinir).
+"""Limites: tentativas nas rotas sem sessão (login, esqueci a senha, redefinir) e
+requisições por chave de API.
 
-Janela fixa: cada chave conta as tentativas que falharam e zera sozinha no fim da janela.
+Tentativas: janela fixa; cada chave conta as que falharam e zera sozinha no fim da janela.
+Chaves de API: balde de fichas (2 por segundo, rajada de 20).
 Em staging e produção os contadores ficam no Redis, valendo para todas as instâncias.
 """
 
@@ -109,3 +111,115 @@ class Limiter:
 
     def clear(self, rule: Rule, subject: str) -> None:
         self._c.delete(self._key(rule, subject))
+
+
+# --- Chaves de API: balde de fichas -----------------------------------------------------
+
+
+@dataclass(frozen=True)
+class BucketRule:
+    rate: float  # fichas por segundo
+    burst: int
+    # Quem insiste depois do 429 fica bloqueado: mais de ``abuse_limit`` recusas em um
+    # minuto bloqueiam a chave por ``block_seconds``.
+    abuse_limit: int
+    block_seconds: int
+
+
+API_KEY = BucketRule(rate=2.0, burst=20, abuse_limit=20, block_seconds=30)
+
+
+@dataclass(frozen=True)
+class BucketResult:
+    allowed: bool
+    remaining: int
+    retry_after: int  # segundos; 0 quando passou
+
+
+class Bucket(Protocol):
+    def take(self, subject: str, rule: BucketRule, now: float) -> BucketResult: ...
+
+
+class MemoryBucket:
+    """Para desenvolvimento e testes: cada processo tem o seu."""
+
+    def __init__(self) -> None:
+        self._tokens: dict[str, tuple[float, float]] = {}
+        self._denied: dict[str, tuple[int, float]] = {}
+        self._blocked: dict[str, float] = {}
+        self._lock = threading.Lock()
+
+    def take(self, subject: str, rule: BucketRule, now: float) -> BucketResult:
+        with self._lock:
+            until = self._blocked.get(subject, 0.0)
+            if until > now:
+                return BucketResult(False, 0, math.ceil(until - now))
+            tokens, ts = self._tokens.get(subject, (float(rule.burst), now))
+            tokens = min(float(rule.burst), tokens + (now - ts) * rule.rate)
+            if tokens >= 1:
+                self._tokens[subject] = (tokens - 1, now)
+                return BucketResult(True, math.floor(tokens - 1), 0)
+            self._tokens[subject] = (tokens, now)
+            count, start = self._denied.get(subject, (0, now))
+            if now - start >= 60:
+                count, start = 0, now
+            count += 1
+            self._denied[subject] = (count, start)
+            if count > rule.abuse_limit:
+                self._blocked[subject] = now + rule.block_seconds
+                self._denied.pop(subject, None)
+                return BucketResult(False, 0, rule.block_seconds)
+            return BucketResult(False, 0, math.ceil((1 - tokens) / rule.rate))
+
+
+# KEYS: fichas, recusas no minuto, bloqueio. ARGV: agora, taxa, rajada, limite, bloqueio.
+_TAKE = """
+local blocked = redis.call('TTL', KEYS[3])
+if blocked > 0 then return {0, 0, blocked} end
+local now, rate, burst = tonumber(ARGV[1]), tonumber(ARGV[2]), tonumber(ARGV[3])
+local data = redis.call('HMGET', KEYS[1], 't', 'ts')
+local tokens = tonumber(data[1]) or burst
+local ts = tonumber(data[2]) or now
+tokens = math.min(burst, tokens + math.max(now - ts, 0) * rate)
+local ttl = math.ceil(burst / rate) + 1
+if tokens >= 1 then
+  redis.call('HSET', KEYS[1], 't', tostring(tokens - 1), 'ts', ARGV[1])
+  redis.call('EXPIRE', KEYS[1], ttl)
+  return {1, math.floor(tokens - 1), 0}
+end
+redis.call('HSET', KEYS[1], 't', tostring(tokens), 'ts', ARGV[1])
+redis.call('EXPIRE', KEYS[1], ttl)
+local denied = redis.call('INCR', KEYS[2])
+if denied == 1 then redis.call('EXPIRE', KEYS[2], 60) end
+if denied > tonumber(ARGV[4]) then
+  redis.call('SET', KEYS[3], '1', 'EX', ARGV[5])
+  redis.call('DEL', KEYS[2])
+  return {0, 0, tonumber(ARGV[5])}
+end
+return {0, 0, math.ceil((1 - tokens) / rate)}
+"""
+
+
+class RedisBucket:
+    """Vale para todas as instâncias da API. Um script só, para ser atômico."""
+
+    def __init__(self, client: redis.Redis, prefix: str = "avant:bucket") -> None:
+        self._take = client.register_script(_TAKE)
+        self._prefix = prefix
+
+    @classmethod
+    def from_url(cls, url: str) -> "RedisBucket":
+        return cls(redis.Redis.from_url(url, socket_timeout=1.0))
+
+    def take(self, subject: str, rule: BucketRule, now: float) -> BucketResult:
+        base = f"{self._prefix}:{subject}"
+        keys = [f"{base}:tokens", f"{base}:denied", f"{base}:blocked"]
+        args: list[str | float] = [
+            repr(now),
+            rule.rate,
+            rule.burst,
+            rule.abuse_limit,
+            rule.block_seconds,
+        ]
+        allowed, remaining, retry_after = self._take(keys=keys, args=args)
+        return BucketResult(bool(allowed), int(remaining), int(retry_after))

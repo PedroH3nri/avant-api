@@ -1,14 +1,22 @@
-"""Dependências das rotas: serviços, sessão, CSRF e permissões."""
+"""Dependências das rotas: serviços, sessão, chave de API, CSRF e permissões.
+
+As rotas de Empresa aceitam a sessão do painel (cookie + CSRF) ou uma chave de API
+(``Authorization: Bearer avk_...``, sem CSRF: não há cookie para roubar). Login, 2FA,
+conta, sessões, criar chave, sair da Empresa e o painel interno são só pela sessão.
+"""
 
 import hmac
+import time
 from collections.abc import Callable
 
+from avant_core.access.api_keys import authenticate_api_key
 from avant_core.company.application import Actor
 from avant_core.identity.application import Authenticated, authenticate
 from avant_core.shared.errors import MfaRequired, NotAuthenticated, StaffOnly
 from fastapi import Depends, Request
 
-from avant_api.errors import CsrfFailed, NoActiveCompany
+from avant_api.errors import CsrfFailed, NoActiveCompany, RateLimited
+from avant_api.limits import API_KEY
 from avant_api.services import Services
 
 SAFE_METHODS = frozenset({"GET", "HEAD", "OPTIONS"})
@@ -58,16 +66,53 @@ def get_auth(auth: Authenticated = Depends(get_session_auth)) -> Authenticated:
     return auth
 
 
-def get_actor(auth: Authenticated = Depends(get_auth)) -> Actor:
+def get_session_actor(auth: Authenticated = Depends(get_auth)) -> Actor:
+    """Só pela sessão do painel, nunca por chave de API."""
     if auth.active is None or auth.grants is None:
         raise NoActiveCompany("a pessoa não é membro ativo de nenhuma Empresa")
     return Actor(user_id=auth.user.id, company_id=auth.active.company.id, grants=auth.grants)
+
+
+def bearer_token(request: Request) -> str | None:
+    scheme, _, token = request.headers.get("Authorization", "").partition(" ")
+    return token.strip() if scheme.lower() == "bearer" and token.strip() else None
+
+
+def api_key_actor(request: Request, services: Services, token: str) -> Actor:
+    auth = authenticate_api_key(services.trusted_uow(), token=token, clock=services.clock)
+    result = services.bucket.take(f"key:{auth.key.id}", API_KEY, time.time())
+    request.state.rate_limit = {
+        "X-RateLimit-Limit": str(API_KEY.burst),
+        "X-RateLimit-Remaining": str(result.remaining),
+    }
+    if not result.allowed:
+        raise RateLimited(retry_after=max(result.retry_after, 1))
+    request.state.api_key_id = auth.key.id
+    return auth.actor
+
+
+def get_actor(request: Request, services: Services = Depends(get_services)) -> Actor:
+    """Sessão do painel ou chave de API. Com o cabeçalho Bearer, o cookie é ignorado."""
+    token = bearer_token(request)
+    if token is not None:
+        return api_key_actor(request, services, token)
+    return get_session_actor(get_auth(get_session_auth(optional_auth(request, services))))
 
 
 def require(permission: str) -> Callable[[Actor], Actor]:
     """Depends(require("team.invite")): a permissão da rota fica declarada nela."""
 
     def dependency(actor: Actor = Depends(get_actor)) -> Actor:
+        actor.grants.require(permission)
+        return actor
+
+    return dependency
+
+
+def require_session(permission: str) -> Callable[[Actor], Actor]:
+    """Como ``require``, mas recusa chave de API (criar chave, por exemplo)."""
+
+    def dependency(actor: Actor = Depends(get_session_actor)) -> Actor:
         actor.grants.require(permission)
         return actor
 

@@ -13,7 +13,14 @@ from sqlalchemy import Engine, create_engine
 
 from avant_api.events import EventSource, NoEvents, RedisEvents
 from avant_api.google import GoogleAuth, GoogleOAuth
-from avant_api.limits import Limiter, MemoryCounter, RedisCounter
+from avant_api.limits import (
+    Bucket,
+    Limiter,
+    MemoryBucket,
+    MemoryCounter,
+    RedisBucket,
+    RedisCounter,
+)
 from avant_api.settings import Settings
 from avant_api.tasks import CeleryQueue, RecordingQueue, TaskQueue
 
@@ -27,6 +34,7 @@ class Services:
     mailer: Mailer
     box: SecretBox
     limiter: Limiter = field(default_factory=lambda: Limiter(MemoryCounter()))
+    bucket: Bucket = field(default_factory=MemoryBucket)  # chaves de API
     google: GoogleAuth | None = None  # sem cliente OAuth configurado, não há login com Google
     tasks: TaskQueue = field(default_factory=RecordingQueue)
     events: EventSource = field(default_factory=NoEvents)
@@ -46,6 +54,9 @@ class Services:
             limiter=Limiter(
                 RedisCounter.from_url(settings.redis_url) if settings.redis_url else MemoryCounter()
             ),
+            bucket=RedisBucket.from_url(settings.redis_url)
+            if settings.redis_url
+            else MemoryBucket(),
             google=_google(settings),
             tasks=CeleryQueue(settings.celery_broker_url)
             if settings.celery_broker_url

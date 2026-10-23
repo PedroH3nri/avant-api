@@ -10,6 +10,7 @@ from avant_api.logs import configure_logging
 from avant_api.middleware import observe
 from avant_api.routes import (
     account,
+    api_keys,
     audit,
     auth,
     company,
@@ -55,6 +56,7 @@ def create_app(services: Services | None = None) -> FastAPI:
         audit,
         networks,
         sites,
+        api_keys,
         events,
         internal,
     ):

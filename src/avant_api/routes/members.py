@@ -15,7 +15,7 @@ from avant_core.company.team import (
 )
 from fastapi import APIRouter, Depends, Query, status
 
-from avant_api.deps import get_actor, get_services, require
+from avant_api.deps import get_services, get_session_actor, require
 from avant_api.schemas import (
     ItemsOut,
     MemberDetailOut,
@@ -44,7 +44,9 @@ def index(
 
 
 @router.post("/me/leave", status_code=status.HTTP_204_NO_CONTENT)
-def leave(actor: Actor = Depends(get_actor), services: Services = Depends(get_services)) -> None:
+def leave(
+    actor: Actor = Depends(get_session_actor), services: Services = Depends(get_services)
+) -> None:
     leave_company(services.uow(actor.company_id), actor=actor, clock=services.clock)
 
 
