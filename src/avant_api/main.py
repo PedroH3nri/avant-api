@@ -18,6 +18,7 @@ from avant_api.routes import (
     invitations,
     members,
     mfa,
+    networks,
     roles,
 )
 from avant_api.services import Services
@@ -50,6 +51,7 @@ def create_app(services: Services | None = None) -> FastAPI:
         invitations,
         roles,
         audit,
+        networks,
         internal,
     ):
         app.include_router(module.router, prefix=API_PREFIX)

@@ -6,14 +6,15 @@ from dataclasses import dataclass, field
 from avant_core.db.uow import SqlAlchemyUnitOfWork
 from avant_core.identity.crypto import FernetSecretBox
 from avant_core.identity.passwords import Argon2PasswordHasher
+from avant_core.mail import LogMailer, ResendMailer
 from avant_core.ports import Mailer, PasswordHasher, SecretBox
 from avant_core.shared.clock import Clock, SystemClock
 from sqlalchemy import Engine, create_engine
 
 from avant_api.google import GoogleAuth, GoogleOAuth
 from avant_api.limits import Limiter, MemoryCounter, RedisCounter
-from avant_api.mail import LogMailer, ResendMailer
 from avant_api.settings import Settings
+from avant_api.tasks import CeleryQueue, RecordingQueue, TaskQueue
 
 
 @dataclass
@@ -26,6 +27,7 @@ class Services:
     box: SecretBox
     limiter: Limiter = field(default_factory=lambda: Limiter(MemoryCounter()))
     google: GoogleAuth | None = None  # sem cliente OAuth configurado, não há login com Google
+    tasks: TaskQueue = field(default_factory=RecordingQueue)
 
     @classmethod
     def build(cls, settings: Settings) -> "Services":
@@ -43,6 +45,9 @@ class Services:
                 RedisCounter.from_url(settings.redis_url) if settings.redis_url else MemoryCounter()
             ),
             google=_google(settings),
+            tasks=CeleryQueue(settings.celery_broker_url)
+            if settings.celery_broker_url
+            else RecordingQueue(),
         )
 
     def uow(self, company_id: uuid.UUID) -> SqlAlchemyUnitOfWork:

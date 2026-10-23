@@ -51,7 +51,9 @@ class CapturingMailer:
     def send_password_reset(self, *, to: str, token: str, locale: str) -> None:
         self.resets.append((to, token))
 
-    def send_notice(self, *, to: str, notice: Notice, locale: str) -> None:
+    def send_notice(
+        self, *, to: str, notice: Notice, locale: str, params: dict[str, str] | None = None
+    ) -> None:
         self.notices.append((to, notice))
 
 
@@ -90,6 +92,11 @@ def client(engine: Engine, mailer: CapturingMailer) -> Iterator[TestClient]:
     owner = create_engine(OWNER_URL or "")
     with owner.begin() as conn:
         for table in (
+            "ad_units",
+            "sites",
+            "network_sync_runs",
+            "networks",
+            "mcm_candidates",
             "sessions",
             "member_permissions",
             "memberships",

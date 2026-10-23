@@ -48,6 +48,12 @@ Outros repositórios: avant-core, avant-worker, avant-web, avant-infra.
 | `GET /roles` | predefinidos e personalizados, com contagem | `roles.view` |
 | `POST /roles`, `PATCH /roles/{id}`, `DELETE /roles/{id}` | papéis personalizados | `roles.manage` |
 | `GET /audit` | histórico; filtros `actor`, `action`, `from`, `to`; cursor | `audit.view` |
+| `GET /networks` | networks do GAM com as últimas etapas e os sites ativos | `network.view` |
+| `GET /networks/service-account` | e-mail da conta de serviço para o guia de conexão | `network.connect` |
+| `POST /networks` | conecta pelo network code; 202, nasce `pending` e o worker testa | `network.connect` |
+| `GET /networks/{id}`, `/sync-runs` | detalhe e histórico das etapas | `network.view` |
+| `POST /networks/{id}/sync` | "sincronizar agora"; 1 vez a cada 10 minutos (429 com `Retry-After`) | `network.sync` |
+| `POST /networks/{id}/disconnect` | para as sincronizações; o histórico fica | `network.disconnect` |
 
 Painel interno, em `/api/v1/internal` (Company Groone ativa e 2FA verificado na sessão):
 
@@ -61,8 +67,7 @@ Painel interno, em `/api/v1/internal` (Company Groone ativa e 2FA verificado na 
 | `GET /internal/owner-invitations`, `POST .../{id}/resend`, `DELETE .../{id}` | convites de dono | `internal.clients.view` / `.manage` |
 | `GET /internal/users?q=`, `POST /internal/users/{id}/disable`, `/enable`, `/reset-mfa` | pessoas | `internal.users.manage` |
 | `GET /internal/staff`, `POST /internal/staff/invitations` | equipe Groone | `internal.staff.manage` |
-
-Ainda faltam o login com Google e o limite de requisições.
+| `GET /internal/networks/unassigned`, `POST .../{id}/assign` | MCM sem dono: a Groone escolhe a Empresa | `internal.networks.assign` |
 
 ## Como funciona
 
@@ -91,7 +96,13 @@ Ainda faltam o login com Google e o limite de requisições.
   em Configurações. O callback sempre redireciona para o painel: `/` ou `/entrar/2fa`
   quando deu certo, `/entrar?erro=<code>` ou `/configuracoes/conta?erro=<code>` quando
   não.
-- **Avisos por e-mail**: senha trocada, Google ligado e 2FA zerado pela Groone.
+- **Avisos por e-mail**: senha trocada, Google ligado e 2FA zerado pela Groone. Os
+  e-mails vêm de `avant_core.mail`, o mesmo módulo do worker.
+- **GAM**: a API não fala com o Ad Manager. Conectar, "sincronizar agora" e atribuir uma
+  network MCM gravam o pedido e enfileiram `avant.gam.sync_network` no RabbitMQ
+  (`CELERY_BROKER_URL`, obrigatória em staging e produção) depois do commit. Se o
+  RabbitMQ não responder, a rota não falha: o erro vai para o log e o agendador do worker
+  passa pela network no ciclo seguinte. O guia mostra `GAM_SERVICE_ACCOUNT_EMAIL`.
 - **Permissão**: declarada na rota com `Depends(require("team.invite"))`.
 - **Erros**: sempre `{"error": {"code", "message", "details"}}`; o mapa de código para
   status HTTP está em `errors.py`.
