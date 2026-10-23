@@ -23,6 +23,15 @@ Outros repositórios: avant-core, avant-worker, avant-web, avant-infra.
 | `POST /auth/mfa/setup` e `/confirm` | ativa o 2FA; o confirm devolve os 10 códigos de recuperação | sessão |
 | `POST /auth/mfa/recovery-codes` | gera novos códigos de recuperação | sessão + código |
 | `DELETE /auth/mfa` | desliga o 2FA (só clientes) | sessão + código |
+| `POST /auth/password/forgot` | manda o link de nova senha; responde 202 exista ou não a conta | nenhuma |
+| `POST /auth/password/reset` | nova senha pelo link (com 2FA, pede o código); encerra todas as sessões | nenhuma |
+| `POST /auth/password/change` | troca a senha; encerra as outras sessões | sessão |
+| `GET /auth/sessions` | sessões ativas, com a atual marcada | sessão |
+| `DELETE /auth/sessions/{id}` | encerra uma sessão | sessão |
+| `POST /auth/sessions/revoke-others` | encerra todas menos a atual | sessão |
+| `GET /auth/google/start?mode=login\|link` | manda para o Google; `link` liga a conta em Configurações | nenhuma ou sessão |
+| `GET /auth/google/callback` | volta do Google e redireciona para o painel | nenhuma |
+| `GET /auth/google` e `DELETE /auth/google` | se o Google está ligado; desligar | sessão |
 | `GET /invitations` | convites pendentes da Empresa ativa | `team.view` |
 | `POST /invitations` | convida por e-mail e papel | `team.invite` |
 | `POST /invitations/{id}/resend` | token novo e mais 1 dia | `team.invite` |
@@ -72,6 +81,17 @@ Ainda faltam o login com Google e o limite de requisições.
   o `LogMailer` só registra o envio e, em local, mostra o link. A chave é obrigatória em
   staging e produção. Falha no envio vai para o log e para `avant_mail_failures_total`,
   e o convite continua pendente.
+- **Limite de tentativas**: 5 senhas erradas por e-mail e 20 por IP em 15 minutos no
+  login; 20 pedidos por IP em 15 minutos em `/auth/password/*`. Passou, 429
+  `too_many_attempts` com `Retry-After`. Os contadores ficam no Redis (`REDIS_URL`,
+  obrigatória em staging e produção) e, sem ele, na memória do processo.
+- **Google**: OpenID Connect com PKCE, tratado aqui (`GOOGLE_OAUTH_CLIENT_ID` e
+  `GOOGLE_OAUTH_CLIENT_SECRET`; URI de redirecionamento
+  `{APP_BASE_URL}/api/v1/auth/google/callback`). Só entra com Google quem ligou a conta
+  em Configurações. O callback sempre redireciona para o painel: `/` ou `/entrar/2fa`
+  quando deu certo, `/entrar?erro=<code>` ou `/configuracoes/conta?erro=<code>` quando
+  não.
+- **Avisos por e-mail**: senha trocada, Google ligado e 2FA zerado pela Groone.
 - **Permissão**: declarada na rota com `Depends(require("team.invite"))`.
 - **Erros**: sempre `{"error": {"code", "message", "details"}}`; o mapa de código para
   status HTTP está em `errors.py`.
@@ -85,12 +105,14 @@ uv sync
 uv run ruff format . && uv run ruff check . && uv run mypy
 export AVANT_TEST_MIGRATIONS_URL=postgresql+psycopg://avant_owner:SENHA@localhost:5432/avant_test
 export AVANT_TEST_DATABASE_URL=postgresql+psycopg://avant_app:SENHA@localhost:5432/avant_test
+export AVANT_TEST_REDIS_URL=redis://localhost:6379/0  # opcional: testa o contador no Redis
 uv run pytest
 ```
 
 Os testes recriam o schema do banco de testes com as migrations do avant-core.
 
-A CI (`.github/workflows/ci.yml`) roda tudo isso em todo PR, com um Postgres 16. Para
+A CI (`.github/workflows/ci.yml`) roda tudo isso em todo PR, com um Postgres 16 e um
+Redis 7. Para
 baixar o avant-core, que é privado, ela usa o secret `AVANT_CORE_ACCESS`: um token
 *fine-grained* só com leitura do avant-core.
 

@@ -283,7 +283,13 @@ def reset_mfa(
     actor: Actor = Depends(require_staff("internal.users.manage")),
     services: Services = Depends(get_services),
 ) -> None:
-    reset_user_mfa(services.trusted_uow(), actor=actor, user_id=user_id, clock=services.clock)
+    reset_user_mfa(
+        services.trusted_uow(),
+        actor=actor,
+        user_id=user_id,
+        clock=services.clock,
+        mailer=services.mailer,
+    )
 
 
 # --- Equipe Groone ---------------------------------------------------------------------

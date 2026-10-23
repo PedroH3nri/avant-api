@@ -9,6 +9,7 @@ from avant_api import errors
 from avant_api.logs import configure_logging
 from avant_api.middleware import observe
 from avant_api.routes import (
+    account,
     audit,
     auth,
     company,
@@ -39,6 +40,17 @@ def create_app(services: Services | None = None) -> FastAPI:
     app.state.services = services
     errors.install(app)
     app.middleware("http")(observe)
-    for module in (health, auth, mfa, company, members, invitations, roles, audit, internal):
+    for module in (
+        health,
+        auth,
+        account,
+        mfa,
+        company,
+        members,
+        invitations,
+        roles,
+        audit,
+        internal,
+    ):
         app.include_router(module.router, prefix=API_PREFIX)
     return app

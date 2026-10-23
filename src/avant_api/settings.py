@@ -19,6 +19,11 @@ class Settings(BaseSettings):
     # Sem chave, os e-mails só vão para o log (local e testes).
     resend_api_key: str | None = None
     mail_from: str = "Avant <nao-responda@avant.groone.com>"
+    # Contadores do limite de tentativas. Sem Redis (local e testes), ficam na memória.
+    redis_url: str | None = None
+    # Login com Google. Sem as duas, as rotas /auth/google respondem google_unavailable.
+    google_oauth_client_id: str | None = None
+    google_oauth_client_secret: str | None = None
     session_cookie: str = "avant_session"
     csrf_cookie: str = "avant_csrf"
 
@@ -26,6 +31,9 @@ class Settings(BaseSettings):
     def _mail_in_deployed_envs(self) -> "Settings":
         if self.avant_env in ("staging", "production") and not self.resend_api_key:
             raise ValueError("RESEND_API_KEY é obrigatória em staging e produção")
+        if self.avant_env in ("staging", "production") and not self.redis_url:
+            # Com várias instâncias, contador em memória não limita nada.
+            raise ValueError("REDIS_URL é obrigatória em staging e produção")
         return self
 
     @property
