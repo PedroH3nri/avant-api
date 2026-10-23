@@ -10,7 +10,7 @@ from avant_core.ports import Mailer, PasswordHasher, SecretBox
 from avant_core.shared.clock import Clock, SystemClock
 from sqlalchemy import Engine, create_engine
 
-from avant_api.mail import LogMailer
+from avant_api.mail import LogMailer, ResendMailer
 from avant_api.settings import Settings
 
 
@@ -33,10 +33,7 @@ class Services:
             engine=engine,
             clock=SystemClock(),
             hasher=Argon2PasswordHasher(),
-            mailer=LogMailer(
-                base_url=settings.app_base_url,
-                show_links=settings.avant_env in ("local", "test"),
-            ),
+            mailer=_mailer(settings),
             box=FernetSecretBox(settings.mfa_encryption_key),
         )
 
@@ -47,3 +44,15 @@ class Services:
     def trusted_uow(self) -> SqlAlchemyUnitOfWork:
         """Sem RLS: só para login, sessão e aceite de convite pelo token."""
         return SqlAlchemyUnitOfWork(self.engine, bypass_rls=True)
+
+
+def _mailer(settings: Settings) -> Mailer:
+    if settings.resend_api_key:
+        return ResendMailer(
+            api_key=settings.resend_api_key,
+            sender=settings.mail_from,
+            base_url=settings.app_base_url,
+        )
+    return LogMailer(
+        base_url=settings.app_base_url, show_links=settings.avant_env in ("local", "test")
+    )
