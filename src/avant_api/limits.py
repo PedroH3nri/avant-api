@@ -143,6 +143,8 @@ class BucketRule:
 
 
 API_KEY = BucketRule(rate=2.0, burst=20, abuse_limit=20, block_seconds=30)
+# Consultas de relatório somam muitas linhas: um balde próprio por pessoa e Empresa.
+REPORTS = BucketRule(rate=0.5, burst=10, abuse_limit=20, block_seconds=60)
 
 
 @dataclass(frozen=True)

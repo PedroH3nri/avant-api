@@ -43,6 +43,12 @@ class RateLimited(DomainError):
         self.retry_after = retry_after
 
 
+class QueryTooHeavy(DomainError):
+    """A consulta passou do tempo máximo no banco."""
+
+    code = "query_too_heavy"
+
+
 class GoogleUnavailable(DomainError):
     code = "google_unavailable"
 
@@ -97,6 +103,7 @@ STATUS: dict[str, int] = {
     "sync_too_soon": 429,
     "rate_limited": 429,
     "api_key_limit_reached": 409,
+    "query_too_heavy": 422,
 }
 
 
