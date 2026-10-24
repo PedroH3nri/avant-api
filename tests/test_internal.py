@@ -33,6 +33,8 @@ def _staff(client: TestClient, engine: Engine) -> TestClient:
 
 def test_internal_clients(client: TestClient, engine: Engine, mailer: CapturingMailer) -> None:
     staff = _staff(client, engine)
+    # A Company Groone não tem limite de vagas: limites valem só para clientes.
+    assert staff.get("/api/v1/company").json()["seat_limit"] is None
     r = staff.post(
         "/api/v1/internal/clients",
         json={"email": "dono@novo.com", "seat_limit": 2, "plan": "external"},

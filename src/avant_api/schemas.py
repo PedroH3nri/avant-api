@@ -169,7 +169,7 @@ class CompanyDetailOut(BaseModel):
     accent_color: str | None
     plan: CompanyPlan
     status: CompanyStatus
-    seat_limit: int
+    seat_limit: int | None  # vazio na Company Groone: limites valem só para clientes
     seats_used: int
     settings: dict[str, object]
 
@@ -339,6 +339,7 @@ class ClientOut(BaseModel):
     @classmethod
     def of(cls, v: ClientSummary) -> "ClientOut":
         c, o = v.company, v.owner
+        assert c.seat_limit is not None  # Empresa de cliente sempre tem limite
         return cls(
             id=c.id,
             name=c.name,

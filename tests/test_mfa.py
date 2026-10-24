@@ -71,7 +71,7 @@ def test_staff_must_set_up_mfa_first(client: TestClient, engine: Engine) -> None
         groone = Company(
             name="Groone",
             owner_user_id=staff.id,
-            seat_limit=50,
+            seat_limit=None,
             plan=CompanyPlan.GROONE_NETWORK,
             slug="groone",
             is_internal=True,
