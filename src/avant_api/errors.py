@@ -92,6 +92,8 @@ STATUS: dict[str, int] = {
     "google_already_linked": 409,
     "network_code_taken": 409,
     "network_disconnected": 409,
+    "site_exists": 409,
+    "site_from_gam": 409,
     "sync_too_soon": 429,
     "rate_limited": 429,
     "api_key_limit_reached": 409,

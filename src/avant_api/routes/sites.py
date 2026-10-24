@@ -1,8 +1,8 @@
-"""Sites e ad units importados do GAM: /api/v1/sites e /api/v1/ad-units.
+"""Sites e ad units: /api/v1/sites e /api/v1/ad-units.
 
 Quem não vê todos os sites (papel com ``site_scope=assigned``) só recebe os atribuídos;
-o resto responde 404, como se não existisse. A importação é do worker; aqui só se lê,
-se liga ad unit a site à mão e se atribui sites aos membros.
+o resto responde 404, como se não existisse. A importação é do worker; aqui se lê, se
+cadastra site à mão (aguardando o GAM), se liga ad unit a site e se atribui sites.
 """
 
 import uuid
@@ -10,15 +10,17 @@ import uuid
 from avant_core.company.application import Actor
 from avant_core.gam.domain import InventoryStatus
 from avant_core.gam.inventory import (
+    add_site,
     get_site,
     link_ad_unit,
     list_ad_units,
     list_sites,
     member_sites,
+    remove_site,
     set_member_sites,
     site_members,
 )
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, Query, status
 
 from avant_api.deps import get_services, require
 from avant_api.schemas import (
@@ -27,6 +29,7 @@ from avant_api.schemas import (
     ItemsOut,
     MemberSitesIn,
     SiteDetailOut,
+    SiteIn,
     SiteListOut,
     SiteMemberOut,
     SiteOut,
@@ -54,6 +57,29 @@ def index(
         include_archived=include_archived,
     )
     return ItemsOut(items=[SiteListOut.of_view(v) for v in views])
+
+
+@router.post("/sites", status_code=status.HTTP_201_CREATED)
+def create(
+    body: SiteIn,
+    actor: Actor = Depends(require("sites.manage")),
+    services: Services = Depends(get_services),
+) -> SiteListOut:
+    """Site pelo domínio, aguardando o GAM; a importação o junta ao site do mesmo domínio."""
+    site = add_site(
+        services.uow(actor.company_id), actor=actor, domain=body.domain, clock=services.clock
+    )
+    return SiteListOut(**SiteOut.of(site).model_dump(), ad_units=0)
+
+
+@router.delete("/sites/{site_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete(
+    site_id: uuid.UUID,
+    actor: Actor = Depends(require("sites.manage")),
+    services: Services = Depends(get_services),
+) -> None:
+    """Só o site que ainda aguarda o GAM; o do GAM sai de lá."""
+    remove_site(services.uow(actor.company_id), actor=actor, site_id=site_id, clock=services.clock)
 
 
 @router.get("/sites/{site_id}")
