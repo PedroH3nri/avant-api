@@ -104,6 +104,8 @@ STATUS: dict[str, int] = {
     "rate_limited": 429,
     "api_key_limit_reached": 409,
     "query_too_heavy": 422,
+    "contract_not_manual": 409,
+    "contract_ended": 409,
 }
 
 

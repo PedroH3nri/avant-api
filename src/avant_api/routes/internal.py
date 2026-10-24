@@ -10,6 +10,7 @@ import uuid
 from avant_core.company.application import Actor
 from avant_core.company.domain import CompanyStatus, Invitation
 from avant_core.gam.application import assign_mcm_candidate, list_mcm_candidates
+from avant_core.gam.domain import ContractStatus
 from avant_core.internal.application import (
     PersonView,
     change_owner,
@@ -30,6 +31,15 @@ from avant_core.internal.application import (
 from avant_core.internal.application import (
     cancel_owner_invitation as cancel_owner_invite,
 )
+from avant_core.internal.contracts import (
+    create_contract,
+    delete_contract,
+    end_contract,
+    get_contract,
+    list_contract_networks,
+    list_contracts,
+    update_contract,
+)
 from fastapi import APIRouter, Depends, Query, status
 
 from avant_api.deps import get_services, require_staff
@@ -43,6 +53,10 @@ from avant_api.schemas import (
     ClientOut,
     ClientPatchIn,
     CompanyRefOut,
+    ContractIn,
+    ContractNetworkOut,
+    ContractOut,
+    ContractPatchIn,
     InvitationOut,
     ItemsOut,
     McmCandidateOut,
@@ -379,3 +393,108 @@ def assign_network(
     )
     enqueue_sync(services, network)
     return NetworkOut.of(network)
+
+
+# --- Contratos -------------------------------------------------------------------------
+
+
+@router.get("/contracts")
+def contracts(
+    company_id: uuid.UUID | None = None,
+    network_id: uuid.UUID | None = None,
+    contract_status: ContractStatus | None = Query(default=None, alias="status"),
+    actor: Actor = Depends(require_staff("internal.contracts.view")),
+    services: Services = Depends(get_services),
+) -> ItemsOut[ContractOut]:
+    """Lista os contratos, do mais novo para o mais antigo, com filtros."""
+    views = list_contracts(
+        services.trusted_uow(),
+        actor=actor,
+        company_id=company_id,
+        network_id=network_id,
+        status=contract_status,
+    )
+    return ItemsOut(items=[ContractOut.of(view) for view in views])
+
+
+@router.get("/contracts/networks")
+def contract_networks(
+    actor: Actor = Depends(require_staff("internal.contracts.view")),
+    services: Services = Depends(get_services),
+) -> ItemsOut[ContractNetworkOut]:
+    """Networks MCM ativas com o contrato em vigor e se aceitam contrato à mão."""
+    views = list_contract_networks(services.trusted_uow(), actor=actor)
+    return ItemsOut(items=[ContractNetworkOut.of(view) for view in views])
+
+
+@router.get("/contracts/{contract_id}")
+def contract(
+    contract_id: uuid.UUID,
+    actor: Actor = Depends(require_staff("internal.contracts.view")),
+    services: Services = Depends(get_services),
+) -> ContractOut:
+    """Mostra um contrato."""
+    return ContractOut.of(
+        get_contract(services.trusted_uow(), actor=actor, contract_id=contract_id)
+    )
+
+
+@router.post("/contracts", status_code=status.HTTP_201_CREATED)
+def new_contract(
+    body: ContractIn,
+    actor: Actor = Depends(require_staff("internal.contracts.create")),
+    services: Services = Depends(get_services),
+) -> ContractOut:
+    """Contrato à mão de uma network Manage Inventory; encerra o ativo, se houver."""
+    view = create_contract(
+        services.trusted_uow(),
+        actor=actor,
+        network_id=body.network_id,
+        revshare=body.revshare,
+        notes=body.notes,
+        clock=services.clock,
+    )
+    return ContractOut.of(view)
+
+
+@router.patch("/contracts/{contract_id}")
+def edit_contract(
+    contract_id: uuid.UUID,
+    body: ContractPatchIn,
+    actor: Actor = Depends(require_staff("internal.contracts.update")),
+    services: Services = Depends(get_services),
+) -> ContractOut:
+    """Edita a observação; o revshare de um contrato nunca muda."""
+    view = update_contract(
+        services.trusted_uow(),
+        actor=actor,
+        contract_id=contract_id,
+        notes=body.notes,
+        clock=services.clock,
+    )
+    return ContractOut.of(view)
+
+
+@router.post("/contracts/{contract_id}/end")
+def finish_contract(
+    contract_id: uuid.UUID,
+    actor: Actor = Depends(require_staff("internal.contracts.update")),
+    services: Services = Depends(get_services),
+) -> ContractOut:
+    """Encerra um contrato feito à mão."""
+    view = end_contract(
+        services.trusted_uow(), actor=actor, contract_id=contract_id, clock=services.clock
+    )
+    return ContractOut.of(view)
+
+
+@router.delete("/contracts/{contract_id}", status_code=status.HTTP_204_NO_CONTENT)
+def remove_contract(
+    contract_id: uuid.UUID,
+    actor: Actor = Depends(require_staff("internal.contracts.delete")),
+    services: Services = Depends(get_services),
+) -> None:
+    """Exclui um contrato feito à mão (cadastro errado)."""
+    delete_contract(
+        services.trusted_uow(), actor=actor, contract_id=contract_id, clock=services.clock
+    )
