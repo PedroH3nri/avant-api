@@ -131,7 +131,7 @@ def get_sessions(
             last_seen_at=s.last_seen_at,
             expires_at=s.expires_at,
             user_agent=s.user_agent,
-            ip=s.ip,
+            ip=str(s.ip) if s.ip is not None else None,  # inet volta como IPv4Address
             current=s.id == auth.session.id,
         )
         for s in rows

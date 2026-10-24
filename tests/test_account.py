@@ -55,7 +55,8 @@ def test_change_password_and_sessions(
     client: TestClient, engine: Engine, mailer: CapturingMailer
 ) -> None:
     _onboard_owner(client, engine, mailer)
-    with TestClient(client.app) as other:
+    # Com IP de verdade: a coluna inet volta como IPv4Address e precisa virar texto.
+    with TestClient(client.app, client=("203.0.113.7", 50000)) as other:
         assert (
             other.post(
                 "/api/v1/auth/login", json={"email": EMAIL, "password": PASSWORD}
@@ -64,6 +65,7 @@ def test_change_password_and_sessions(
         )
         sessions = client.get("/api/v1/auth/sessions").json()
         assert len(sessions) == 2 and sum(s["current"] for s in sessions) == 1
+        assert {s["ip"] for s in sessions} == {None, "203.0.113.7"}
 
         wrong = client.post(
             "/api/v1/auth/password/change",
