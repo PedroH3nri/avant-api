@@ -1,7 +1,7 @@
 # Graph Report - avant-api  (2026-10-24)
 
 ## Corpus Check
-- 55 files · ~33,116 words
+- 55 files · ~33,182 words
 - Verdict: corpus is large enough that graph structure adds value.
 - Unclassified: 7 file(s) not represented in the graph (top: (none) 5, .rdb 1, .lock 1)
 
@@ -11,7 +11,7 @@
 - Token cost: 0 input · 0 output
 
 ## Graph Freshness
-- Built from commit: `350d4e37`
+- Built from commit: `88aa0107`
 - Run `git rev-parse HEAD` and compare to check if the graph is stale.
 - Run `graphify update .` after code changes (no API cost).
 
