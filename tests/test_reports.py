@@ -7,8 +7,8 @@ from datetime import UTC, date, datetime, timedelta
 from decimal import Decimal
 
 from avant_core.db.uow import SqlAlchemyUnitOfWork
-from avant_core.gam.domain import ConnectionType, Network, Site
-from avant_core.metrics.domain import GamCounts, GamDailyMetric, split_revenue
+from avant_core.gam.domain import ConnectionType, Contract, Network, Site
+from avant_core.metrics.domain import GamCounts, GamDailyMetric
 from fastapi.testclient import TestClient
 from sqlalchemy import Engine
 
@@ -25,6 +25,7 @@ def _metrics(engine: Engine, company_id: uuid.UUID) -> dict[str, uuid.UUID]:
     with SqlAlchemyUnitOfWork(engine, company_id=company_id) as uow:
         network = Network(company_id, "123", ConnectionType.SERVICE_ACCOUNT, NOW)
         uow.networks.add(network)
+        uow.contracts.add(Contract(company_id, network.id, Decimal("20"), NOW))
         acai = Site(company_id, "acai.com.br", network.id, "s1", NOW, "APPROVED")
         blog = Site(company_id, "=blog.com", network.id, "s2", NOW, "APPROVED")
         for site in (acai, blog):
@@ -51,7 +52,7 @@ def _row(
     impressions: int,
     country: str,
 ) -> GamDailyMetric:
-    """Uma linha diária com 20% para a Groone."""
+    """Uma linha diária com a receita bruta (o contrato ativo dá 20% para a Groone)."""
     return GamDailyMetric(
         company_id=company_id,
         network_id=network_id,
@@ -59,8 +60,7 @@ def _row(
         ad_unit_path=f"{site_id}/{country}",
         country_code=country,
         device="desktop",
-        revshare=Decimal("20"),
-        revenue=split_revenue(revenue, Decimal("20")),
+        revenue_micros=revenue,
         counts=GamCounts(impressions=impressions, clicks=impressions // 100),
         synced_at=NOW,
         site_id=site_id,
