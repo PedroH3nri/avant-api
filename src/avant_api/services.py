@@ -34,13 +34,16 @@ class Services:
     mailer: Mailer
     box: SecretBox
     limiter: Limiter = field(default_factory=lambda: Limiter(MemoryCounter()))
-    bucket: Bucket = field(default_factory=MemoryBucket)  # chaves de API
-    google: GoogleAuth | None = None  # sem cliente OAuth configurado, não há login com Google
+    # Balde de fichas que limita as chaves de API.
+    bucket: Bucket = field(default_factory=MemoryBucket)
+    # Sem cliente OAuth configurado, não há login com Google.
+    google: GoogleAuth | None = None
     tasks: TaskQueue = field(default_factory=RecordingQueue)
     events: EventSource = field(default_factory=NoEvents)
 
     @classmethod
     def build(cls, settings: Settings) -> "Services":
+        """Monta banco, Redis, email, Google e fila de tarefas a partir das configurações."""
         engine = create_engine(
             settings.database_url, pool_size=settings.db_pool_size, pool_pre_ping=True
         )
@@ -74,6 +77,7 @@ class Services:
 
 
 def _mailer(settings: Settings) -> Mailer:
+    """Usa o Resend quando há chave; senão só registra os emails no log."""
     if settings.resend_api_key:
         return ResendMailer(
             api_key=settings.resend_api_key,
@@ -86,6 +90,7 @@ def _mailer(settings: Settings) -> Mailer:
 
 
 def _google(settings: Settings) -> GoogleAuth | None:
+    """Monta o cliente OAuth do Google, se estiver configurado."""
     if not (settings.google_oauth_client_id and settings.google_oauth_client_secret):
         return None
     return GoogleOAuth(

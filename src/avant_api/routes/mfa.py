@@ -48,8 +48,9 @@ def setup(
     auth: Authenticated = Depends(get_session_auth),
     services: Services = Depends(get_services),
 ) -> MfaSetupOut:
-    s = begin_mfa_setup(services.trusted_uow(), user_id=auth.user.id, box=services.box)
-    return MfaSetupOut(secret=s.secret, uri=s.uri)
+    """Começa a configurar o 2FA e devolve o segredo e o link do QR code."""
+    mfa_setup = begin_mfa_setup(services.trusted_uow(), user_id=auth.user.id, box=services.box)
+    return MfaSetupOut(secret=mfa_setup.secret, uri=mfa_setup.uri)
 
 
 @router.post("/confirm")
@@ -58,6 +59,7 @@ def confirm(
     auth: Authenticated = Depends(get_session_auth),
     services: Services = Depends(get_services),
 ) -> RecoveryCodesOut:
+    """Liga o 2FA com o primeiro código e devolve os códigos de recuperação."""
     codes = confirm_mfa_setup(
         services.trusted_uow(),
         user_id=auth.user.id,
@@ -75,6 +77,7 @@ def new_recovery_codes(
     auth: Authenticated = Depends(get_session_auth),
     services: Services = Depends(get_services),
 ) -> RecoveryCodesOut:
+    """Gera códigos de recuperação novos depois de conferir um código."""
     codes = regenerate_recovery_codes(
         services.trusted_uow(),
         user_id=auth.user.id,
@@ -91,6 +94,7 @@ def disable(
     auth: Authenticated = Depends(get_session_auth),
     services: Services = Depends(get_services),
 ) -> None:
+    """Desliga o 2FA depois de conferir um código."""
     disable_mfa(
         services.trusted_uow(),
         user_id=auth.user.id,

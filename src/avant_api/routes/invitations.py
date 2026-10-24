@@ -18,14 +18,15 @@ from avant_api.services import Services
 router = APIRouter(prefix="/invitations", tags=["team"])
 
 
-def invitation_out(i: Invitation) -> InvitationOut:
+def invitation_out(invitation: Invitation) -> InvitationOut:
+    """Monta a resposta de um convite de equipe."""
     return InvitationOut(
-        id=i.id,
-        email=i.email,
-        role_id=i.role_id,
-        status=i.status,
-        expires_at=i.expires_at,
-        invited_by=i.invited_by,
+        id=invitation.id,
+        email=invitation.email,
+        role_id=invitation.role_id,
+        status=invitation.status,
+        expires_at=invitation.expires_at,
+        invited_by=invitation.invited_by,
     )
 
 
@@ -34,8 +35,9 @@ def list_invitations(
     actor: Actor = Depends(require("team.view")),
     services: Services = Depends(get_services),
 ) -> ItemsOut[InvitationOut]:
+    """Lista os convites pendentes da Empresa ativa."""
     items = list_pending_invitations(services.uow(actor.company_id), actor=actor)
-    return ItemsOut(items=[invitation_out(i) for i in items])
+    return ItemsOut(items=[invitation_out(invitation) for invitation in items])
 
 
 @router.post("", status_code=status.HTTP_201_CREATED)
@@ -44,6 +46,7 @@ def create_invitation(
     actor: Actor = Depends(require("team.invite")),
     services: Services = Depends(get_services),
 ) -> InvitationOut:
+    """Convida alguém para a equipe da Empresa ativa."""
     invitation = invite_member(
         services.uow(actor.company_id),
         actor=actor,
@@ -78,6 +81,7 @@ def cancel(
     actor: Actor = Depends(require("team.invite")),
     services: Services = Depends(get_services),
 ) -> None:
+    """Cancela um convite pendente."""
     cancel_invitation(
         services.uow(actor.company_id),
         actor=actor,

@@ -16,7 +16,9 @@ SYNC_NETWORK = "avant.gam.sync_network"
 
 
 class TaskQueue(Protocol):
-    def send(self, name: str, *args: Any) -> None: ...
+    def send(self, name: str, *args: Any) -> None:
+        """Agenda uma tarefa no worker pelo nome."""
+        ...
 
 
 class CeleryQueue:
@@ -52,4 +54,5 @@ class RecordingQueue:
     sent: list[tuple[str, tuple[Any, ...]]] = field(default_factory=list)
 
     def send(self, name: str, *args: Any) -> None:
+        """Guarda a tarefa em memória, para os testes conferirem."""
         self.sent.append((name, args))

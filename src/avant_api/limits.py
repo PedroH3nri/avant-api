@@ -34,8 +34,13 @@ class Counter(Protocol):
         """Tentativas na janela e segundos até ela acabar."""
         ...
 
-    def incr(self, key: str, window_seconds: int) -> None: ...
-    def delete(self, key: str) -> None: ...
+    def incr(self, key: str, window_seconds: int) -> None:
+        """Soma uma tentativa, abrindo a janela se for a primeira."""
+        ...
+
+    def delete(self, key: str) -> None:
+        """Zera o contador."""
+        ...
 
 
 class MemoryCounter:
@@ -44,12 +49,14 @@ class MemoryCounter:
         self._lock = threading.Lock()
 
     def get(self, key: str) -> tuple[int, int]:
+        """Devolve as tentativas na janela e os segundos que faltam para ela acabar."""
         with self._lock:
             count, until = self._data.get(key, (0, 0.0))
             left = until - time.monotonic()
             return (count, math.ceil(left)) if left > 0 else (0, 0)
 
     def incr(self, key: str, window_seconds: int) -> None:
+        """Soma uma tentativa, abrindo a janela se for a primeira."""
         with self._lock:
             count, until = self._data.get(key, (0, 0.0))
             now = time.monotonic()
@@ -58,41 +65,47 @@ class MemoryCounter:
             self._data[key] = (count + 1, until)
 
     def delete(self, key: str) -> None:
+        """Zera o contador."""
         with self._lock:
             self._data.pop(key, None)
 
 
 class RedisCounter:
     def __init__(self, client: redis.Redis) -> None:
-        self._r = client
+        self._redis = client
 
     @classmethod
     def from_url(cls, url: str) -> "RedisCounter":
+        """Conecta ao Redis pela URL."""
         return cls(redis.Redis.from_url(url, socket_timeout=1.0))
 
     def get(self, key: str) -> tuple[int, int]:
-        pipe = self._r.pipeline()
-        pipe.get(key)
-        pipe.ttl(key)
-        raw, ttl = pipe.execute()
+        """Devolve as tentativas na janela e os segundos que faltam para ela acabar."""
+        pipeline = self._redis.pipeline()
+        pipeline.get(key)
+        pipeline.ttl(key)
+        raw, ttl = pipeline.execute()
         return (int(raw or 0), max(int(ttl), 0))
 
     def incr(self, key: str, window_seconds: int) -> None:
-        pipe = self._r.pipeline()
-        pipe.incr(key)
-        pipe.expire(key, window_seconds, nx=True)
-        pipe.execute()
+        """Soma uma tentativa, abrindo a janela se for a primeira."""
+        pipeline = self._redis.pipeline()
+        pipeline.incr(key)
+        pipeline.expire(key, window_seconds, nx=True)
+        pipeline.execute()
 
     def delete(self, key: str) -> None:
-        self._r.delete(key)
+        """Zera o contador."""
+        self._redis.delete(key)
 
 
 class Limiter:
     def __init__(self, counter: Counter, prefix: str = "avant:limit") -> None:
-        self._c = counter
+        self._counter = counter
         self._prefix = prefix
 
     def _key(self, rule: Rule, subject: str) -> str:
+        """Monta a chave do contador de uma regra para um sujeito."""
         return f"{self._prefix}:{rule.name}:{subject.lower()}"
 
     def check(self, *pairs: tuple[Rule, str | None]) -> None:
@@ -100,17 +113,19 @@ class Limiter:
         for rule, subject in pairs:
             if subject is None:
                 continue
-            count, left = self._c.get(self._key(rule, subject))
+            count, left = self._counter.get(self._key(rule, subject))
             if count >= rule.limit:
                 raise TooManyAttempts(retry_after=max(left, 1))
 
     def fail(self, *pairs: tuple[Rule, str | None]) -> None:
+        """Conta uma falha em cada regra com sujeito."""
         for rule, subject in pairs:
             if subject is not None:
-                self._c.incr(self._key(rule, subject), rule.window_seconds)
+                self._counter.incr(self._key(rule, subject), rule.window_seconds)
 
     def clear(self, rule: Rule, subject: str) -> None:
-        self._c.delete(self._key(rule, subject))
+        """Zera o contador de uma regra para um sujeito."""
+        self._counter.delete(self._key(rule, subject))
 
 
 # --- Chaves de API: balde de fichas -----------------------------------------------------
@@ -118,7 +133,8 @@ class Limiter:
 
 @dataclass(frozen=True)
 class BucketRule:
-    rate: float  # fichas por segundo
+    # Quantas fichas voltam por segundo.
+    rate: float
     burst: int
     # Quem insiste depois do 429 fica bloqueado: mais de ``abuse_limit`` recusas em um
     # minuto bloqueiam a chave por ``block_seconds``.
@@ -133,11 +149,14 @@ API_KEY = BucketRule(rate=2.0, burst=20, abuse_limit=20, block_seconds=30)
 class BucketResult:
     allowed: bool
     remaining: int
-    retry_after: int  # segundos; 0 quando passou
+    # Segundos até poder tentar de novo; 0 quando já pode.
+    retry_after: int
 
 
 class Bucket(Protocol):
-    def take(self, subject: str, rule: BucketRule, now: float) -> BucketResult: ...
+    def take(self, subject: str, rule: BucketRule, now: float) -> BucketResult:
+        """Tira uma ficha do balde do sujeito, ou diz quanto esperar."""
+        ...
 
 
 class MemoryBucket:
@@ -150,6 +169,7 @@ class MemoryBucket:
         self._lock = threading.Lock()
 
     def take(self, subject: str, rule: BucketRule, now: float) -> BucketResult:
+        """Tira uma ficha do balde do sujeito, ou diz quanto esperar."""
         with self._lock:
             until = self._blocked.get(subject, 0.0)
             if until > now:
@@ -209,9 +229,11 @@ class RedisBucket:
 
     @classmethod
     def from_url(cls, url: str) -> "RedisBucket":
+        """Conecta ao Redis pela URL."""
         return cls(redis.Redis.from_url(url, socket_timeout=1.0))
 
     def take(self, subject: str, rule: BucketRule, now: float) -> BucketResult:
+        """Tira uma ficha do balde do sujeito num script Lua atômico, ou diz quanto esperar."""
         base = f"{self._prefix}:{subject}"
         keys = [f"{base}:tokens", f"{base}:denied", f"{base}:blocked"]
         args: list[str | float] = [

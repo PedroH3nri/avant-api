@@ -34,6 +34,7 @@ class Settings(BaseSettings):
 
     @model_validator(mode="after")
     def _mail_in_deployed_envs(self) -> "Settings":
+        """Exige Resend, Redis e o broker do Celery em staging e produção."""
         if self.avant_env in ("staging", "production") and not self.resend_api_key:
             raise ValueError("RESEND_API_KEY é obrigatória em staging e produção")
         if self.avant_env in ("staging", "production") and not self.redis_url:
@@ -45,4 +46,5 @@ class Settings(BaseSettings):
 
     @property
     def cookie_secure(self) -> bool:
+        """Diz se os cookies saem com Secure (staging e produção)."""
         return self.avant_env in ("staging", "production")

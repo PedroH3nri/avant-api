@@ -27,7 +27,7 @@ def ready(services: Services = Depends(get_services)) -> JSONResponse | dict[str
         checks["database"] = "ok"
     except Exception as exc:
         checks["database"] = type(exc).__name__
-    if any(v != "ok" for v in checks.values()):
+    if any(check_status != "ok" for check_status in checks.values()):
         return JSONResponse({"status": "unavailable", "checks": checks}, status_code=503)
     return {"status": "ok", "checks": checks}
 

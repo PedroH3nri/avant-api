@@ -49,7 +49,8 @@ class CompanyOut(BaseModel):
     slug: str
     accent_color: str | None
     is_owner: bool
-    is_internal: bool  # a Company Groone: o painel mostra o painel interno
+    # A Company Groone: o painel mostra o painel interno.
+    is_internal: bool
 
 
 class MeOut(BaseModel):
@@ -60,29 +61,31 @@ class MeOut(BaseModel):
     site_scope: SiteScope | None
     is_staff: bool
     mfa_enabled: bool
-    mfa_setup_required: bool  # equipe Groone sem 2FA: o painel só mostra a configuração
+    # Equipe Groone sem 2FA: o painel só mostra a configuração.
+    mfa_setup_required: bool
 
     @classmethod
     def of(cls, auth: Authenticated) -> "MeOut":
-        u = auth.user
+        """Monta a resposta de /me com a pessoa, as Empresas e as permissões na ativa."""
+        user = auth.user
         return cls(
-            user=UserOut(id=u.id, email=u.email, name=u.name, locale=u.locale),
+            user=UserOut(id=user.id, email=user.email, name=user.name, locale=user.locale),
             companies=[
                 CompanyOut(
-                    id=c.company.id,
-                    name=c.company.name,
-                    slug=c.company.slug,
-                    accent_color=c.company.accent_color,
-                    is_owner=c.company.owner_user_id == u.id,
-                    is_internal=c.company.is_internal,
+                    id=access.company.id,
+                    name=access.company.name,
+                    slug=access.company.slug,
+                    accent_color=access.company.accent_color,
+                    is_owner=access.company.owner_user_id == user.id,
+                    is_internal=access.company.is_internal,
                 )
-                for c in auth.companies
+                for access in auth.companies
             ],
             active_company_id=auth.active.company.id if auth.active else None,
             permissions=sorted(auth.grants.permissions) if auth.grants else [],
             site_scope=auth.grants.site_scope if auth.grants else None,
             is_staff=auth.is_staff,
-            mfa_enabled=u.mfa_enabled,
+            mfa_enabled=user.mfa_enabled,
             mfa_setup_required=auth.mfa_setup_required,
         )
 
@@ -94,7 +97,8 @@ class LoginIn(BaseModel):
 
 class LoginOut(BaseModel):
     mfa_required: bool
-    me: MeOut | None  # vazio enquanto falta o código do 2FA
+    # Vazio enquanto falta o código do 2FA.
+    me: MeOut | None
 
 
 class MfaCodeIn(BaseModel):
@@ -105,11 +109,13 @@ class MfaCodeIn(BaseModel):
 
 class MfaSetupOut(BaseModel):
     secret: str
-    uri: str  # otpauth://..., para o QR code
+    # O link otpauth://..., para o QR code.
+    uri: str
 
 
 class RecoveryCodesOut(BaseModel):
-    recovery_codes: list[str]  # aparecem só nesta resposta
+    # Aparecem só nesta resposta.
+    recovery_codes: list[str]
 
 
 class ActiveCompanyIn(BaseModel):
@@ -137,7 +143,8 @@ class AcceptInvitationIn(BaseModel):
     name: str | None = Field(default=None, min_length=1, max_length=120)
     password: str | None = Field(default=None, max_length=1024)
     locale: Locale = Locale.PT
-    company: NewCompanyIn | None = None  # obrigatório no convite de dono
+    # Obrigatório no convite de dono.
+    company: NewCompanyIn | None = None
 
 
 class InviteIn(BaseModel):
@@ -169,23 +176,25 @@ class CompanyDetailOut(BaseModel):
     accent_color: str | None
     plan: CompanyPlan
     status: CompanyStatus
-    seat_limit: int | None  # vazio na Company Groone: limites valem só para clientes
+    # Vazio na Company Groone: limites valem só para clientes.
+    seat_limit: int | None
     seats_used: int
     settings: dict[str, object]
 
     @classmethod
-    def of(cls, v: CompanyOverview) -> "CompanyDetailOut":
-        c = v.company
+    def of(cls, overview: CompanyOverview) -> "CompanyDetailOut":
+        """Monta o detalhe da Empresa com as vagas ocupadas."""
+        company = overview.company
         return cls(
-            id=c.id,
-            name=c.name,
-            slug=c.slug,
-            accent_color=c.accent_color,
-            plan=c.plan,
-            status=c.status,
-            seat_limit=c.seat_limit,
-            seats_used=v.seats_used,
-            settings=c.settings,
+            id=company.id,
+            name=company.name,
+            slug=company.slug,
+            accent_color=company.accent_color,
+            plan=company.plan,
+            status=company.status,
+            seat_limit=company.seat_limit,
+            seats_used=overview.seats_used,
+            settings=company.settings,
         )
 
 
@@ -202,7 +211,8 @@ class RoleRefOut(BaseModel):
 
 
 class MemberOut(BaseModel):
-    id: uuid.UUID  # id da Membership
+    # O id é o da Membership.
+    id: uuid.UUID
     user: UserOut
     role: RoleRefOut | None
     status: MembershipStatus
@@ -210,15 +220,16 @@ class MemberOut(BaseModel):
     joined_at: datetime
 
     @classmethod
-    def of(cls, v: MemberView) -> "MemberOut":
-        u, m, r = v.user, v.membership, v.role
+    def of(cls, view: MemberView) -> "MemberOut":
+        """Monta o membro com pessoa e papel."""
+        user, membership, role = view.user, view.membership, view.role
         return cls(
-            id=m.id,
-            user=UserOut(id=u.id, email=u.email, name=u.name, locale=u.locale),
-            role=RoleRefOut(id=r.id, key=r.key, name=r.name) if r else None,
-            status=m.status,
-            is_owner=v.is_owner,
-            joined_at=m.joined_at,
+            id=membership.id,
+            user=UserOut(id=user.id, email=user.email, name=user.name, locale=user.locale),
+            role=RoleRefOut(id=role.id, key=role.key, name=role.name) if role else None,
+            status=membership.status,
+            is_owner=view.is_owner,
+            joined_at=membership.joined_at,
         )
 
 
@@ -228,18 +239,27 @@ class DirectPermissionOut(BaseModel):
     expires_at: datetime | None
 
     @classmethod
-    def of(cls, p: MemberPermission) -> "DirectPermissionOut":
-        return cls(permission=p.permission_key, effect=p.effect, expires_at=p.expires_at)
+    def of(cls, permission: MemberPermission) -> "DirectPermissionOut":
+        """Monta uma permissão direta do membro."""
+        return cls(
+            permission=permission.permission_key,
+            effect=permission.effect,
+            expires_at=permission.expires_at,
+        )
 
 
 class MemberDetailOut(MemberOut):
     permissions: list[DirectPermissionOut]
 
     @classmethod
-    def of(cls, v: MemberView) -> "MemberDetailOut":
-        assert isinstance(v, MemberDetail)
-        base = MemberOut.of(v).model_dump()
-        return cls(**base, permissions=[DirectPermissionOut.of(p) for p in v.permissions])
+    def of(cls, view: MemberView) -> "MemberDetailOut":
+        """Monta o membro com as permissões diretas."""
+        assert isinstance(view, MemberDetail)
+        base = MemberOut.of(view).model_dump()
+        return cls(
+            **base,
+            permissions=[DirectPermissionOut.of(permission) for permission in view.permissions],
+        )
 
 
 class MemberPatchIn(BaseModel):
@@ -263,8 +283,9 @@ class PermissionOut(BaseModel):
     name: dict[str, str]
 
     @classmethod
-    def of(cls, p: PermissionDef) -> "PermissionOut":
-        return cls(key=p.key, group=p.group, name=p.label)
+    def of(cls, definition: PermissionDef) -> "PermissionOut":
+        """Monta uma permissão do catálogo."""
+        return cls(key=definition.key, group=definition.group, name=definition.label)
 
 
 class RoleOut(BaseModel):
@@ -277,16 +298,17 @@ class RoleOut(BaseModel):
     member_count: int
 
     @classmethod
-    def of(cls, v: RoleView) -> "RoleOut":
-        r: Role = v.role
+    def of(cls, view: RoleView) -> "RoleOut":
+        """Monta o papel com quantos membros o usam."""
+        role: Role = view.role
         return cls(
-            id=r.id,
-            key=r.key,
-            name=r.name,
-            permissions=sorted(r.permissions),
-            site_scope=r.site_scope,
-            is_system=r.company_id is None,
-            member_count=v.member_count,
+            id=role.id,
+            key=role.key,
+            name=role.name,
+            permissions=sorted(role.permissions),
+            site_scope=role.site_scope,
+            is_system=role.company_id is None,
+            member_count=view.member_count,
         )
 
 
@@ -313,16 +335,17 @@ class AuditOut(BaseModel):
     created_at: datetime
 
     @classmethod
-    def of(cls, e: AuditEntry) -> "AuditOut":
+    def of(cls, entry: AuditEntry) -> "AuditOut":
+        """Monta uma entrada da auditoria."""
         return cls(
-            id=e.id,
-            action=e.action,
-            actor_kind=e.actor_kind,
-            actor_user_id=e.actor_user_id,
-            target_type=e.target_type,
-            target_id=e.target_id,
-            data=e.data,
-            created_at=e.created_at,
+            id=entry.id,
+            action=entry.action,
+            actor_kind=entry.actor_kind,
+            actor_user_id=entry.actor_user_id,
+            target_type=entry.target_type,
+            target_id=entry.target_id,
+            data=entry.data,
+            created_at=entry.created_at,
         )
 
 
@@ -337,18 +360,20 @@ class ClientOut(BaseModel):
     owner: UserOut
 
     @classmethod
-    def of(cls, v: ClientSummary) -> "ClientOut":
-        c, o = v.company, v.owner
-        assert c.seat_limit is not None  # Empresa de cliente sempre tem limite
+    def of(cls, summary: ClientSummary) -> "ClientOut":
+        """Monta a Empresa cliente com dono e vagas para o painel interno."""
+        company, owner = summary.company, summary.owner
+        # Empresa de cliente sempre tem limite.
+        assert company.seat_limit is not None
         return cls(
-            id=c.id,
-            name=c.name,
-            slug=c.slug,
-            plan=c.plan,
-            status=c.status,
-            seat_limit=c.seat_limit,
-            seats_used=v.seats_used,
-            owner=UserOut(id=o.id, email=o.email, name=o.name, locale=o.locale),
+            id=company.id,
+            name=company.name,
+            slug=company.slug,
+            plan=company.plan,
+            status=company.status,
+            seat_limit=company.seat_limit,
+            seats_used=summary.seats_used,
+            owner=UserOut(id=owner.id, email=owner.email, name=owner.name, locale=owner.locale),
         )
 
 
@@ -412,7 +437,8 @@ class ForgotPasswordIn(BaseModel):
 class ResetPasswordIn(BaseModel):
     token: str = Field(min_length=10, max_length=200)
     password: str = Field(min_length=1, max_length=1024)
-    mfa_code: str | None = Field(default=None, min_length=6, max_length=16)  # só com 2FA
+    # Só quando a pessoa tem 2FA ligado.
+    mfa_code: str | None = Field(default=None, min_length=6, max_length=16)
 
 
 class ChangePasswordIn(BaseModel):
@@ -435,7 +461,8 @@ class RevokedOut(BaseModel):
 
 
 class GoogleStatusOut(BaseModel):
-    available: bool  # a Groone configurou o cliente OAuth
+    # A Groone configurou o cliente OAuth.
+    available: bool
     linked: bool
 
 
@@ -453,16 +480,17 @@ class SyncRunOut(BaseModel):
     error_message: str | None
 
     @classmethod
-    def of(cls, r: NetworkSyncRun) -> "SyncRunOut":
+    def of(cls, run: NetworkSyncRun) -> "SyncRunOut":
+        """Monta uma execução de sincronização."""
         return cls(
-            id=r.id,
-            kind=r.kind,
-            status=r.status,
-            started_at=r.started_at,
-            finished_at=r.finished_at,
-            counts=dict(r.counts),
-            error_code=r.error_code,
-            error_message=r.error_message,
+            id=run.id,
+            kind=run.kind,
+            status=run.status,
+            started_at=run.started_at,
+            finished_at=run.finished_at,
+            counts=dict(run.counts),
+            error_code=run.error_code,
+            error_message=run.error_message,
         )
 
 
@@ -481,33 +509,36 @@ class NetworkOut(BaseModel):
     created_at: datetime
 
     @classmethod
-    def of(cls, n: Network) -> "NetworkOut":
+    def of(cls, network: Network) -> "NetworkOut":
+        """Monta a network."""
         return cls(
-            id=n.id,
-            network_code=n.network_code,
-            display_name=n.display_name,
-            connection_type=n.connection_type,
-            delegation=n.delegation,
-            status=n.status,
-            last_error=n.last_error,
-            failures=n.failures,
-            last_checked_at=n.last_checked_at,
-            last_synced_at=n.last_synced_at,
-            sync_requested_at=n.sync_requested_at,
-            created_at=n.created_at,
+            id=network.id,
+            network_code=network.network_code,
+            display_name=network.display_name,
+            connection_type=network.connection_type,
+            delegation=network.delegation,
+            status=network.status,
+            last_error=network.last_error,
+            failures=network.failures,
+            last_checked_at=network.last_checked_at,
+            last_synced_at=network.last_synced_at,
+            sync_requested_at=network.sync_requested_at,
+            created_at=network.created_at,
         )
 
 
 class NetworkDetailOut(NetworkOut):
-    sites: int  # ativos
+    # Quantos sites ativos a network tem.
+    sites: int
     last_runs: dict[SyncKind, SyncRunOut]
 
     @classmethod
-    def of_view(cls, v: NetworkView) -> "NetworkDetailOut":
+    def of_view(cls, view: NetworkView) -> "NetworkDetailOut":
+        """Monta a network com os sites ativos e as últimas sincronizações."""
         return cls(
-            **NetworkOut.of(v.network).model_dump(),
-            sites=v.sites,
-            last_runs={k: SyncRunOut.of(r) for k, r in v.last_runs.items()},
+            **NetworkOut.of(view.network).model_dump(),
+            sites=view.sites,
+            last_runs={kind: SyncRunOut.of(run) for kind, run in view.last_runs.items()},
         )
 
 
@@ -533,16 +564,17 @@ class McmCandidateOut(BaseModel):
     last_seen_at: datetime
 
     @classmethod
-    def of(cls, c: McmCandidate) -> "McmCandidateOut":
+    def of(cls, candidate: McmCandidate) -> "McmCandidateOut":
+        """Monta uma network do MCM que espera Empresa."""
         return cls(
-            id=c.id,
-            network_code=c.network_code,
-            display_name=c.display_name,
-            email=c.email,
-            delegation=c.delegation,
-            account_status=c.account_status,
-            first_seen_at=c.first_seen_at,
-            last_seen_at=c.last_seen_at,
+            id=candidate.id,
+            network_code=candidate.network_code,
+            display_name=candidate.display_name,
+            email=candidate.email,
+            delegation=candidate.delegation,
+            account_status=candidate.account_status,
+            first_seen_at=candidate.first_seen_at,
+            last_seen_at=candidate.last_seen_at,
         )
 
 
@@ -556,32 +588,37 @@ class SiteIn(BaseModel):
 
 class SiteOut(BaseModel):
     id: uuid.UUID
-    network_id: uuid.UUID | None  # vazio enquanto aguarda o GAM
+    # Vazio enquanto aguarda o GAM.
+    network_id: uuid.UUID | None
     domain: str
     approval_status: str | None
     status: InventoryStatus
     synced_at: datetime | None
-    awaiting_gam: bool  # cadastrado à mão, o GAM ainda não trouxe
+    # Cadastrado à mão, o GAM ainda não trouxe.
+    awaiting_gam: bool
 
     @classmethod
-    def of(cls, s: Site) -> "SiteOut":
+    def of(cls, site: Site) -> "SiteOut":
+        """Monta o site."""
         return cls(
-            id=s.id,
-            network_id=s.network_id,
-            domain=s.domain,
-            approval_status=s.approval_status,
-            status=s.status,
-            synced_at=s.synced_at,
-            awaiting_gam=s.awaiting_gam,
+            id=site.id,
+            network_id=site.network_id,
+            domain=site.domain,
+            approval_status=site.approval_status,
+            status=site.status,
+            synced_at=site.synced_at,
+            awaiting_gam=site.awaiting_gam,
         )
 
 
 class SiteListOut(SiteOut):
-    ad_units: int  # ativos
+    # Quantos ad units ativos o site tem.
+    ad_units: int
 
     @classmethod
-    def of_view(cls, v: SiteView) -> "SiteListOut":
-        return cls(**SiteOut.of(v.site).model_dump(), ad_units=v.ad_units)
+    def of_view(cls, view: SiteView) -> "SiteListOut":
+        """Monta o site da listagem com a contagem de ad units ativos."""
+        return cls(**SiteOut.of(view.site).model_dump(), ad_units=view.ad_units)
 
 
 class AdUnitOut(BaseModel):
@@ -596,17 +633,18 @@ class AdUnitOut(BaseModel):
     synced_at: datetime
 
     @classmethod
-    def of(cls, u: AdUnit) -> "AdUnitOut":
+    def of(cls, unit: AdUnit) -> "AdUnitOut":
+        """Monta o ad unit."""
         return cls(
-            id=u.id,
-            network_id=u.network_id,
-            parent_id=u.parent_id,
-            site_id=u.site_id,
-            site_manual=u.site_manual,
-            name=u.name,
-            code=u.ad_unit_code,
-            status=u.status,
-            synced_at=u.synced_at,
+            id=unit.id,
+            network_id=unit.network_id,
+            parent_id=unit.parent_id,
+            site_id=unit.site_id,
+            site_manual=unit.site_manual,
+            name=unit.name,
+            code=unit.ad_unit_code,
+            status=unit.status,
+            synced_at=unit.synced_at,
         )
 
 
@@ -616,11 +654,12 @@ class SiteDetailOut(SiteOut):
     assigned_to: list[uuid.UUID] | None
 
     @classmethod
-    def of_detail(cls, d: SiteDetail) -> "SiteDetailOut":
+    def of_detail(cls, detail: SiteDetail) -> "SiteDetailOut":
+        """Monta o site com seus ad units e quem o tem atribuído."""
         return cls(
-            **SiteOut.of(d.site).model_dump(),
-            ad_units=[AdUnitOut.of(u) for u in d.ad_units],
-            assigned_to=d.assigned_to,
+            **SiteOut.of(detail.site).model_dump(),
+            ad_units=[AdUnitOut.of(unit) for unit in detail.ad_units],
+            assigned_to=detail.assigned_to,
         )
 
 
@@ -637,17 +676,20 @@ class MemberSitesIn(BaseModel):
 
 
 class SiteMemberOut(MemberOut):
-    via: str  # "assigned" ou "all"
+    # "assigned" (atribuído) ou "all" (vê todos os sites).
+    via: str
 
     @classmethod
-    def of_site_member(cls, v: SiteMember) -> "SiteMemberOut":
-        return cls(**MemberOut.of(v.member).model_dump(), via=v.via)
+    def of_site_member(cls, view: SiteMember) -> "SiteMemberOut":
+        """Monta quem vê o site e por quê (atribuído ou todos)."""
+        return cls(**MemberOut.of(view.member).model_dump(), via=view.via)
 
 
 class ApiKeyOut(BaseModel):
     id: uuid.UUID
     name: str
-    prefix: str  # para reconhecer: avk_{prefix}...
+    # Para reconhecer: avk_{prefix}...
+    prefix: str
     permissions: list[str]
     owner: UserOut
     created_at: datetime
@@ -656,23 +698,25 @@ class ApiKeyOut(BaseModel):
     revoked_at: datetime | None
 
     @classmethod
-    def of(cls, v: ApiKeyView) -> "ApiKeyOut":
-        k, u = v.key, v.owner
+    def of(cls, view: ApiKeyView) -> "ApiKeyOut":
+        """Monta a chave de API com o dono, sem o token."""
+        key, owner = view.key, view.owner
         return cls(
-            id=k.id,
-            name=k.name,
-            prefix=k.prefix,
-            permissions=list(k.permissions),
-            owner=UserOut(id=u.id, email=u.email, name=u.name, locale=u.locale),
-            created_at=k.created_at,
-            expires_at=k.expires_at,
-            last_used_at=k.last_used_at,
-            revoked_at=k.revoked_at,
+            id=key.id,
+            name=key.name,
+            prefix=key.prefix,
+            permissions=list(key.permissions),
+            owner=UserOut(id=owner.id, email=owner.email, name=owner.name, locale=owner.locale),
+            created_at=key.created_at,
+            expires_at=key.expires_at,
+            last_used_at=key.last_used_at,
+            revoked_at=key.revoked_at,
         )
 
 
 class ApiKeyCreatedOut(ApiKeyOut):
-    token: str  # aparece só nesta resposta
+    # Aparece só nesta resposta.
+    token: str
 
 
 class ApiKeyIn(BaseModel):

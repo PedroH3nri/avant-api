@@ -31,6 +31,7 @@ API_PREFIX = "/api/v1"
 
 
 def create_app(services: Services | None = None) -> FastAPI:
+    """Monta a aplicação FastAPI com serviços, rotas, erros e middleware."""
     if services is None:
         configure_logging()
         services = Services.build(Settings())

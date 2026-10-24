@@ -26,6 +26,7 @@ def index(
     actor: Actor = Depends(require("audit.view")),
     services: Services = Depends(get_services),
 ) -> ItemsOut[AuditOut]:
+    """Lista a auditoria da Empresa ativa, com filtros e paginação por cursor."""
     page = list_audit(
         services.uow(actor.company_id),
         actor=actor,
@@ -33,4 +34,6 @@ def index(
         limit=limit,
         cursor=cursor,
     )
-    return ItemsOut(items=[AuditOut.of(e) for e in page.items], next_cursor=page.next_cursor)
+    return ItemsOut(
+        items=[AuditOut.of(entry) for entry in page.items], next_cursor=page.next_cursor
+    )

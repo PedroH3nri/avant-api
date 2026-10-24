@@ -28,6 +28,7 @@ RETRY_MS = 5000
 
 
 def channel(company_id: uuid.UUID) -> str:
+    """Nome do canal do Redis com os eventos de uma Empresa."""
     return f"avant:events:{company_id}"
 
 
@@ -42,6 +43,7 @@ class RedisEvents:
         self._url = url
 
     async def listen(self, channel: str, *, timeout: float) -> AsyncIterator[str | None]:
+        """Escuta o canal da Empresa e entrega cada evento, ou None no tempo limite."""
         client = aioredis.Redis.from_url(self._url)
         pubsub = client.pubsub()
         try:
@@ -62,6 +64,7 @@ class NoEvents:
     """Sem Redis (local e testes): a conexão fica aberta só com o heartbeat."""
 
     async def listen(self, channel: str, *, timeout: float) -> AsyncIterator[str | None]:
+        """Nunca tem evento: só entrega None a cada tempo limite."""
         while True:
             await asyncio.sleep(timeout)
             yield None
@@ -92,6 +95,7 @@ async def sse(
 
 
 def _parse(raw: str) -> tuple[str, dict[str, object]] | None:
+    """Lê um evento JSON do canal; o que vier estragado é ignorado."""
     try:
         event = json.loads(raw)
         type_, data = event["type"], event.get("data") or {}

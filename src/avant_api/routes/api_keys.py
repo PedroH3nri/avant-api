@@ -23,7 +23,7 @@ def index(
 ) -> ItemsOut[ApiKeyOut]:
     """Com ``api_keys.manage``, as da Empresa toda; sem, só as próprias."""
     views = list_api_keys(services.uow(actor.company_id), actor=actor)
-    return ItemsOut(items=[ApiKeyOut.of(v) for v in views])
+    return ItemsOut(items=[ApiKeyOut.of(view) for view in views])
 
 
 @router.post("", status_code=status.HTTP_201_CREATED)
@@ -32,6 +32,7 @@ def create(
     actor: Actor = Depends(require_session("api_keys.manage")),
     services: Services = Depends(get_services),
 ) -> ApiKeyCreatedOut:
+    """Cria uma chave de API para quem está agindo; o token aparece só nesta resposta."""
     created = create_api_key(
         services.uow(actor.company_id),
         actor=actor,
@@ -41,9 +42,9 @@ def create(
         clock=services.clock,
     )
     view = next(
-        v
-        for v in list_api_keys(services.uow(actor.company_id), actor=actor)
-        if v.key.id == created.key.id
+        view
+        for view in list_api_keys(services.uow(actor.company_id), actor=actor)
+        if view.key.id == created.key.id
     )
     return ApiKeyCreatedOut(**ApiKeyOut.of(view).model_dump(), token=created.token)
 

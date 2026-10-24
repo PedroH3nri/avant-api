@@ -43,20 +43,21 @@ router = APIRouter(tags=["sites"])
 def index(
     network_id: uuid.UUID | None = None,
     approval_status: str | None = Query(default=None, max_length=40),
-    q: str | None = Query(default=None, max_length=200),
+    query: str | None = Query(alias="q", default=None, max_length=200),
     include_archived: bool = False,
     actor: Actor = Depends(require("sites.view")),
     services: Services = Depends(get_services),
 ) -> ItemsOut[SiteListOut]:
+    """Lista os sites que quem age enxerga, com filtros."""
     views = list_sites(
         services.uow(actor.company_id),
         actor=actor,
         network_id=network_id,
         approval_status=approval_status,
-        q=q,
+        query=query,
         include_archived=include_archived,
     )
-    return ItemsOut(items=[SiteListOut.of_view(v) for v in views])
+    return ItemsOut(items=[SiteListOut.of_view(view) for view in views])
 
 
 @router.post("/sites", status_code=status.HTTP_201_CREATED)
@@ -88,6 +89,7 @@ def show(
     actor: Actor = Depends(require("sites.view")),
     services: Services = Depends(get_services),
 ) -> SiteDetailOut:
+    """Mostra um site com os ad units."""
     return SiteDetailOut.of_detail(
         get_site(services.uow(actor.company_id), actor=actor, site_id=site_id)
     )
@@ -99,8 +101,9 @@ def members(
     actor: Actor = Depends(require("sites.assign")),
     services: Services = Depends(get_services),
 ) -> ItemsOut[SiteMemberOut]:
+    """Lista quem vê o site."""
     found = site_members(services.uow(actor.company_id), actor=actor, site_id=site_id)
-    return ItemsOut(items=[SiteMemberOut.of_site_member(m) for m in found])
+    return ItemsOut(items=[SiteMemberOut.of_site_member(member) for member in found])
 
 
 @router.get("/ad-units")
@@ -121,7 +124,7 @@ def ad_units(
         status=status,
         unlinked=unlinked,
     )
-    return ItemsOut(items=[AdUnitOut.of(u) for u in units])
+    return ItemsOut(items=[AdUnitOut.of(unit) for unit in units])
 
 
 @router.patch("/ad-units/{ad_unit_id}")
@@ -131,6 +134,7 @@ def link(
     actor: Actor = Depends(require("sites.assign")),
     services: Services = Depends(get_services),
 ) -> AdUnitOut:
+    """Liga ou desliga à mão um ad unit de um site."""
     unit = link_ad_unit(
         services.uow(actor.company_id),
         actor=actor,
@@ -148,8 +152,9 @@ def sites_of_member(
     actor: Actor = Depends(require("team.view")),
     services: Services = Depends(get_services),
 ) -> ItemsOut[SiteOut]:
+    """Lista os sites atribuídos a um membro."""
     found = member_sites(services.uow(actor.company_id), actor=actor, membership_id=membership_id)
-    return ItemsOut(items=[SiteOut.of(s) for s in found])
+    return ItemsOut(items=[SiteOut.of(site) for site in found])
 
 
 @router.put("/members/{membership_id}/sites")
@@ -167,4 +172,4 @@ def assign_sites(
         site_ids=body.site_ids,
         clock=services.clock,
     )
-    return ItemsOut(items=[SiteOut.of(s) for s in found])
+    return ItemsOut(items=[SiteOut.of(site) for site in found])

@@ -32,21 +32,22 @@ router = APIRouter(prefix="/members", tags=["team"])
 def index(
     member_status: MembershipStatus | None = Query(default=None, alias="status"),
     role: uuid.UUID | None = None,
-    q: str | None = Query(default=None, max_length=120),
+    query: str | None = Query(alias="q", default=None, max_length=120),
     actor: Actor = Depends(require("team.view")),
     services: Services = Depends(get_services),
 ) -> ItemsOut[MemberOut]:
     """A equipe cabe no limite de vagas, então a lista vem inteira, sem cursor."""
     items = list_members(
-        services.uow(actor.company_id), actor=actor, status=member_status, role_id=role, q=q
+        services.uow(actor.company_id), actor=actor, status=member_status, role_id=role, query=query
     )
-    return ItemsOut(items=[MemberOut.of(m) for m in items])
+    return ItemsOut(items=[MemberOut.of(member) for member in items])
 
 
 @router.post("/me/leave", status_code=status.HTTP_204_NO_CONTENT)
 def leave(
     actor: Actor = Depends(get_session_actor), services: Services = Depends(get_services)
 ) -> None:
+    """Tira quem está agindo da Empresa ativa."""
     leave_company(services.uow(actor.company_id), actor=actor, clock=services.clock)
 
 
@@ -56,6 +57,7 @@ def show(
     actor: Actor = Depends(require("team.view")),
     services: Services = Depends(get_services),
 ) -> MemberDetailOut:
+    """Mostra um membro com papel e permissões diretas."""
     detail = get_member(services.uow(actor.company_id), actor=actor, membership_id=membership_id)
     return MemberDetailOut.of(detail)
 
@@ -67,6 +69,7 @@ def edit(
     actor: Actor = Depends(require("team.manage")),
     services: Services = Depends(get_services),
 ) -> MemberDetailOut:
+    """Muda o papel ou o status de um membro."""
     detail = update_member(
         services.uow(actor.company_id),
         actor=actor,
@@ -84,6 +87,7 @@ def remove(
     actor: Actor = Depends(require("team.manage")),
     services: Services = Depends(get_services),
 ) -> None:
+    """Remove um membro da Empresa."""
     remove_member(
         services.uow(actor.company_id),
         actor=actor,
@@ -99,12 +103,14 @@ def set_permissions(
     actor: Actor = Depends(require("permissions.grant")),
     services: Services = Depends(get_services),
 ) -> MemberDetailOut:
+    """Troca a lista inteira de permissões diretas do membro."""
     detail = set_member_permissions(
         services.uow(actor.company_id),
         actor=actor,
         membership_id=membership_id,
         permissions=[
-            DirectPermission(p.permission, p.effect, p.expires_at) for p in body.permissions
+            DirectPermission(permission.permission, permission.effect, permission.expires_at)
+            for permission in body.permissions
         ],
         clock=services.clock,
     )
