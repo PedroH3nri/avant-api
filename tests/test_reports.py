@@ -212,3 +212,55 @@ def test_reports_rate_limit(client: TestClient, engine: Engine, mailer: Capturin
         for _ in range(12)
     ]
     assert statuses[:10] == [200] * 10 and statuses[-1] == 429
+
+
+def test_page_views_query_by_hour(
+    client: TestClient, engine: Engine, mailer: CapturingMailer
+) -> None:
+    from avant_core.metrics.domain import PageViewHourly
+
+    me = _onboard_owner(client, engine, mailer)
+    company_id = uuid.UUID(me["active_company_id"])
+    ids = _metrics(engine, company_id)
+    with SqlAlchemyUnitOfWork(engine, company_id=company_id) as uow:
+        uow.page_views.upsert_hourly(
+            [
+                PageViewHourly(
+                    company_id,
+                    ids["network"],
+                    "acai.com.br",
+                    YESTERDAY,
+                    hour,
+                    "Brazil",
+                    views,
+                    NOW,
+                    site_id=ids["acai"],
+                )
+                for hour, views in ((9, 120), (10, 80))
+            ]
+        )
+        uow.commit()
+
+    catalog = client.get("/api/v1/metrics/catalog").json()
+    page_views = next(metric for metric in catalog["metrics"] if metric["key"] == "page_views")
+    assert page_views["sources"] == ["page_views"]
+    hour = next(item for item in catalog["dimensions"] if item["key"] == "hour")
+    assert hour["sources"] == ["page_views"] and hour["filterable"] is False
+
+    body = _day(["hour"], source="page_views", metrics=["page_views"])
+    response = client.post("/api/v1/reports/query", json=body, headers=_csrf(client))
+    assert response.status_code == 200, response.text
+    result = response.json()
+    assert result["totals"] == {"page_views": "200"}
+    assert [
+        (row["dimensions"]["hour"], row["metrics"]["page_views"]) for row in result["rows"]
+    ] == [
+        ("9", "120"),
+        ("10", "80"),
+    ]
+    mixed = client.post(
+        "/api/v1/reports/query",
+        json=_day(source="page_views", metrics=["revenue"]),
+        headers=_csrf(client),
+    )
+    assert mixed.status_code == 422 and mixed.json()["error"]["code"] == "invalid_input"

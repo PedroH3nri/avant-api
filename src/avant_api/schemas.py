@@ -48,9 +48,9 @@ from avant_core.metrics.catalog import (
     MetricSource,
 )
 from avant_core.metrics.query import (
-    DATE_DIMENSIONS,
     MAX_FILTER_VALUES,
     MAX_LIMIT,
+    UNFILTERABLE_DIMENSIONS,
     DateRange,
     DimensionValue,
     Filter,
@@ -870,12 +870,18 @@ class MetricOut(BaseModel):
     label: LabelOut
     kind: MetricKind
     format: MetricFormat
+    # Fontes onde a métrica existe: as visitas (page_views) têm a sua.
+    sources: list[MetricSource]
 
     @classmethod
     def of(cls, metric: Metric) -> "MetricOut":
         """Monta a métrica do catálogo."""
         return cls(
-            key=metric.key, label=LabelOut.of(metric.label), kind=metric.kind, format=metric.format
+            key=metric.key,
+            label=LabelOut.of(metric.label),
+            kind=metric.kind,
+            format=metric.format,
+            sources=sorted(metric.sources),
         )
 
 
@@ -883,7 +889,7 @@ class DimensionOut(BaseModel):
     key: str
     label: LabelOut
     sources: list[MetricSource]
-    # Data, semana e mês agrupam, mas não filtram: o período já faz isso.
+    # Data, semana, mês e hora agrupam, mas não filtram: o período já faz isso.
     filterable: bool
 
     @classmethod
@@ -893,7 +899,7 @@ class DimensionOut(BaseModel):
             key=dimension.key,
             label=LabelOut.of(dimension.label),
             sources=sorted(dimension.sources),
-            filterable=dimension.key not in DATE_DIMENSIONS,
+            filterable=dimension.key not in UNFILTERABLE_DIMENSIONS,
         )
 
 
