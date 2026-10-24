@@ -549,13 +549,18 @@ class AssignNetworkIn(BaseModel):
     company_id: uuid.UUID
 
 
+class SiteIn(BaseModel):
+    domain: str = Field(min_length=1, max_length=300)
+
+
 class SiteOut(BaseModel):
     id: uuid.UUID
-    network_id: uuid.UUID
+    network_id: uuid.UUID | None  # vazio enquanto aguarda o GAM
     domain: str
     approval_status: str | None
     status: InventoryStatus
-    synced_at: datetime
+    synced_at: datetime | None
+    awaiting_gam: bool  # cadastrado à mão, o GAM ainda não trouxe
 
     @classmethod
     def of(cls, s: Site) -> "SiteOut":
@@ -566,6 +571,7 @@ class SiteOut(BaseModel):
             approval_status=s.approval_status,
             status=s.status,
             synced_at=s.synced_at,
+            awaiting_gam=s.awaiting_gam,
         )
 
 

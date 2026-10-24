@@ -20,8 +20,8 @@ def _inventory(engine: Engine, company_id: uuid.UUID) -> dict[str, uuid.UUID]:
     with SqlAlchemyUnitOfWork(engine, company_id=company_id) as uow:
         net = Network(company_id, "123", ConnectionType.SERVICE_ACCOUNT, NOW)
         uow.networks.add(net)
-        acai = Site(company_id, net.id, "s1", "acai.com.br", NOW, "APPROVED")
-        blog = Site(company_id, net.id, "s2", "blog.com", NOW, "DRAFT")
+        acai = Site(company_id, "acai.com.br", net.id, "s1", NOW, "APPROVED")
+        blog = Site(company_id, "blog.com", net.id, "s2", NOW, "DRAFT")
         for s in (acai, blog):
             uow.sites.add(s)
         root = AdUnit(company_id, net.id, "u1", "acai.com.br", NOW, site_id=acai.id)
@@ -96,3 +96,33 @@ def test_sites_and_assignment(client: TestClient, engine: Engine, mailer: Captur
     assert r.json()["items"] == [] and ana.get("/api/v1/sites").json()["items"] == []
     audit = client.get("/api/v1/audit").json()["items"]
     assert {"site.assigned", "site.unassigned", "ad_unit.linked"} <= {e["action"] for e in audit}
+
+
+def test_manual_site(client: TestClient, engine: Engine, mailer: CapturingMailer) -> None:
+    me = _onboard_owner(client, engine, mailer)
+    ids = _inventory(engine, uuid.UUID(me["active_company_id"]))
+    ana = _member_client(client, mailer, "ana@acai.com")  # Financeiro: sem sites.manage
+
+    body = {"domain": "https://www.Receitas.com.br/"}
+    denied = ana.post("/api/v1/sites", json=body, headers=_csrf(ana))
+    assert denied.status_code == 403 and denied.json()["error"]["code"] == "permission_denied"
+
+    r = client.post("/api/v1/sites", json=body, headers=_csrf(client))
+    assert r.status_code == 201, r.text
+    site = r.json()
+    assert site["domain"] == "receitas.com.br" and site["awaiting_gam"] is True
+    assert site["network_id"] is None and site["synced_at"] is None and site["ad_units"] == 0
+    listed = {s["domain"]: s["awaiting_gam"] for s in client.get("/api/v1/sites").json()["items"]}
+    assert listed == {"acai.com.br": False, "blog.com": False, "receitas.com.br": True}
+    assert client.get(f"/api/v1/sites/{site['id']}").json()["ad_units"] == []
+
+    again = client.post("/api/v1/sites", json={"domain": "acai.com.br"}, headers=_csrf(client))
+    assert again.status_code == 409 and again.json()["error"]["code"] == "site_exists"
+    bad = client.post("/api/v1/sites", json={"domain": "nada"}, headers=_csrf(client))
+    assert bad.status_code == 422 and bad.json()["error"]["code"] == "invalid_input"
+
+    from_gam = client.delete(f"/api/v1/sites/{ids['acai']}", headers=_csrf(client))
+    assert from_gam.status_code == 409 and from_gam.json()["error"]["code"] == "site_from_gam"
+    assert ana.delete(f"/api/v1/sites/{site['id']}", headers=_csrf(ana)).status_code == 403
+    assert client.delete(f"/api/v1/sites/{site['id']}", headers=_csrf(client)).status_code == 204
+    assert client.get(f"/api/v1/sites/{site['id']}").status_code == 404

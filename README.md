@@ -58,7 +58,9 @@ Outros repositórios: avant-core, avant-worker, avant-web, avant-infra.
 | `POST /api-keys` | cria uma chave; o valor `avk_...` volta só nesta resposta; só pela sessão | `api_keys.manage` |
 | `DELETE /api-keys/{id}` | revoga; a dona da chave ou quem gerencia | membro |
 | `GET /sites` | sites da Empresa (filtros `network_id`, `approval_status`, `q`, `include_archived`); quem não vê todos recebe só os atribuídos | `sites.view` |
+| `POST /sites` | cadastra site pelo domínio, aguardando o GAM (`awaiting_gam`); a importação junta ao site do GAM com o mesmo domínio | `sites.manage` |
 | `GET /sites/{id}` | detalhe com os ad units; `assigned_to` só para quem atribui | `sites.view` |
+| `DELETE /sites/{id}` | remove o site que ainda aguarda o GAM (o do GAM responde `site_from_gam`) | `sites.manage` |
 | `GET /sites/{id}/members` | quem vê o site: atribuído ou por ver todos | `sites.assign` |
 | `GET /ad-units` | lista plana (`parent_id` monta a árvore); filtros `network_id`, `site_id`, `status`, `unlinked` | `sites.view` |
 | `PATCH /ad-units/{id}` | liga a um site à mão (os filhos seguem) ou volta ao automático | `sites.assign` |
