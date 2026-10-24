@@ -63,7 +63,8 @@ def forgot_password(
     """Responde 202 exista ou não a conta, para não revelar quem tem cadastro."""
     _, ip = _client(request)
     services.limiter.check((PASSWORD_IP, ip))
-    services.limiter.fail((PASSWORD_IP, ip))  # todo pedido conta
+    # Todo pedido conta.
+    services.limiter.fail((PASSWORD_IP, ip))
     request_password_reset(
         services.trusted_uow(), email=body.email, clock=services.clock, mailer=services.mailer
     )
@@ -122,19 +123,21 @@ def do_change_password(
 def get_sessions(
     auth: Authenticated = Depends(get_session_auth), services: Services = Depends(get_services)
 ) -> list[SessionOut]:
+    """Lista as sessões abertas da pessoa, da mais recente para a mais antiga."""
     rows = list_sessions(services.trusted_uow(), user_id=auth.user.id, clock=services.clock)
-    rows.sort(key=lambda s: s.last_seen_at, reverse=True)
+    rows.sort(key=lambda session: session.last_seen_at, reverse=True)
     return [
         SessionOut(
-            id=s.id,
-            created_at=s.created_at,
-            last_seen_at=s.last_seen_at,
-            expires_at=s.expires_at,
-            user_agent=s.user_agent,
-            ip=str(s.ip) if s.ip is not None else None,  # inet volta como IPv4Address
-            current=s.id == auth.session.id,
+            id=session.id,
+            created_at=session.created_at,
+            last_seen_at=session.last_seen_at,
+            expires_at=session.expires_at,
+            user_agent=session.user_agent,
+            # Inet volta como IPv4Address.
+            ip=str(session.ip) if session.ip is not None else None,
+            current=session.id == auth.session.id,
         )
-        for s in rows
+        for session in rows
     ]
 
 
@@ -145,6 +148,7 @@ def delete_session(
     auth: Authenticated = Depends(get_session_auth),
     services: Services = Depends(get_services),
 ) -> None:
+    """Encerra uma sessão da pessoa."""
     revoke_session(
         services.trusted_uow(), user_id=auth.user.id, session_id=session_id, clock=services.clock
     )
@@ -156,6 +160,7 @@ def delete_session(
 def revoke_others(
     auth: Authenticated = Depends(get_session_auth), services: Services = Depends(get_services)
 ) -> RevokedOut:
+    """Encerra todas as sessões da pessoa menos a atual."""
     count = revoke_other_sessions(
         services.trusted_uow(),
         user_id=auth.user.id,
@@ -169,6 +174,7 @@ def revoke_others(
 
 
 def _google(services: Services) -> GoogleAuth:
+    """Devolve o cliente OAuth do Google ou recusa quando não está configurado."""
     if services.google is None:
         raise GoogleUnavailable("login com Google não configurado")
     return services.google
@@ -178,6 +184,7 @@ def _google(services: Services) -> GoogleAuth:
 def google_status(
     auth: Authenticated = Depends(get_auth), services: Services = Depends(get_services)
 ) -> GoogleStatusOut:
+    """Diz se o login com Google está disponível e se a pessoa já o ligou."""
     linked = has_google(services.trusted_uow(), user_id=auth.user.id)
     return GoogleStatusOut(available=services.google is not None, linked=linked)
 
@@ -186,6 +193,7 @@ def google_status(
 def google_unlink(
     auth: Authenticated = Depends(get_auth), services: Services = Depends(get_services)
 ) -> None:
+    """Desliga a conta Google da pessoa."""
     unlink_google(services.trusted_uow(), user_id=auth.user.id)
 
 
@@ -258,6 +266,7 @@ def google_callback(
 
 
 def _session(request: Request, services: Services) -> Authenticated:
+    """Lê o token do cookie de sessão; sem cookie é 401."""
     token = request.cookies.get(services.settings.session_cookie)
     if not token:
         raise NotAuthenticated()
@@ -270,7 +279,8 @@ def _session(request: Request, services: Services) -> Authenticated:
 def _back(
     services: Services, path: str, *, error: str | None = None, google: str | None = None
 ) -> RedirectResponse:
-    query = {k: v for k, v in (("erro", error), ("google", google)) if v}
+    """Redireciona de volta ao painel com o resultado na query string."""
+    query = {key: value for key, value in (("erro", error), ("google", google)) if value}
     url = services.settings.app_base_url.rstrip("/") + path
     redirect = RedirectResponse(url + (f"?{urlencode(query)}" if query else ""), status_code=302)
     redirect.delete_cookie(GOOGLE_COOKIE, path=GOOGLE_COOKIE_PATH)

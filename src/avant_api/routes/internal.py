@@ -59,28 +59,32 @@ from avant_api.services import Services
 router = APIRouter(prefix="/internal", tags=["internal"])
 
 
-def _owner_invitation(i: Invitation) -> OwnerInvitationOut:
+def _owner_invitation(invitation: Invitation) -> OwnerInvitationOut:
+    """Monta a resposta de um convite de dono."""
     return OwnerInvitationOut(
-        id=i.id,
-        email=i.email,
-        status=i.status,
-        seat_limit=i.seat_limit,
-        plan=i.plan,
-        expires_at=i.expires_at,
-        invited_by=i.invited_by,
+        id=invitation.id,
+        email=invitation.email,
+        status=invitation.status,
+        seat_limit=invitation.seat_limit,
+        plan=invitation.plan,
+        expires_at=invitation.expires_at,
+        invited_by=invitation.invited_by,
     )
 
 
-def _person(p: PersonView) -> PersonOut:
-    u = p.user
+def _person(person: PersonView) -> PersonOut:
+    """Monta a resposta de uma pessoa com as Empresas em que está."""
+    user = person.user
     return PersonOut(
-        user=UserOut(id=u.id, email=u.email, name=u.name, locale=u.locale),
-        status=u.status,
-        mfa_enabled=u.mfa_enabled,
-        last_login_at=u.last_login_at,
+        user=UserOut(id=user.id, email=user.email, name=user.name, locale=user.locale),
+        status=user.status,
+        mfa_enabled=user.mfa_enabled,
+        last_login_at=user.last_login_at,
         companies=[
-            CompanyRefOut(id=c.id, name=c.name, slug=c.slug, is_internal=c.is_internal)
-            for c in p.companies
+            CompanyRefOut(
+                id=company.id, name=company.name, slug=company.slug, is_internal=company.is_internal
+            )
+            for company in person.companies
         ],
     )
 
@@ -90,13 +94,14 @@ def _person(p: PersonView) -> PersonOut:
 
 @router.get("/clients")
 def clients(
-    q: str | None = Query(default=None, max_length=120),
+    query: str | None = Query(alias="q", default=None, max_length=120),
     company_status: CompanyStatus | None = Query(default=None, alias="status"),
     actor: Actor = Depends(require_staff("internal.clients.view")),
     services: Services = Depends(get_services),
 ) -> ItemsOut[ClientOut]:
-    items = list_clients(services.trusted_uow(), actor=actor, q=q, status=company_status)
-    return ItemsOut(items=[ClientOut.of(c) for c in items])
+    """Lista as Empresas de cliente, com busca e filtro de status."""
+    items = list_clients(services.trusted_uow(), actor=actor, query=query, status=company_status)
+    return ItemsOut(items=[ClientOut.of(client) for client in items])
 
 
 @router.post("/clients", status_code=status.HTTP_201_CREATED)
@@ -124,11 +129,12 @@ def client(
     actor: Actor = Depends(require_staff("internal.clients.view")),
     services: Services = Depends(get_services),
 ) -> ClientDetailOut:
-    d = get_client(services.trusted_uow(), actor=actor, company_id=company_id)
+    """Mostra uma Empresa cliente com membros e convites."""
+    detail = get_client(services.trusted_uow(), actor=actor, company_id=company_id)
     return ClientDetailOut(
-        **ClientOut.of(d).model_dump(),
-        members=[MemberOut.of(m) for m in d.members],
-        invitations=[invitation_out(i) for i in d.invitations],
+        **ClientOut.of(detail).model_dump(),
+        members=[MemberOut.of(member) for member in detail.members],
+        invitations=[invitation_out(invitation) for invitation in detail.invitations],
     )
 
 
@@ -140,10 +146,13 @@ def audit(
     actor: Actor = Depends(require_staff("internal.clients.view")),
     services: Services = Depends(get_services),
 ) -> ItemsOut[AuditOut]:
+    """Lista a auditoria de uma Empresa cliente."""
     page = client_audit(
         services.trusted_uow(), actor=actor, company_id=company_id, limit=limit, cursor=cursor
     )
-    return ItemsOut(items=[AuditOut.of(e) for e in page.items], next_cursor=page.next_cursor)
+    return ItemsOut(
+        items=[AuditOut.of(entry) for entry in page.items], next_cursor=page.next_cursor
+    )
 
 
 @router.patch("/clients/{company_id}")
@@ -153,6 +162,7 @@ def edit_client(
     actor: Actor = Depends(require_staff("internal.clients.manage")),
     services: Services = Depends(get_services),
 ) -> ClientOut:
+    """Muda o limite de vagas ou o plano de uma Empresa cliente."""
     view = update_client(
         services.trusted_uow(),
         actor=actor,
@@ -170,6 +180,7 @@ def suspend(
     actor: Actor = Depends(require_staff("internal.clients.manage")),
     services: Services = Depends(get_services),
 ) -> None:
+    """Suspende uma Empresa cliente."""
     set_client_status(
         services.trusted_uow(),
         actor=actor,
@@ -185,6 +196,7 @@ def reactivate(
     actor: Actor = Depends(require_staff("internal.clients.manage")),
     services: Services = Depends(get_services),
 ) -> None:
+    """Reativa uma Empresa cliente suspensa."""
     set_client_status(
         services.trusted_uow(),
         actor=actor,
@@ -201,6 +213,7 @@ def new_owner(
     actor: Actor = Depends(require_staff("internal.owner.change")),
     services: Services = Depends(get_services),
 ) -> None:
+    """Passa a posse de uma Empresa cliente para outro membro."""
     change_owner(
         services.trusted_uow(),
         actor=actor,
@@ -218,8 +231,9 @@ def owner_invitations(
     actor: Actor = Depends(require_staff("internal.clients.view")),
     services: Services = Depends(get_services),
 ) -> ItemsOut[OwnerInvitationOut]:
+    """Lista os convites de dono pendentes e vencidos."""
     items = list_owner_invitations(services.trusted_uow(), actor=actor, clock=services.clock)
-    return ItemsOut(items=[_owner_invitation(i) for i in items])
+    return ItemsOut(items=[_owner_invitation(invitation) for invitation in items])
 
 
 @router.post("/owner-invitations/{invitation_id}/resend")
@@ -228,6 +242,7 @@ def resend_owner(
     actor: Actor = Depends(require_staff("internal.clients.manage")),
     services: Services = Depends(get_services),
 ) -> OwnerInvitationOut:
+    """Reenvia um convite de dono com validade nova."""
     invitation = resend_owner_invitation(
         services.trusted_uow(),
         actor=actor,
@@ -244,6 +259,7 @@ def cancel_owner(
     actor: Actor = Depends(require_staff("internal.clients.manage")),
     services: Services = Depends(get_services),
 ) -> None:
+    """Cancela um convite de dono."""
     cancel_owner_invite(services.trusted_uow(), actor=actor, invitation_id=invitation_id)
 
 
@@ -252,12 +268,13 @@ def cancel_owner(
 
 @router.get("/users")
 def users(
-    q: str = Query(min_length=3, max_length=120),
+    query: str = Query(alias="q", min_length=3, max_length=120),
     actor: Actor = Depends(require_staff("internal.users.manage")),
     services: Services = Depends(get_services),
 ) -> ItemsOut[PersonOut]:
-    people = search_users(services.trusted_uow(), actor=actor, q=q)
-    return ItemsOut(items=[_person(p) for p in people])
+    """Busca pessoas por nome ou email."""
+    people = search_users(services.trusted_uow(), actor=actor, query=query)
+    return ItemsOut(items=[_person(person) for person in people])
 
 
 @router.post("/users/{user_id}/disable", status_code=status.HTTP_204_NO_CONTENT)
@@ -266,6 +283,7 @@ def disable(
     actor: Actor = Depends(require_staff("internal.users.manage")),
     services: Services = Depends(get_services),
 ) -> None:
+    """Desativa a conta de uma pessoa e encerra as sessões dela."""
     set_user_status(
         services.trusted_uow(), actor=actor, user_id=user_id, disabled=True, clock=services.clock
     )
@@ -277,6 +295,7 @@ def enable(
     actor: Actor = Depends(require_staff("internal.users.manage")),
     services: Services = Depends(get_services),
 ) -> None:
+    """Reativa a conta de uma pessoa."""
     set_user_status(
         services.trusted_uow(), actor=actor, user_id=user_id, disabled=False, clock=services.clock
     )
@@ -288,6 +307,7 @@ def reset_mfa(
     actor: Actor = Depends(require_staff("internal.users.manage")),
     services: Services = Depends(get_services),
 ) -> None:
+    """Desliga o 2FA de uma pessoa que perdeu o acesso."""
     reset_user_mfa(
         services.trusted_uow(),
         actor=actor,
@@ -305,8 +325,9 @@ def staff(
     actor: Actor = Depends(require_staff("internal.staff.manage")),
     services: Services = Depends(get_services),
 ) -> ItemsOut[MemberOut]:
+    """Lista a equipe Groone."""
     return ItemsOut(
-        items=[MemberOut.of(m) for m in list_staff(services.trusted_uow(), actor=actor)]
+        items=[MemberOut.of(member) for member in list_staff(services.trusted_uow(), actor=actor)]
     )
 
 
@@ -316,6 +337,7 @@ def invite(
     actor: Actor = Depends(require_staff("internal.staff.manage")),
     services: Services = Depends(get_services),
 ) -> InvitationOut:
+    """Convida alguém para a equipe Groone com um papel interno."""
     invitation = invite_staff(
         services.trusted_uow(),
         actor=actor,
@@ -337,7 +359,7 @@ def unassigned_networks(
 ) -> ItemsOut[McmCandidateOut]:
     """Networks MCM aprovadas cujo e-mail não é dono de nenhuma Empresa."""
     candidates = list_mcm_candidates(services.trusted_uow(), actor=actor)
-    return ItemsOut(items=[McmCandidateOut.of(c) for c in candidates])
+    return ItemsOut(items=[McmCandidateOut.of(candidate) for candidate in candidates])
 
 
 @router.post("/networks/{candidate_id}/assign", status_code=status.HTTP_202_ACCEPTED)
@@ -347,6 +369,7 @@ def assign_network(
     actor: Actor = Depends(require_staff("internal.networks.assign")),
     services: Services = Depends(get_services),
 ) -> NetworkOut:
+    """Liga uma network do MCM a uma Empresa e agenda a primeira sincronização."""
     network = assign_mcm_candidate(
         services.trusted_uow(),
         actor=actor,

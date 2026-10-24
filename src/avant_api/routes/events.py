@@ -19,6 +19,7 @@ async def events(
     actor: Actor = Depends(get_actor),
     services: Services = Depends(get_services),
 ) -> StreamingResponse:
+    """Abre o fluxo SSE com os eventos da Empresa ativa."""
     body = sse(services.events, company_id=actor.company_id, can=actor.grants.can)
     return StreamingResponse(
         body,

@@ -25,6 +25,7 @@ def edit(
     actor: Actor = Depends(require("company.edit")),
     services: Services = Depends(get_services),
 ) -> CompanyDetailOut:
+    """Muda nome, cor ou configurações da Empresa ativa."""
     view = update_company(
         services.uow(actor.company_id),
         actor=actor,

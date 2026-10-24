@@ -24,20 +24,28 @@ ISSUERS = frozenset({"https://accounts.google.com", "accounts.google.com"})
 
 
 class GoogleAuth(Protocol):
-    def authorize_url(self, *, state: str, verifier: str, nonce: str) -> str: ...
-    def exchange(self, *, code: str, verifier: str, nonce: str) -> GoogleIdentity: ...
+    def authorize_url(self, *, state: str, verifier: str, nonce: str) -> str:
+        """Monta o link de login do Google com PKCE e nonce."""
+        ...
+
+    def exchange(self, *, code: str, verifier: str, nonce: str) -> GoogleIdentity:
+        """Troca o código do Google pela identidade da pessoa."""
+        ...
 
 
 def new_verifier() -> str:
+    """Gera o code_verifier do PKCE."""
     return secrets.token_urlsafe(48)
 
 
 def challenge(verifier: str) -> str:
+    """Calcula o code_challenge (S256) do code_verifier."""
     digest = hashlib.sha256(verifier.encode()).digest()
     return base64.urlsafe_b64encode(digest).rstrip(b"=").decode()
 
 
 def _claims(id_token: str) -> dict[str, Any]:
+    """Lê as claims do id_token; a assinatura não é conferida porque ele vem direto do Google."""
     try:
         payload = id_token.split(".")[1]
         data: dict[str, Any] = json.loads(
@@ -51,17 +59,20 @@ def _claims(id_token: str) -> dict[str, Any]:
 def identity_from_id_token(
     id_token: str, *, client_id: str, nonce: str, now: float | None = None
 ) -> GoogleIdentity:
-    c = _claims(id_token)
-    if c.get("iss") not in ISSUERS or c.get("aud") != client_id:
+    """Confere emissor, cliente, nonce e validade do id_token e devolve a identidade."""
+    claims = _claims(id_token)
+    if claims.get("iss") not in ISSUERS or claims.get("aud") != client_id:
         raise GoogleFailed("id_token de outro emissor ou cliente")
-    if float(c.get("exp", 0)) <= (now if now is not None else time.time()):
+    if float(claims.get("exp", 0)) <= (now if now is not None else time.time()):
         raise GoogleFailed("id_token vencido")
-    if not secrets.compare_digest(str(c.get("nonce", "")), nonce):
+    if not secrets.compare_digest(str(claims.get("nonce", "")), nonce):
         raise GoogleFailed("nonce diferente")
-    if not c.get("sub") or not c.get("email"):
+    if not claims.get("sub") or not claims.get("email"):
         raise GoogleFailed("id_token sem sub ou e-mail")
     return GoogleIdentity(
-        subject=str(c["sub"]), email=str(c["email"]), email_verified=c.get("email_verified") is True
+        subject=str(claims["sub"]),
+        email=str(claims["email"]),
+        email_verified=claims.get("email_verified") is True,
     )
 
 
@@ -80,6 +91,7 @@ class GoogleOAuth:
         self._client = client or httpx.Client(timeout=10.0)
 
     def authorize_url(self, *, state: str, verifier: str, nonce: str) -> str:
+        """Monta o link de login do Google com PKCE e nonce."""
         query = {
             "client_id": self._id,
             "redirect_uri": self._redirect,
@@ -94,8 +106,9 @@ class GoogleOAuth:
         return f"{AUTHORIZE_URL}?{urlencode(query)}"
 
     def exchange(self, *, code: str, verifier: str, nonce: str) -> GoogleIdentity:
+        """Troca o código do Google pelo id_token e devolve a identidade conferida."""
         try:
-            r = self._client.post(
+            response = self._client.post(
                 TOKEN_URL,
                 data={
                     "code": code,
@@ -108,9 +121,9 @@ class GoogleOAuth:
             )
         except httpx.HTTPError as exc:
             raise GoogleFailed("sem resposta do Google") from exc
-        if r.status_code != 200:
-            raise GoogleFailed(f"Google recusou o código (HTTP {r.status_code})")
-        id_token = r.json().get("id_token")
+        if response.status_code != 200:
+            raise GoogleFailed(f"Google recusou o código (HTTP {response.status_code})")
+        id_token = response.json().get("id_token")
         if not isinstance(id_token, str):
             raise GoogleFailed("resposta do Google sem id_token")
         return identity_from_id_token(id_token, client_id=self._id, nonce=nonce)

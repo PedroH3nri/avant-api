@@ -101,13 +101,18 @@ STATUS: dict[str, int] = {
 
 
 def error_body(code: str, message: str, details: dict[str, Any] | None = None) -> dict[str, Any]:
+    """Monta o corpo de erro no formato ``{"error": {...}}``."""
     return {"error": {"code": code, "message": message, "details": details or {}}}
 
 
 def install(app: FastAPI) -> None:
+    """Registra na aplicação os tratadores que devolvem erros no formato da API."""
+
     @app.exception_handler(DomainError)
     async def domain_error(_: Request, exc: DomainError) -> JSONResponse:
-        retry_after = getattr(exc, "retry_after", None)  # TooManyAttempts, SyncTooSoon, RateLimited
+        """Traduz um erro do domínio para o status e o código da API."""
+        # TooManyAttempts, SyncTooSoon, RateLimited.
+        retry_after = getattr(exc, "retry_after", None)
         headers = {"Retry-After": str(retry_after)} if retry_after is not None else None
         return JSONResponse(
             error_body(exc.code, str(exc)),
@@ -117,7 +122,11 @@ def install(app: FastAPI) -> None:
 
     @app.exception_handler(RequestValidationError)
     async def validation_error(_: Request, exc: RequestValidationError) -> JSONResponse:
-        fields = [{"loc": list(e["loc"]), "type": e["type"], "msg": e["msg"]} for e in exc.errors()]
+        """Devolve 422 com os campos que não passaram na validação."""
+        fields = [
+            {"loc": list(error_item["loc"]), "type": error_item["type"], "msg": error_item["msg"]}
+            for error_item in exc.errors()
+        ]
         return JSONResponse(
             error_body("validation_error", "dados inválidos", {"fields": fields}),
             status_code=422,
@@ -125,11 +134,13 @@ def install(app: FastAPI) -> None:
 
     @app.exception_handler(HTTPException)
     async def http_error(_: Request, exc: HTTPException) -> JSONResponse:
+        """Devolve 404, 405 e outros erros HTTP no formato da API."""
         code = {404: "not_found", 405: "method_not_allowed"}.get(exc.status_code, "http_error")
         return JSONResponse(error_body(code, str(exc.detail)), status_code=exc.status_code)
 
     @app.exception_handler(Exception)
     async def unexpected(request: Request, exc: Exception) -> JSONResponse:
+        """Registra o erro inesperado no log e devolve 500 sem detalhes."""
         log.error(
             "erro inesperado",
             exc_info=exc,

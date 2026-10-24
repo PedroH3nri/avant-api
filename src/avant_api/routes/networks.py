@@ -34,6 +34,7 @@ router = APIRouter(prefix="/networks", tags=["networks"])
 
 
 def enqueue_sync(services: Services, network: Network) -> None:
+    """Agenda no worker a sincronização da network."""
     services.tasks.send(SYNC_NETWORK, str(network.company_id), str(network.id))
 
 
@@ -42,8 +43,9 @@ def index(
     actor: Actor = Depends(require("network.view")),
     services: Services = Depends(get_services),
 ) -> ItemsOut[NetworkDetailOut]:
+    """Lista as networks da Empresa ativa."""
     views = list_networks(services.uow(actor.company_id), actor=actor)
-    return ItemsOut(items=[NetworkDetailOut.of_view(v) for v in views])
+    return ItemsOut(items=[NetworkDetailOut.of_view(view) for view in views])
 
 
 @router.get("/service-account")
@@ -51,6 +53,7 @@ def service_account(
     _: Actor = Depends(require("network.connect")),
     services: Services = Depends(get_services),
 ) -> ServiceAccountOut:
+    """Devolve o email da conta de serviço que o cliente adiciona no GAM."""
     return ServiceAccountOut(email=services.settings.gam_service_account_email)
 
 
@@ -78,6 +81,7 @@ def show(
     actor: Actor = Depends(require("network.view")),
     services: Services = Depends(get_services),
 ) -> NetworkDetailOut:
+    """Mostra uma network com sites e últimas sincronizações."""
     view = get_network(services.uow(actor.company_id), actor=actor, network_id=network_id)
     return NetworkDetailOut.of_view(view)
 
@@ -104,10 +108,11 @@ def sync_runs(
     actor: Actor = Depends(require("network.view")),
     services: Services = Depends(get_services),
 ) -> ItemsOut[SyncRunOut]:
+    """Lista as sincronizações recentes de uma network."""
     runs = list_sync_runs(
         services.uow(actor.company_id), actor=actor, network_id=network_id, limit=limit
     )
-    return ItemsOut(items=[SyncRunOut.of(r) for r in runs])
+    return ItemsOut(items=[SyncRunOut.of(run) for run in runs])
 
 
 @router.post("/{network_id}/disconnect")
@@ -116,6 +121,7 @@ def disconnect(
     actor: Actor = Depends(require("network.disconnect")),
     services: Services = Depends(get_services),
 ) -> NetworkDetailOut:
+    """Desconecta uma network da Empresa."""
     disconnect_network(
         services.uow(actor.company_id), actor=actor, network_id=network_id, clock=services.clock
     )

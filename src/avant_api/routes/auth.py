@@ -50,19 +50,22 @@ def _client(request: Request) -> tuple[str | None, str | None]:
 
 
 def _set_cookies(response: Response, services: Services, result: LoginResult) -> None:
-    s = services.settings
+    """Grava os cookies de sessão e de CSRF com a validade da sessão."""
+    settings = services.settings
     max_age = int((result.session.expires_at - services.clock.now()).total_seconds())
-    common = {"max_age": max_age, "secure": s.cookie_secure, "samesite": "lax", "path": "/"}
-    response.set_cookie(s.session_cookie, result.token, httponly=True, **common)  # type: ignore[arg-type]
-    response.set_cookie(s.csrf_cookie, secrets.token_urlsafe(32), httponly=False, **common)  # type: ignore[arg-type]
+    common = {"max_age": max_age, "secure": settings.cookie_secure, "samesite": "lax", "path": "/"}
+    response.set_cookie(settings.session_cookie, result.token, httponly=True, **common)  # type: ignore[arg-type]
+    response.set_cookie(settings.csrf_cookie, secrets.token_urlsafe(32), httponly=False, **common)  # type: ignore[arg-type]
 
 
 def _start(response: Response, services: Services, result: LoginResult) -> Authenticated:
+    """Grava os cookies da sessão nova e devolve a pessoa autenticada."""
     _set_cookies(response, services, result)
     return authenticate(services.trusted_uow(), token=result.token, clock=services.clock)
 
 
 def _end(response: Response, services: Services) -> None:
+    """Apaga os cookies de sessão e de CSRF."""
     response.delete_cookie(services.settings.session_cookie, path="/")
     response.delete_cookie(services.settings.csrf_cookie, path="/")
 
@@ -74,10 +77,10 @@ def login(
     response: Response,
     services: Services = Depends(get_services),
 ) -> LoginOut:
-    """Com 2FA ligado, responde mfa_required e o cookie leva só a pré-sessão de 5 minutos;
-    o próximo passo é POST /auth/mfa/verify.
+    """Entra com senha; com 2FA, responde mfa_required e segue em POST /auth/mfa/verify.
 
-    Limite: 5 senhas erradas por e-mail e 20 por IP em 15 minutos; depois, 429."""
+    Limite: 5 senhas erradas por e-mail e 20 por IP em 15 minutos; depois, 429.
+    """
     user_agent, ip = _client(request)
     email = normalize_email(body.email)
     keys = ((LOGIN_EMAIL, email), (LOGIN_IP, ip))
@@ -108,12 +111,14 @@ def do_logout(
     auth: Authenticated = Depends(get_session_auth),
     services: Services = Depends(get_services),
 ) -> None:
+    """Encerra a sessão atual e apaga os cookies."""
     logout(services.trusted_uow(), session_id=auth.session.id, clock=services.clock)
     _end(response, services)
 
 
 @router.get("/me")
 def me(auth: Authenticated = Depends(get_session_auth)) -> MeOut:
+    """Devolve a pessoa, as Empresas dela e as permissões na Empresa ativa."""
     return MeOut.of(auth)
 
 
@@ -124,6 +129,7 @@ def set_active_company(
     auth: Authenticated = Depends(get_auth),
     services: Services = Depends(get_services),
 ) -> MeOut:
+    """Troca a Empresa ativa da sessão."""
     switch_active_company(
         services.trusted_uow(), session_id=auth.session.id, company_id=body.company_id
     )
@@ -133,8 +139,9 @@ def set_active_company(
 
 @router.get("/invitations/{token}")
 def get_invitation(token: str, services: Services = Depends(get_services)) -> InvitationPreviewOut:
-    p = preview_invitation(services.trusted_uow(), token=token, clock=services.clock)
-    return InvitationPreviewOut(**p.__dict__)
+    """Mostra o convite antes do aceite."""
+    preview = preview_invitation(services.trusted_uow(), token=token, clock=services.clock)
+    return InvitationPreviewOut(**preview.__dict__)
 
 
 @router.post("/invitations/{token}/accept")
@@ -146,6 +153,7 @@ def accept(
     auth: Authenticated | None = Depends(optional_auth),
     services: Services = Depends(get_services),
 ) -> MeOut:
+    """Aceita o convite com a conta logada ou criando uma conta nova."""
     if auth is not None:
         account: NewAccount | ExistingAccount = ExistingAccount(auth.user.id)
     elif body.name and body.password:

@@ -29,6 +29,7 @@ def _route_template(request: Request) -> str:
 async def observe(
     request: Request, call_next: Callable[[Request], Awaitable[Response]]
 ) -> Response:
+    """Dá um id ao pedido, mede a duração e registra métricas e log."""
     request_id = request.headers.get("X-Request-Id") or uuid.uuid4().hex
     request.state.request_id = request_id
     start = time.perf_counter()

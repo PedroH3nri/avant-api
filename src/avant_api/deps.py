@@ -24,6 +24,7 @@ CSRF_HEADER = "X-CSRF-Token"
 
 
 def get_services(request: Request) -> Services:
+    """Devolve os serviços montados na subida da aplicação."""
     services: Services = request.app.state.services
     return services
 
@@ -41,6 +42,7 @@ def check_csrf(request: Request, services: Services) -> None:
 def optional_auth(
     request: Request, services: Services = Depends(get_services)
 ) -> Authenticated | None:
+    """Autentica pelo cookie de sessão, se houver; sem cookie devolve None."""
     token = request.cookies.get(services.settings.session_cookie)
     if not token:
         return None
@@ -61,6 +63,7 @@ def get_session_auth(auth: Authenticated | None = Depends(optional_auth)) -> Aut
 
 
 def get_auth(auth: Authenticated = Depends(get_session_auth)) -> Authenticated:
+    """Exige sessão válida; equipe Groone sem 2FA só pode configurar o 2FA."""
     if auth.mfa_setup_required:
         raise MfaRequired("configure o 2FA para continuar")
     return auth
@@ -74,11 +77,13 @@ def get_session_actor(auth: Authenticated = Depends(get_auth)) -> Actor:
 
 
 def bearer_token(request: Request) -> str | None:
+    """Lê o token do cabeçalho ``Authorization: Bearer``, se houver."""
     scheme, _, token = request.headers.get("Authorization", "").partition(" ")
     return token.strip() if scheme.lower() == "bearer" and token.strip() else None
 
 
 def api_key_actor(request: Request, services: Services, token: str) -> Actor:
+    """Autentica a chave de API e aplica o limite de pedidos por chave."""
     auth = authenticate_api_key(services.trusted_uow(), token=token, clock=services.clock)
     result = services.bucket.take(f"key:{auth.key.id}", API_KEY, time.time())
     request.state.rate_limit = {
@@ -103,6 +108,7 @@ def require(permission: str) -> Callable[[Actor], Actor]:
     """Depends(require("team.invite")): a permissão da rota fica declarada nela."""
 
     def dependency(actor: Actor = Depends(get_actor)) -> Actor:
+        """Exige que o Actor tenha a permissão."""
         actor.grants.require(permission)
         return actor
 
@@ -113,6 +119,7 @@ def require_session(permission: str) -> Callable[[Actor], Actor]:
     """Como ``require``, mas recusa chave de API (criar chave, por exemplo)."""
 
     def dependency(actor: Actor = Depends(get_session_actor)) -> Actor:
+        """Exige que o Actor da sessão tenha a permissão."""
         actor.grants.require(permission)
         return actor
 
@@ -125,6 +132,7 @@ def require_staff(permission: str) -> Callable[[Authenticated], Actor]:
     O core confere de novo a Company Groone em cada caso de uso."""
 
     def dependency(auth: Authenticated = Depends(get_auth)) -> Actor:
+        """Exige a equipe Groone com a Company Groone ativa e a permissão."""
         if auth.active is None or auth.grants is None or not auth.active.company.is_internal:
             raise StaffOnly("só a equipe Groone, com a Company Groone ativa")
         if auth.session.mfa_verified_at is None:
