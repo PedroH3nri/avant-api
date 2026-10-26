@@ -2,7 +2,7 @@
 
 import pytest
 
-from avant_api.settings import Settings
+from avant_api.app.settings import Settings
 
 
 def test_resend_key_required_outside_local() -> None:
@@ -12,7 +12,7 @@ def test_resend_key_required_outside_local() -> None:
 
 
 def test_queue_does_not_break_the_request_without_broker() -> None:
-    from avant_api.tasks import CeleryQueue
+    from avant_api.app.tasks import CeleryQueue
 
     # Porta fechada: a publicação falha rápido e só vai para o log.
     CeleryQueue("amqp://guest:guest@127.0.0.1:1//").send("avant.gam.sync_network", "a", "b")

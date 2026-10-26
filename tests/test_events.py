@@ -11,7 +11,7 @@ import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import Engine
 
-from avant_api.events import RedisEvents, channel, sse
+from avant_api.app.events import RedisEvents, channel, sse
 from tests.conftest import CapturingMailer
 from tests.test_api import _onboard_owner
 from tests.test_team import _member_client

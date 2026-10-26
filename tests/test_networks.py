@@ -8,7 +8,7 @@ from avant_core.gam.domain import Delegation, McmCandidate
 from fastapi.testclient import TestClient
 from sqlalchemy import Engine
 
-from avant_api.tasks import SYNC_NETWORK, RecordingQueue
+from avant_api.app.tasks import SYNC_NETWORK, RecordingQueue
 from tests.conftest import CapturingMailer
 from tests.test_api import PASSWORD, _csrf, _onboard_owner, _owner_invite
 from tests.test_internal import _staff
