@@ -105,7 +105,7 @@ def test_roles_and_direct_permissions(
     assert ana.get("/api/v1/roles").status_code == 403
 
     perms = client.get("/api/v1/permissions").json()["items"]
-    assert len(perms) == 20 and perms[0]["name"]["es"]
+    assert len(perms) == 23 and perms[0]["name"]["es"]
 
     r = client.post(
         "/api/v1/roles",

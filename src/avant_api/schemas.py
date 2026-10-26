@@ -556,6 +556,10 @@ class CompanyRefOut(BaseModel):
     is_internal: bool
 
 
+class ClientMemberOut(MemberOut):
+    company: CompanyRefOut
+
+
 class PersonOut(BaseModel):
     user: UserOut
     status: UserStatus
