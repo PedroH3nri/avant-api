@@ -14,9 +14,9 @@ from avant_core.ports import Notice
 from fastapi.testclient import TestClient
 from sqlalchemy import Engine
 
-from avant_api.errors import GoogleFailed
-from avant_api.google import identity_from_id_token
-from avant_api.limits import Limiter, MemoryCounter, RedisCounter, Rule
+from avant_api.app.errors import GoogleFailed
+from avant_api.app.google import identity_from_id_token
+from avant_api.app.limits import Limiter, MemoryCounter, RedisCounter, Rule
 from tests.conftest import CapturingMailer
 from tests.test_api import PASSWORD, _csrf, _onboard_owner
 

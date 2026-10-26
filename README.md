@@ -100,6 +100,34 @@ Painel interno, em `/api/v1/internal` (Company Groone ativa e 2FA verificado na 
 | `PATCH /internal/contracts/{id}`, `POST .../{id}/end` | observação e encerramento (o revshare nunca muda) | `internal.contracts.update` |
 | `DELETE /internal/contracts/{id}` | exclui contrato feito à mão | `internal.contracts.delete` |
 
+## Estrutura
+
+Organizado por domínio (objeto → arquivos), com a regra de negócio no avant-core:
+
+```
+src/avant_api/
+  main.py              monta a aplicação e inclui o router de cada domínio
+  app/                 infraestrutura: settings, container (Services), security
+                       (autenticação e permissões), cookies, errors, middleware,
+                       logs, limits, events, tasks, google e ports
+  shared/              DTOs usados por mais de um domínio (dto.py) e leitura do pedido (http.py)
+  modules/<domínio>/
+    controller.py      rotas: só HTTP (validação, status, cookies, redirecionamento)
+    dto.py             modelos Pydantic de entrada e saída
+    service.py         chama os casos de uso do avant-core e devolve os DTOs
+    dependencies.py    monta o service com os adaptadores do container
+  modules/internal/    painel interno, um subdomínio por assunto (clients, people,
+                       staff, mcm, results, contracts) e router.py que junta todos
+```
+
+- **Model e repository** ficam no avant-core: entidades em dataclass (`<módulo>/domain.py`),
+  interfaces dos repositórios em `ports.py` e implementação SQL em `db/`. A API e o worker
+  usam os mesmos.
+- **Inversão de dependência**: o service recebe interfaces (`app/ports.UnitOfWorkFactory`,
+  `Clock`, `Mailer`, `TaskQueue`...) pelo construtor, nunca o container. Só o
+  `dependencies.py` conhece o `Services`; nos testes, dá para montar o service com fakes.
+- O controller não chama caso de uso nem abre Unit of Work: fala só com o service.
+
 ## Como funciona
 
 - **Sessão**: cookie `avant_session` (`httpOnly`, `SameSite=Lax`, `Secure` fora do
@@ -136,7 +164,7 @@ Painel interno, em `/api/v1/internal` (Company Groone ativa e 2FA verificado na 
   passa pela network no ciclo seguinte. O guia mostra `GAM_SERVICE_ACCOUNT_EMAIL`.
 - **Tempo real**: `GET /events` é um `text/event-stream`. O worker publica
   `{"type", "data"}` no canal Redis `avant:events:{company_id}` e qualquer instância da
-  API repassa; cada tipo de evento exige uma permissão (`events.PERMISSION_FOR`) e o que
+  API repassa; cada tipo de evento exige uma permissão (`app/events.PERMISSION_FOR`) e o que
   não está no mapa não sai. Heartbeat a cada 15 s; depois de 30 minutos a API fecha e o
   EventSource reconecta, conferindo a sessão de novo. O proxy precisa de
   `proxy_buffering off` nessa rota (a resposta também manda `X-Accel-Buffering: no`).
@@ -149,7 +177,7 @@ Painel interno, em `/api/v1/internal` (Company Groone ativa e 2FA verificado na 
   recusas em um minuto bloqueiam a chave por 30 s. O balde fica no Redis.
 - **Permissão**: declarada na rota com `Depends(require("team.invite"))`.
 - **Erros**: sempre `{"error": {"code", "message", "details"}}`; o mapa de código para
-  status HTTP está em `errors.py`.
+  status HTTP está em `app/errors.py`.
 - **Logs**: JSON em uma linha por requisição, com `request_id` (também no cabeçalho
   `X-Request-Id`). Erro inesperado sai com o stack trace.
 

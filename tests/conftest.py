@@ -21,9 +21,9 @@ from cryptography.fernet import Fernet
 from fastapi.testclient import TestClient
 from sqlalchemy import Engine, create_engine, text
 
+from avant_api.app.container import Services
+from avant_api.app.settings import Settings
 from avant_api.main import create_app
-from avant_api.services import Services
-from avant_api.settings import Settings
 
 APP_URL = os.environ.get("AVANT_TEST_DATABASE_URL")
 OWNER_URL = os.environ.get("AVANT_TEST_MIGRATIONS_URL")

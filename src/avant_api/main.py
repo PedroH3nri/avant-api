@@ -5,31 +5,29 @@ uvicorn avant_api.main:create_app --factory --host 0.0.0.0 --port 8000 --proxy-h
 
 from fastapi import FastAPI
 
-from avant_api import errors
-from avant_api.logs import configure_logging
-from avant_api.middleware import observe
-from avant_api.routes import (
-    account,
-    api_keys,
-    audit,
-    auth,
-    company,
-    costs,
-    currencies,
-    events,
-    health,
-    internal,
-    invitations,
-    members,
-    mfa,
-    networks,
-    reports,
-    results,
-    roles,
-    sites,
-)
-from avant_api.services import Services
-from avant_api.settings import Settings
+from avant_api.app import errors
+from avant_api.app.container import Services
+from avant_api.app.logs import configure_logging
+from avant_api.app.middleware import observe
+from avant_api.app.settings import Settings
+from avant_api.modules.account.controller import router as account
+from avant_api.modules.api_keys.controller import router as api_keys
+from avant_api.modules.audit.controller import router as audit
+from avant_api.modules.auth.controller import router as auth
+from avant_api.modules.company.controller import router as company
+from avant_api.modules.costs.controller import router as costs
+from avant_api.modules.currencies.controller import router as currencies
+from avant_api.modules.events.controller import router as events
+from avant_api.modules.health.controller import router as health
+from avant_api.modules.internal.router import router as internal
+from avant_api.modules.invitations.controller import router as invitations
+from avant_api.modules.members.controller import router as members
+from avant_api.modules.mfa.controller import router as mfa
+from avant_api.modules.networks.controller import router as networks
+from avant_api.modules.reports.controller import router as reports
+from avant_api.modules.results.controller import router as results
+from avant_api.modules.roles.controller import router as roles
+from avant_api.modules.sites.controller import router as sites
 
 API_PREFIX = "/api/v1"
 
@@ -49,7 +47,7 @@ def create_app(services: Services | None = None) -> FastAPI:
     app.state.services = services
     errors.install(app)
     app.middleware("http")(observe)
-    for module in (
+    for router in (
         health,
         auth,
         account,
@@ -69,5 +67,5 @@ def create_app(services: Services | None = None) -> FastAPI:
         events,
         internal,
     ):
-        app.include_router(module.router, prefix=API_PREFIX)
+        app.include_router(router, prefix=API_PREFIX)
     return app
