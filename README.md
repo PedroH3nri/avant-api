@@ -67,8 +67,10 @@ Outros repositórios: avant-core, avant-worker, avant-web, avant-infra.
 | `GET /members/{id}/sites` | sites atribuídos ao membro | `team.view` |
 | `PUT /members/{id}/sites` | troca a lista inteira de sites do membro | `sites.assign` |
 | `GET /metrics/catalog` | métricas e dimensões que dá para pedir, com os textos em PT, EN e ES (sem as métricas internas da Groone) | `reports.view` |
-| `POST /reports/query` | roda uma consulta sem salvar: métricas, período (fixo ou relativo), dimensões, filtros, comparação, ordem e limite; decimais como texto; só os sites que a pessoa vê; 10 seguidas e depois 1 a cada 2 s (`rate_limited`); passou de 15 s no banco, `query_too_heavy` | `reports.view` |
+| `POST /reports/query` | roda uma consulta sem salvar: métricas, período (fixo ou relativo), dimensões, filtros, comparação, ordem e limite; `currency` converte o dinheiro pela cotação de cada dia (padrão `USD`; sem cotação, `currency_unavailable`); decimais como texto; só os sites que a pessoa vê; 10 seguidas e depois 1 a cada 2 s (`rate_limited`); passou de 15 s no banco, `query_too_heavy` | `reports.view` |
 | `POST /reports/query/export?locale=` | a mesma consulta em CSV, sites e networks pelo nome, texto que parece fórmula escapado com `'` | `reports.view` |
+| `GET /currencies` | as moedas do painel, com `available` quando já há cotação | sessão |
+| `PUT /auth/preferences` | troca a moeda de visualização da pessoa (`display_currency`, que também vem em `/auth/me`) | sessão |
 | `GET /events` | avisos em tempo real (SSE) da Empresa ativa, filtrados pela permissão | membro |
 
 Painel interno, em `/api/v1/internal` (Company Groone ativa e 2FA verificado na sessão):

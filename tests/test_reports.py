@@ -264,3 +264,47 @@ def test_page_views_query_by_hour(
         headers=_csrf(client),
     )
     assert mixed.status_code == 422 and mixed.json()["error"]["code"] == "invalid_input"
+
+
+def test_display_currency_and_query_in_another_currency(
+    client: TestClient, engine: Engine, mailer: CapturingMailer
+) -> None:
+    from avant_core.money.application import store_exchange_rates
+    from avant_core.shared.clock import SystemClock
+
+    me = _onboard_owner(client, engine, mailer)
+    assert me["display_currency"] == "USD"
+    company_id = uuid.UUID(me["active_company_id"])
+    _metrics(engine, company_id)
+
+    currencies = {item["code"]: item for item in client.get("/api/v1/currencies").json()}
+    assert currencies["USD"]["available"] is True and currencies["BRL"]["available"] is False
+    unavailable = client.post(
+        "/api/v1/reports/query", json=_day(currency="BRL"), headers=_csrf(client)
+    )
+    assert unavailable.status_code == 409
+    assert unavailable.json()["error"]["code"] == "currency_unavailable"
+
+    store_exchange_rates(
+        SqlAlchemyUnitOfWork(engine, bypass_rls=True),
+        day=YESTERDAY,
+        rates={"BRL": Decimal("5")},
+        clock=SystemClock(),
+    )
+    assert client.get("/api/v1/currencies").json()[1]["available"] is True
+    saved = client.put(
+        "/api/v1/auth/preferences", json={"display_currency": "brl"}, headers=_csrf(client)
+    )
+    assert saved.status_code == 200 and saved.json() == {"display_currency": "BRL"}
+    assert client.get("/api/v1/auth/me").json()["display_currency"] == "BRL"
+    wrong = client.put(
+        "/api/v1/auth/preferences", json={"display_currency": "XAU"}, headers=_csrf(client)
+    )
+    assert wrong.status_code == 422 and wrong.json()["error"]["code"] == "unsupported_currency"
+
+    result = client.post("/api/v1/reports/query", json=_day(currency="BRL"), headers=_csrf(client))
+    assert result.status_code == 200, result.text
+    assert result.json()["currency"] == "BRL"
+    assert result.json()["totals"]["revenue"] == "180"
+    in_dollars = client.post("/api/v1/reports/query", json=_day(), headers=_csrf(client)).json()
+    assert in_dollars["currency"] == "USD" and in_dollars["totals"]["revenue"] == "36"
