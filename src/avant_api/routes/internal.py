@@ -6,6 +6,7 @@ verificado na sessão e a permissão) e, no core, ``ensure_staff`` em cada caso 
 """
 
 import uuid
+from datetime import date
 
 from avant_core.company.application import Actor
 from avant_core.company.domain import CompanyStatus, Invitation
@@ -40,11 +41,14 @@ from avant_core.internal.contracts import (
     list_contracts,
     update_contract,
 )
+from avant_core.money.domain import BASE_CURRENCY
+from avant_core.results.application import clients_results
 from fastapi import APIRouter, Depends, Query, status
 
 from avant_api.deps import get_services, require_staff
 from avant_api.routes.invitations import invitation_out
 from avant_api.routes.networks import enqueue_sync
+from avant_api.routes.results import default_period
 from avant_api.schemas import (
     AssignNetworkIn,
     AuditOut,
@@ -65,6 +69,7 @@ from avant_api.schemas import (
     OwnerChangeIn,
     OwnerInvitationOut,
     PersonOut,
+    ResultsOut,
     StaffInviteIn,
     UserOut,
 )
@@ -393,6 +398,30 @@ def assign_network(
     )
     enqueue_sync(services, network)
     return NetworkOut.of(network)
+
+
+# --- Resultado dos clientes ------------------------------------------------------------
+
+
+@router.get("/results")
+def results(
+    start: date | None = None,
+    end: date | None = None,
+    currency: str = Query(default=BASE_CURRENCY, min_length=3, max_length=3),
+    actor: Actor = Depends(require_staff("internal.results.view")),
+    services: Services = Depends(get_services),
+) -> ItemsOut[ResultsOut]:
+    """O resultado de cada Empresa cliente no período, por nome."""
+    first, last = default_period(start, end, services.clock.now().date())
+    items = clients_results(
+        services.trusted_uow(),
+        actor=actor,
+        start=first,
+        end=last,
+        currency=currency,
+        clock=services.clock,
+    )
+    return ItemsOut(items=[ResultsOut.of(item) for item in items])
 
 
 # --- Contratos -------------------------------------------------------------------------
