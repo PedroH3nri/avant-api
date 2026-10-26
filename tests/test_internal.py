@@ -180,3 +180,25 @@ def test_internal_people_and_staff(
         headers=_csrf(staff),
     )
     assert r.status_code == 201, r.text
+
+
+def test_client_teams_leave_out_the_groone_team(
+    client: TestClient, engine: Engine, mailer: CapturingMailer
+) -> None:
+    me = _onboard_owner(client, engine, mailer)
+    company_id = me["companies"][0]["id"]
+    _member_client(client, mailer, "ana@acai.com")
+    assert client.get("/api/v1/internal/teams").status_code == 403
+    staff = _staff(client, engine)
+    rows = staff.get("/api/v1/internal/teams").json()["items"]
+    assert sorted(row["user"]["email"] for row in rows) == ["ana@acai.com", "dono@acai.com"]
+    assert {row["company"]["id"] for row in rows} == {company_id}
+    owner_row = next(row for row in rows if row["is_owner"])
+    assert owner_row["user"]["email"] == "dono@acai.com"
+    found = staff.get("/api/v1/internal/teams", params={"q": "ana@"}).json()["items"]
+    assert [row["user"]["email"] for row in found] == ["ana@acai.com"]
+    one = staff.get("/api/v1/internal/teams", params={"company_id": company_id}).json()["items"]
+    assert len(one) == 2
+    groone_id = staff.get("/api/v1/company").json()["id"]
+    r = staff.get("/api/v1/internal/teams", params={"company_id": groone_id})
+    assert r.status_code == 404

@@ -19,6 +19,7 @@ from avant_core.internal.application import (
     create_client,
     get_client,
     invite_staff,
+    list_client_teams,
     list_clients,
     list_owner_invitations,
     list_staff,
@@ -55,6 +56,7 @@ from avant_api.schemas import (
     AuditOut,
     ClientDetailOut,
     ClientIn,
+    ClientMemberOut,
     ClientOut,
     ClientPatchIn,
     ClientStatusIn,
@@ -157,6 +159,33 @@ def invite_owner(
         mailer=services.mailer,
     )
     return _owner_invitation(invitation)
+
+
+@router.get("/teams")
+def client_teams(
+    query: str | None = Query(alias="q", default=None, max_length=120),
+    company_id: uuid.UUID | None = None,
+    actor: Actor = Depends(require_staff("internal.clients.view")),
+    services: Services = Depends(get_services),
+) -> ItemsOut[ClientMemberOut]:
+    """Lista as pessoas das equipes das Empresas cliente, sem a equipe Groone."""
+    rows = list_client_teams(
+        services.trusted_uow(), actor=actor, query=query, company_id=company_id
+    )
+    return ItemsOut(
+        items=[
+            ClientMemberOut(
+                **MemberOut.of(row.member).model_dump(),
+                company=CompanyRefOut(
+                    id=row.company.id,
+                    name=row.company.name,
+                    slug=row.company.slug,
+                    is_internal=row.company.is_internal,
+                ),
+            )
+            for row in rows
+        ]
+    )
 
 
 @router.get("/clients/{company_id}")
