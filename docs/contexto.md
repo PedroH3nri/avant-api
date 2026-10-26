@@ -39,7 +39,7 @@ O Groone Avant ("Avant") é um SaaS para os clientes ad tech da Groone LLC: dono
 - **Row Level Security ligado.** A aplicação conecta como `avant_app` (não é dono das tabelas, sem BYPASSRLS); as migrations usam `avant_owner`. A Unit of Work faz `SET app.company_id`. Não mudar isso.
 - O `avant-core` segue arquitetura hexagonal pragmática: ports e adapters por módulo (identity, company, access, gam, audit), entidades em dataclass com mapeamento imperativo do SQLAlchemy.
 - O `avant-api` é organizado por domínio: `modules/<domínio>/{controller,dto,service,dependencies}.py`, infraestrutura em `app/` e DTOs comuns em `shared/`. O service recebe interfaces pelo construtor (inversão de dependência); model e repository ficam no core.
-- O `avant-web` também é organizado por domínio: `src/modules/<domínio>/` com as telas, os componentes, o `service.ts` (chamadas à API) e os `types.ts` do domínio; o que é comum fica em `src/shared/` e `src/components/`.
+- O `avant-web` também é organizado por domínio: `src/modules/<domínio>/` com as telas, os componentes, o `service.ts` (chamadas à API) e os `types.ts` do domínio; o que é comum fica em `src/lib/`, `src/components/` e `src/layouts/`. As telas não chamam a API direto: passam pelo `service.ts` do domínio.
 
 ## Repositórios
 
@@ -93,7 +93,7 @@ Fora do escopo por enquanto: port das regras de preço, cobrança, G-Tag, tabela
 - Tabela nova com `company_id`: RLS e política na mesma migration, mais teste em `tests/integration/test_rls.py`.
 - Migrations precisam funcionar com a versão anterior no ar (blue-green): adicionar coluna num deploy, remover a antiga só no seguinte.
 - No `avant-web` não há configuração do Prettier: **não rodar o Prettier** nos arquivos existentes, ele reformata o repositório inteiro.
-- No `avant-web`, todo texto em `src/lib/i18n.ts` com PT, EN e ES; tipos da API em `src/lib/types.ts`, iguais aos `modules/*/dto.py` da API.
+- No `avant-web`, todo texto em `src/lib/i18n.ts` com PT, EN e ES; tipos da API no `types.ts` de cada domínio (comuns em `src/lib/types.ts`), iguais aos `dto.py` da API.
 - Caminhos do painel que a API usa e não podem mudar: `/entrar`, `/entrar/2fa`, `/convite/{token}`, `/redefinir-senha/{token}`, `/configuracoes/conta`.
 - Nada de segredos no repositório nem na memória. Textos, mensagens de erro e comentários em português.
 
