@@ -117,7 +117,14 @@ def test_team_invitation_flow(client: TestClient, engine: Engine, mailer: Captur
     me = client.post(
         f"/api/v1/auth/invitations/{token}/accept", json={"name": "Ana", "password": PASSWORD}
     ).json()
-    assert me["permissions"] == ["network.view", "reports.view", "sites.view"]
+    assert me["permissions"] == [
+        "costs.manage",
+        "costs.view",
+        "network.view",
+        "reports.view",
+        "results.view",
+        "sites.view",
+    ]
     assert me["site_scope"] == "assigned"
 
     # O papel financeiro não convida nem vê a equipe.
