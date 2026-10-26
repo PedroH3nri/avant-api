@@ -153,7 +153,7 @@ def test_audit_log(client: TestClient, engine: Engine, mailer: CapturingMailer) 
     first = client.get("/api/v1/audit", params={"limit": 2}).json()
     assert [e["action"] for e in first["items"]] == ["invitation.accepted", "invitation.created"]
     rest = client.get("/api/v1/audit", params={"cursor": first["next_cursor"]}).json()
-    assert [e["action"] for e in rest["items"]] == ["company.created"]
+    assert [e["action"] for e in rest["items"]] == ["company.owner_joined"]
     only = client.get("/api/v1/audit", params={"action": "invitation.created"}).json()
     assert len(only["items"]) == 1
     bad = client.get("/api/v1/audit", params={"cursor": "lixo"})

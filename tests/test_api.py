@@ -2,11 +2,12 @@
 
 import uuid
 
-from avant_core.access.domain import Grants, SiteScope
-from avant_core.company.application import invite_owner
-from avant_core.company.domain import CompanyPlan
+from avant_core.company.application import slugify
+from avant_core.company.domain import Company, CompanyStatus, Invitation, InvitationKind
+from avant_core.company.profile import ClientProfile
 from avant_core.db.uow import SqlAlchemyUnitOfWork
 from avant_core.shared.clock import SystemClock
+from avant_core.shared.tokens import new_token
 from fastapi.testclient import TestClient
 from sqlalchemy import Engine, text
 
@@ -15,7 +16,10 @@ from tests.conftest import FINANCE, CapturingMailer
 PASSWORD = "senha-forte-123"
 
 
-def _owner_invite(engine: Engine, mailer: CapturingMailer, email: str) -> str:
+def _owner_invite(
+    engine: Engine, mailer: CapturingMailer, email: str, name: str = "Açaí Sites"
+) -> str:
+    """A Groone cadastra o cliente pendente e manda o convite de dono; devolve o token."""
     staff = uuid.uuid4()
     with engine.begin() as conn:
         conn.execute(
@@ -25,15 +29,30 @@ def _owner_invite(engine: Engine, mailer: CapturingMailer, email: str) -> str:
             ),
             {"id": staff, "e": f"staff-{staff}@groone.com"},
         )
-    invite_owner(
-        SqlAlchemyUnitOfWork(engine, bypass_rls=True),
-        staff_grants=Grants(frozenset({"internal.clients.manage"}), SiteScope.ALL),
-        staff_user_id=staff,
-        email=email,
-        seat_limit=3,
-        plan=CompanyPlan.GROONE_NETWORK,
-        clock=SystemClock(),
-        mailer=mailer,
+    token, token_hash = new_token()
+    with SqlAlchemyUnitOfWork(engine, bypass_rls=True) as uow:
+        # Entidade criada depois do Unit of Work, que liga as dataclasses às tabelas.
+        company = Company(
+            name=name,
+            owner_user_id=None,
+            seat_limit=3,
+            slug=slugify(name),
+            status=CompanyStatus.PENDING,
+        )
+        uow.companies.add(company)
+        uow.client_profiles.add(ClientProfile(company.id, "Dono", name, email))
+        uow.invitations.add(
+            Invitation.for_owner(
+                company_id=company.id,
+                email=email,
+                token_hash=token_hash,
+                invited_by=staff,
+                now=SystemClock().now(),
+            )
+        )
+        uow.commit()
+    mailer.send_invitation(
+        to=email, token=token, kind=InvitationKind.OWNER, company_name=name, locale="pt"
     )
     return mailer.sent[-1].token
 
@@ -49,7 +68,7 @@ def _onboard_owner(client: TestClient, engine: Engine, mailer: CapturingMailer) 
     assert preview.json()["kind"] == "owner" and preview.json()["account_exists"] is False
     r = client.post(
         f"/api/v1/auth/invitations/{token}/accept",
-        json={"name": "Dono", "password": PASSWORD, "company": {"name": "Açaí Sites"}},
+        json={"name": "Dono", "password": PASSWORD},
     )
     assert r.status_code == 200, r.text
     return r.json()  # type: ignore[no-any-return]

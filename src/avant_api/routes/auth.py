@@ -6,7 +6,6 @@ import secrets
 from avant_core.company.application import (
     ExistingAccount,
     NewAccount,
-    NewCompany,
     accept_invitation,
     preview_invitation,
 )
@@ -160,12 +159,10 @@ def accept(
         account = NewAccount(name=body.name, password=body.password, locale=body.locale)
     else:
         raise WrongInvitationKind("sem sessão, informe name e password para criar a conta")
-    company = NewCompany(body.company.name, body.company.accent_color) if body.company else None
     membership = accept_invitation(
         services.trusted_uow(),
         token=token,
         account=account,
-        company=company,
         clock=services.clock,
         hasher=services.hasher,
     )

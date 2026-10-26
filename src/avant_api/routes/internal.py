@@ -16,8 +16,8 @@ from avant_core.internal.application import (
     PersonView,
     change_owner,
     client_audit,
+    create_client,
     get_client,
-    invite_client,
     invite_staff,
     list_clients,
     list_owner_invitations,
@@ -25,6 +25,7 @@ from avant_core.internal.application import (
     resend_owner_invitation,
     reset_user_mfa,
     search_users,
+    send_owner_invitation,
     set_client_status,
     set_user_status,
     update_client,
@@ -56,6 +57,7 @@ from avant_api.schemas import (
     ClientIn,
     ClientOut,
     ClientPatchIn,
+    ClientStatusIn,
     CompanyRefOut,
     ContractIn,
     ContractNetworkOut,
@@ -82,10 +84,9 @@ def _owner_invitation(invitation: Invitation) -> OwnerInvitationOut:
     """Monta a resposta de um convite de dono."""
     return OwnerInvitationOut(
         id=invitation.id,
+        company_id=invitation.company_id,
         email=invitation.email,
         status=invitation.status,
-        seat_limit=invitation.seat_limit,
-        plan=invitation.plan,
         expires_at=invitation.expires_at,
         invited_by=invitation.invited_by,
     )
@@ -124,18 +125,34 @@ def clients(
 
 
 @router.post("/clients", status_code=status.HTTP_201_CREATED)
-def create_client(
+def register_client(
     body: ClientIn,
     actor: Actor = Depends(require_staff("internal.clients.manage")),
     services: Services = Depends(get_services),
-) -> OwnerInvitationOut:
-    """Cadastra o cliente enviando o convite de dono. A Empresa nasce no aceite."""
-    invitation = invite_client(
+) -> ClientOut:
+    """Cadastra o cliente pendente, sem e-mail: o convite de dono sai depois."""
+    summary = create_client(
         services.trusted_uow(),
         actor=actor,
-        email=body.email,
+        name=body.name,
         seat_limit=body.seat_limit,
-        plan=body.plan,
+        data=body.profile.to_data(),
+        clock=services.clock,
+    )
+    return ClientOut.of(summary)
+
+
+@router.post("/clients/{company_id}/owner-invitation")
+def invite_owner(
+    company_id: uuid.UUID,
+    actor: Actor = Depends(require_staff("internal.clients.manage")),
+    services: Services = Depends(get_services),
+) -> OwnerInvitationOut:
+    """Envia ao contato do cadastro o convite de dono; se já houver, manda um link novo."""
+    invitation = send_owner_invitation(
+        services.trusted_uow(),
+        actor=actor,
+        company_id=company_id,
         clock=services.clock,
         mailer=services.mailer,
     )
@@ -181,46 +198,32 @@ def edit_client(
     actor: Actor = Depends(require_staff("internal.clients.manage")),
     services: Services = Depends(get_services),
 ) -> ClientOut:
-    """Muda o limite de vagas ou o plano de uma Empresa cliente."""
+    """Muda o nome, o limite de vagas ou o cadastro de uma Empresa cliente (sem os fiscais)."""
     view = update_client(
         services.trusted_uow(),
         actor=actor,
         company_id=company_id,
         clock=services.clock,
+        name=body.name,
         seat_limit=body.seat_limit,
-        plan=body.plan,
+        data=body.profile.to_data() if body.profile else None,
     )
     return ClientOut.of(view)
 
 
-@router.post("/clients/{company_id}/suspend", status_code=status.HTTP_204_NO_CONTENT)
-def suspend(
+@router.put("/clients/{company_id}/status", status_code=status.HTTP_204_NO_CONTENT)
+def change_status(
     company_id: uuid.UUID,
+    body: ClientStatusIn,
     actor: Actor = Depends(require_staff("internal.clients.manage")),
     services: Services = Depends(get_services),
 ) -> None:
-    """Suspende uma Empresa cliente."""
+    """Troca a situação do cliente; as networks acompanham."""
     set_client_status(
         services.trusted_uow(),
         actor=actor,
         company_id=company_id,
-        suspended=True,
-        clock=services.clock,
-    )
-
-
-@router.post("/clients/{company_id}/reactivate", status_code=status.HTTP_204_NO_CONTENT)
-def reactivate(
-    company_id: uuid.UUID,
-    actor: Actor = Depends(require_staff("internal.clients.manage")),
-    services: Services = Depends(get_services),
-) -> None:
-    """Reativa uma Empresa cliente suspensa."""
-    set_client_status(
-        services.trusted_uow(),
-        actor=actor,
-        company_id=company_id,
-        suspended=False,
+        status=body.status,
         clock=services.clock,
     )
 
