@@ -10,11 +10,17 @@ from avant_core.access.catalog import PermissionDef
 from avant_core.access.domain import Effect, MemberPermission, Role, SiteScope
 from avant_core.audit.domain import ActorKind, AuditEntry
 from avant_core.company.domain import (
-    CompanyPlan,
     CompanyStatus,
     InvitationKind,
     InvitationStatus,
     MembershipStatus,
+)
+from avant_core.company.profile import (
+    CLIENT_FIELDS,
+    FISCAL_FIELDS,
+    ClientData,
+    ClientProfile,
+    FiscalData,
 )
 from avant_core.company.team import CompanyOverview, MemberDetail, MemberView, RoleView
 from avant_core.costs.domain import MICROS, Cost, CostKind
@@ -167,19 +173,12 @@ class InvitationPreviewOut(BaseModel):
     account_exists: bool
 
 
-class NewCompanyIn(BaseModel):
-    name: str = Field(min_length=2, max_length=120)
-    accent_color: str | None = Field(default=None, pattern=r"^#[0-9a-fA-F]{6}$")
-
-
 class AcceptInvitationIn(BaseModel):
     """Sem sessão: name e password criam a conta. Com sessão: a conta logada aceita."""
 
     name: str | None = Field(default=None, min_length=1, max_length=120)
     password: str | None = Field(default=None, max_length=1024)
     locale: Locale = Locale.PT
-    # Obrigatório no convite de dono.
-    company: NewCompanyIn | None = None
 
 
 class InviteIn(BaseModel):
@@ -209,7 +208,6 @@ class CompanyDetailOut(BaseModel):
     name: str
     slug: str
     accent_color: str | None
-    plan: CompanyPlan
     status: CompanyStatus
     # Vazio na Company Groone: limites valem só para clientes.
     seat_limit: int | None
@@ -225,7 +223,6 @@ class CompanyDetailOut(BaseModel):
             name=company.name,
             slug=company.slug,
             accent_color=company.accent_color,
-            plan=company.plan,
             status=company.status,
             seat_limit=company.seat_limit,
             seats_used=overview.seats_used,
@@ -384,19 +381,120 @@ class AuditOut(BaseModel):
         )
 
 
+class FiscalDataOut(BaseModel):
+    """Dados fiscais de pagamento: o cliente preenche, a equipe Groone só lê."""
+
+    tax_type: str
+    tax_id: str
+    legal_name: str
+    billing_phone_ddi: str
+    billing_phone: str
+    billing_address: str
+    bank_name: str
+    swift_code: str
+    account_number: str
+    routing_number: str
+
+    @classmethod
+    def of(cls, profile: ClientProfile) -> "FiscalDataOut | None":
+        """Monta os dados fiscais do cadastro, ou nada se o cliente ainda não preencheu."""
+        if not profile.has_fiscal_data:
+            return None
+        return cls(**{name: getattr(profile, name) for name in FISCAL_FIELDS})
+
+
+class FiscalDataIn(BaseModel):
+    tax_type: str = Field(min_length=4, max_length=8)
+    tax_id: str = Field(min_length=1, max_length=30)
+    legal_name: str = Field(min_length=1, max_length=300)
+    billing_phone_ddi: str = Field(min_length=1, max_length=8)
+    billing_phone: str = Field(min_length=1, max_length=32)
+    billing_address: str = Field(min_length=1, max_length=300)
+    bank_name: str = Field(min_length=1, max_length=300)
+    swift_code: str = Field(min_length=8, max_length=14)
+    account_number: str = Field(min_length=1, max_length=300)
+    routing_number: str = Field(min_length=1, max_length=300)
+
+    def to_data(self) -> FiscalData:
+        """Converte para os dados fiscais do core."""
+        return FiscalData(**self.model_dump())
+
+
+class CompanyFiscalOut(BaseModel):
+    """O cadastro visto pelo próprio cliente em Configurações."""
+
+    first_name: str
+    last_name: str
+    email: str
+    fiscal: FiscalDataOut | None
+
+    @classmethod
+    def of(cls, profile: ClientProfile) -> "CompanyFiscalOut":
+        """Monta o contato e os dados fiscais do cadastro."""
+        return cls(
+            first_name=profile.first_name,
+            last_name=profile.last_name,
+            email=profile.email,
+            fiscal=FiscalDataOut.of(profile),
+        )
+
+
+class ClientProfileOut(BaseModel):
+    first_name: str
+    last_name: str
+    email: str
+    phone_ddi: str | None
+    phone: str | None
+    locale: Locale
+    account_manager_id: uuid.UUID | None
+    referred_by_company_id: uuid.UUID | None
+    referral_percentage: Decimal | None
+    notes: str | None
+    fiscal: FiscalDataOut | None
+
+    @classmethod
+    def of(cls, profile: ClientProfile) -> "ClientProfileOut":
+        """Monta o cadastro do cliente para o painel interno."""
+        return cls(
+            **{name: getattr(profile, name) for name in CLIENT_FIELDS},
+            fiscal=FiscalDataOut.of(profile),
+        )
+
+
+class ClientProfileIn(BaseModel):
+    first_name: str = Field(min_length=1, max_length=120)
+    last_name: str = Field(min_length=1, max_length=120)
+    email: EmailStr
+    phone_ddi: str | None = Field(default=None, max_length=8)
+    phone: str | None = Field(default=None, max_length=32)
+    locale: Locale = Locale.PT
+    account_manager_id: uuid.UUID | None = None
+    referred_by_company_id: uuid.UUID | None = None
+    # Sem valor, a indicação vale 2%.
+    referral_percentage: Decimal | None = Field(
+        default=None, gt=0, le=100, max_digits=5, decimal_places=2
+    )
+    notes: str | None = Field(default=None, max_length=300)
+
+    def to_data(self) -> ClientData:
+        """Converte para os dados de cadastro do core."""
+        return ClientData(**self.model_dump())
+
+
 class ClientOut(BaseModel):
     id: uuid.UUID
     name: str
     slug: str
-    plan: CompanyPlan
     status: CompanyStatus
     seat_limit: int
     seats_used: int
-    owner: UserOut
+    # Vazio enquanto ninguém aceitou o convite de dono.
+    owner: UserOut | None
+    profile: ClientProfileOut | None
 
     @classmethod
     def of(cls, summary: ClientSummary) -> "ClientOut":
-        """Monta a Empresa cliente com dono e vagas para o painel interno."""
+        """Monta a Empresa cliente com dono, cadastro e vagas para o painel interno."""
         company, owner = summary.company, summary.owner
         # Empresa de cliente sempre tem limite.
         assert company.seat_limit is not None
@@ -404,11 +502,15 @@ class ClientOut(BaseModel):
             id=company.id,
             name=company.name,
             slug=company.slug,
-            plan=company.plan,
             status=company.status,
             seat_limit=company.seat_limit,
             seats_used=summary.seats_used,
-            owner=UserOut(id=owner.id, email=owner.email, name=owner.name, locale=owner.locale),
+            owner=(
+                UserOut(id=owner.id, email=owner.email, name=owner.name, locale=owner.locale)
+                if owner
+                else None
+            ),
+            profile=ClientProfileOut.of(summary.profile) if summary.profile else None,
         )
 
 
@@ -418,14 +520,19 @@ class ClientDetailOut(ClientOut):
 
 
 class ClientIn(BaseModel):
-    email: EmailStr
+    name: str = Field(min_length=2, max_length=120)
     seat_limit: int = Field(ge=1, le=10_000)
-    plan: CompanyPlan
+    profile: ClientProfileIn
 
 
 class ClientPatchIn(BaseModel):
+    name: str | None = Field(default=None, min_length=2, max_length=120)
     seat_limit: int | None = Field(default=None, ge=1, le=10_000)
-    plan: CompanyPlan | None = None
+    profile: ClientProfileIn | None = None
+
+
+class ClientStatusIn(BaseModel):
+    status: CompanyStatus
 
 
 class OwnerChangeIn(BaseModel):
@@ -434,10 +541,10 @@ class OwnerChangeIn(BaseModel):
 
 class OwnerInvitationOut(BaseModel):
     id: uuid.UUID
+    # Vazio só nos convites antigos, de antes do cadastro do cliente.
+    company_id: uuid.UUID | None
     email: str
     status: InvitationStatus
-    seat_limit: int | None
-    plan: CompanyPlan | None
     expires_at: datetime
     invited_by: uuid.UUID
 

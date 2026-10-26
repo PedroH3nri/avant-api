@@ -22,11 +22,11 @@ def _queue(client: TestClient) -> RecordingQueue:
 
 
 def _second_owner(client: TestClient, engine: Engine, mailer: CapturingMailer) -> TestClient:
-    token = _owner_invite(engine, mailer, "dono@outra.com")
+    token = _owner_invite(engine, mailer, "dono@outra.com", "Outra")
     other = TestClient(client.app)
     r = other.post(
         f"/api/v1/auth/invitations/{token}/accept",
-        json={"name": "Outro", "password": PASSWORD, "company": {"name": "Outra"}},
+        json={"name": "Outro", "password": PASSWORD},
     )
     assert r.status_code == 200, r.text
     return other

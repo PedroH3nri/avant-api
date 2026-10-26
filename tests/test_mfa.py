@@ -1,6 +1,6 @@
 """2FA pela API: ativar, entrar com código, recuperação e a regra da equipe Groone."""
 
-from avant_core.company.domain import Company, CompanyPlan, Membership
+from avant_core.company.domain import Company, Membership
 from avant_core.db.uow import SqlAlchemyUnitOfWork
 from avant_core.identity import totp
 from avant_core.identity.domain import CredentialProvider, User, UserCredential
@@ -72,7 +72,6 @@ def test_staff_must_set_up_mfa_first(client: TestClient, engine: Engine) -> None
             name="Groone",
             owner_user_id=staff.id,
             seat_limit=None,
-            plan=CompanyPlan.GROONE_NETWORK,
             slug="groone",
             is_internal=True,
         )
