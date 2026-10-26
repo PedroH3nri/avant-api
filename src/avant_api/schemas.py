@@ -61,6 +61,7 @@ from avant_core.metrics.query import (
     QueryResult,
     RelativePeriod,
 )
+from avant_core.money.domain import BASE_CURRENCY
 from pydantic import BaseModel, EmailStr, Field
 
 
@@ -91,6 +92,8 @@ class MeOut(BaseModel):
     mfa_enabled: bool
     # Equipe Groone sem 2FA: o painel só mostra a configuração.
     mfa_setup_required: bool
+    # Moeda em que a pessoa vê os valores do painel.
+    display_currency: str
 
     @classmethod
     def of(cls, auth: Authenticated) -> "MeOut":
@@ -115,6 +118,7 @@ class MeOut(BaseModel):
             is_staff=auth.is_staff,
             mfa_enabled=user.mfa_enabled,
             mfa_setup_required=auth.mfa_setup_required,
+            display_currency=user.display_currency,
         )
 
 
@@ -941,6 +945,8 @@ class ReportQueryIn(BaseModel):
     compare: bool = False
     order: list[OrderIn] = Field(default_factory=list, max_length=5)
     limit: int = Field(default=1000, ge=1, le=MAX_LIMIT)
+    # Moeda do dinheiro na resposta; o painel manda a moeda de visualização da pessoa.
+    currency: str = Field(default=BASE_CURRENCY, min_length=3, max_length=3)
 
     def definition(self) -> QueryDefinition:
         """A definição do motor de consulta do avant-core."""
@@ -955,6 +961,7 @@ class ReportQueryIn(BaseModel):
             compare=self.compare,
             order=tuple(Order(item.field, item.descending) for item in self.order),
             limit=self.limit,
+            currency=self.currency.upper(),
         )
 
 
@@ -985,6 +992,7 @@ class ReportResultOut(BaseModel):
     # Havia mais linhas que o limite.
     truncated: bool
     labels: dict[str, dict[str, str]]
+    currency: str
 
     @classmethod
     def of(cls, result: QueryResult) -> "ReportResultOut":
@@ -1008,7 +1016,21 @@ class ReportResultOut(BaseModel):
             previous_totals=result.previous_totals,
             truncated=result.truncated,
             labels=result.labels,
+            currency=result.currency,
         )
+
+
+class CurrencyOut(BaseModel):
+    code: str
+    name: str
+    symbol: str
+    decimals: int
+    # Já existe cotação para converter (o dólar sempre tem).
+    available: bool
+
+
+class PreferencesIn(BaseModel):
+    display_currency: str = Field(min_length=3, max_length=3)
 
 
 def dimension_text(value: DimensionValue) -> str | None:

@@ -84,6 +84,8 @@ STATUS: dict[str, int] = {
     "role_in_use": 409,
     "role_not_editable": 409,
     "invalid_input": 422,
+    "unsupported_currency": 422,
+    "currency_unavailable": 409,
     "wrong_invitation_kind": 422,
     "invalid_permission": 422,
     "weak_password": 422,
