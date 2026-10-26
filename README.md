@@ -70,6 +70,10 @@ Outros repositórios: avant-core, avant-worker, avant-web, avant-infra.
 | `POST /reports/query` | roda uma consulta sem salvar: métricas, período (fixo ou relativo), dimensões, filtros, comparação, ordem e limite; `currency` converte o dinheiro pela cotação de cada dia (padrão `USD`; sem cotação, `currency_unavailable`); decimais como texto; só os sites que a pessoa vê; 10 seguidas e depois 1 a cada 2 s (`rate_limited`); passou de 15 s no banco, `query_too_heavy` | `reports.view` |
 | `POST /reports/query/export?locale=` | a mesma consulta em CSV, sites e networks pelo nome, texto que parece fórmula escapado com `'` | `reports.view` |
 | `GET /currencies` | as moedas do painel, com `available` quando já há cotação | sessão |
+| `GET /costs` | custos da aba Custos, do mês mais novo para o mais antigo | `costs.view` |
+| `POST /costs`, `PUT /costs/{id}`, `DELETE /costs/{id}` | cadastra, troca ou apaga um custo: `one_time` (um mês), `recurring` (do início até o fim, se tiver) ou `formula` (sobre `faturamento` e `receita` do mês; erro `invalid_formula`) | `costs.manage` |
+| `POST /costs/formula` | confere a fórmula e calcula com valores de exemplo, sem gravar | `costs.view` |
+| `GET /results?start=&end=&currency=` | faturamento, deduções (parte do cliente), receita, custos e resultado de cada mês, até 24 meses (padrão: os 6 até o atual); `deductions_pending` enquanto o GAM não fecha o mês | `results.view` |
 | `PUT /auth/preferences` | troca a moeda de visualização da pessoa (`display_currency`, que também vem em `/auth/me`) | sessão |
 | `GET /events` | avisos em tempo real (SSE) da Empresa ativa, filtrados pela permissão | membro |
 
@@ -86,6 +90,7 @@ Painel interno, em `/api/v1/internal` (Company Groone ativa e 2FA verificado na 
 | `GET /internal/users?q=`, `POST /internal/users/{id}/disable`, `/enable`, `/reset-mfa` | pessoas | `internal.users.manage` |
 | `GET /internal/staff`, `POST /internal/staff/invitations` | equipe Groone | `internal.staff.manage` |
 | `GET /internal/networks/unassigned`, `POST .../{id}/assign` | MCM sem dono: a Groone escolhe a Empresa | `internal.networks.assign` |
+| `GET /internal/results?start=&end=&currency=` | o resultado de cada Empresa cliente no período, por nome | `internal.results.view` |
 | `GET /internal/contracts`, `GET .../{id}` | contratos, com filtros `company_id`, `network_id` e `status` | `internal.contracts.view` |
 | `GET /internal/contracts/networks` | networks MCM com o contrato ativo e se aceitam contrato à mão | `internal.contracts.view` |
 | `POST /internal/contracts` | contrato à mão (só MCM Manage Inventory; encerra o ativo) | `internal.contracts.create` |
