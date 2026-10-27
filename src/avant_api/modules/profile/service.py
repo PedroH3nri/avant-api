@@ -2,7 +2,7 @@
 
 import uuid
 
-from avant_core.identity.model import Accent, Theme, UserImage
+from avant_core.identity.model import Accent, Locale, Theme, UserImage
 from avant_core.identity.profile_service import (
     get_user_image,
     remove_user_image,
@@ -27,14 +27,17 @@ class ProfileService:
         self._images = images
 
     def set_appearance(self, auth: Authenticated, body: AppearanceIn) -> AppearanceOut:
-        """Troca o tema e a cor do painel da pessoa (a tabela users não tem RLS)."""
+        """Troca o tema, a cor e o idioma da pessoa (a tabela users não tem RLS)."""
         user = set_appearance(
             self._uows.trusted_uow(),
             user_id=auth.user.id,
             theme=body.theme,
             accent=body.accent,
+            locale=body.locale,
         )
-        return AppearanceOut(theme=Theme(user.theme), accent=Accent(user.accent))
+        return AppearanceOut(
+            theme=Theme(user.theme), accent=Accent(user.accent), locale=Locale(user.locale)
+        )
 
     def set_image(self, auth: Authenticated, content: bytes) -> UserOut:
         """Troca a foto de perfil da pessoa."""
