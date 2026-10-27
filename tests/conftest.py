@@ -12,7 +12,7 @@ from dataclasses import dataclass, field
 import pytest
 from alembic import command
 from alembic.config import Config
-from avant_core.company.domain import InvitationKind
+from avant_core.company.model import InvitationKind
 from avant_core.identity.crypto import FernetSecretBox
 from avant_core.identity.passwords import Argon2PasswordHasher
 from avant_core.ports import Notice

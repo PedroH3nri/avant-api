@@ -5,7 +5,7 @@ Tudo aqui é da pessoa e não de uma Empresa, por isso usa trusted_uow, como o l
 
 import uuid
 
-from avant_core.identity.account import (
+from avant_core.identity.account_service import (
     change_password,
     list_sessions,
     request_password_reset,
@@ -13,7 +13,7 @@ from avant_core.identity.account import (
     revoke_other_sessions,
     revoke_session,
 )
-from avant_core.identity.application import Authenticated
+from avant_core.identity.service import Authenticated
 from avant_core.ports import Mailer, PasswordHasher, SecretBox
 from avant_core.shared.clock import Clock
 from avant_core.shared.errors import InvalidToken

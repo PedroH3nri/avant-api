@@ -2,9 +2,9 @@
 
 import uuid
 
-from avant_core.company.application import slugify
-from avant_core.company.domain import Company, CompanyStatus, Invitation, InvitationKind
-from avant_core.company.profile import ClientProfile
+from avant_core.company.model import Company, CompanyStatus, Invitation, InvitationKind
+from avant_core.company.profile_model import ClientProfile
+from avant_core.company.service import slugify
 from avant_core.db.uow import SqlAlchemyUnitOfWork
 from avant_core.shared.clock import SystemClock
 from avant_core.shared.tokens import new_token

@@ -3,7 +3,7 @@
 import uuid
 from datetime import datetime
 
-from avant_core.gam.domain import (
+from avant_core.gam.model import (
     Delegation,
     McmCandidate,
 )

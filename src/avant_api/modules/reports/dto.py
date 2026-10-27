@@ -26,7 +26,7 @@ from avant_core.metrics.query import (
     QueryResult,
     RelativePeriod,
 )
-from avant_core.money.domain import BASE_CURRENCY
+from avant_core.money.model import BASE_CURRENCY
 from pydantic import BaseModel, Field
 
 

@@ -3,8 +3,8 @@
 import uuid
 from datetime import datetime
 
-from avant_core.company.application import Actor
-from avant_core.ports import AuditFilter
+from avant_core.audit.repository import AuditFilter
+from avant_core.company.service import Actor
 from fastapi import APIRouter, Depends, Query
 
 from avant_api.app.security import require

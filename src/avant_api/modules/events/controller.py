@@ -3,7 +3,7 @@
 No proxy, esta rota precisa de ``proxy_buffering off`` (avant-infra).
 """
 
-from avant_core.company.application import Actor
+from avant_core.company.service import Actor
 from fastapi import APIRouter, Depends
 from fastapi.responses import StreamingResponse
 

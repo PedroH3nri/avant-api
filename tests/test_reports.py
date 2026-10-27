@@ -7,8 +7,8 @@ from datetime import UTC, date, datetime, timedelta
 from decimal import Decimal
 
 from avant_core.db.uow import SqlAlchemyUnitOfWork
-from avant_core.gam.domain import ConnectionType, Contract, Network, Site
-from avant_core.metrics.domain import GamCounts, GamDailyMetric
+from avant_core.gam.model import ConnectionType, Contract, Network, Site
+from avant_core.metrics.model import GamCounts, GamDailyMetric
 from fastapi.testclient import TestClient
 from sqlalchemy import Engine
 
@@ -217,7 +217,7 @@ def test_reports_rate_limit(client: TestClient, engine: Engine, mailer: Capturin
 def test_page_views_query_by_hour(
     client: TestClient, engine: Engine, mailer: CapturingMailer
 ) -> None:
-    from avant_core.metrics.domain import PageViewHourly
+    from avant_core.metrics.model import PageViewHourly
 
     me = _onboard_owner(client, engine, mailer)
     company_id = uuid.UUID(me["active_company_id"])
@@ -269,7 +269,7 @@ def test_page_views_query_by_hour(
 def test_display_currency_and_query_in_another_currency(
     client: TestClient, engine: Engine, mailer: CapturingMailer
 ) -> None:
-    from avant_core.money.application import store_exchange_rates
+    from avant_core.money.service import store_exchange_rates
     from avant_core.shared.clock import SystemClock
 
     me = _onboard_owner(client, engine, mailer)

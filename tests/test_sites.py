@@ -5,7 +5,7 @@ import uuid
 from datetime import UTC, datetime
 
 from avant_core.db.uow import SqlAlchemyUnitOfWork
-from avant_core.gam.domain import AdUnit, ConnectionType, Network, Site
+from avant_core.gam.model import AdUnit, ConnectionType, Network, Site
 from fastapi.testclient import TestClient
 from sqlalchemy import Engine
 

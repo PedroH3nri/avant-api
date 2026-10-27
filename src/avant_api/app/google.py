@@ -14,7 +14,7 @@ from typing import Any, Protocol
 from urllib.parse import urlencode
 
 import httpx
-from avant_core.identity.account import GoogleIdentity
+from avant_core.identity.account_service import GoogleIdentity
 
 from avant_api.app.errors import GoogleFailed
 

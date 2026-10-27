@@ -5,8 +5,8 @@ from datetime import UTC, datetime
 from decimal import Decimal
 
 from avant_core.db.uow import SqlAlchemyUnitOfWork
-from avant_core.gam.domain import ConnectionType, Contract, Network
-from avant_core.metrics.domain import GamCounts, GamDailyMetric, McmEarning
+from avant_core.gam.model import ConnectionType, Contract, Network
+from avant_core.metrics.model import GamCounts, GamDailyMetric, McmEarning
 from fastapi.testclient import TestClient
 from sqlalchemy import Engine
 

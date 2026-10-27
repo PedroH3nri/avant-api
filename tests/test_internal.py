@@ -2,7 +2,7 @@
 
 from avant_core.db.uow import SqlAlchemyUnitOfWork
 from avant_core.identity.passwords import Argon2PasswordHasher
-from avant_core.internal.bootstrap import bootstrap_groone
+from avant_core.internal.bootstrap_service import bootstrap_groone
 from avant_core.shared.clock import SystemClock
 from fastapi.testclient import TestClient
 from sqlalchemy import Engine

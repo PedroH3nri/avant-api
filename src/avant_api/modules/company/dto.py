@@ -2,14 +2,14 @@
 
 import uuid
 
-from avant_core.company.domain import (
+from avant_core.company.model import (
     CompanyStatus,
 )
-from avant_core.company.profile import (
+from avant_core.company.profile_model import (
     ClientProfile,
     FiscalData,
 )
-from avant_core.company.team import CompanyOverview
+from avant_core.company.team_service import CompanyOverview
 from pydantic import BaseModel, Field
 
 from avant_api.shared.dto import FiscalDataOut

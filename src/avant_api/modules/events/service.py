@@ -2,7 +2,7 @@
 
 from collections.abc import AsyncIterator
 
-from avant_core.company.application import Actor
+from avant_core.company.service import Actor
 
 from avant_api.app.events import EventSource, sse
 

@@ -3,13 +3,13 @@
 import uuid
 from datetime import datetime
 
-from avant_core.access.domain import SiteScope
-from avant_core.company.domain import (
+from avant_core.access.model import SiteScope
+from avant_core.company.model import (
     InvitationKind,
     InvitationStatus,
 )
-from avant_core.identity.application import Authenticated
-from avant_core.identity.domain import Locale
+from avant_core.identity.model import Locale
+from avant_core.identity.service import Authenticated
 from pydantic import BaseModel, EmailStr, Field
 
 from avant_api.shared.dto import UserOut

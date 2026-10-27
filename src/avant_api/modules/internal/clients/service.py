@@ -6,12 +6,12 @@ Usa ``trusted_uow()`` (sem RLS) porque a Groone enxerga todas as Empresas; o cor
 
 import uuid
 
-from avant_core.company.application import Actor
-from avant_core.company.domain import CompanyStatus, Invitation
-from avant_core.internal.application import (
+from avant_core.company.model import CompanyStatus, Invitation
+from avant_core.company.service import Actor
+from avant_core.internal.service import (
     cancel_owner_invitation as cancel_owner_invite,
 )
-from avant_core.internal.application import (
+from avant_core.internal.service import (
     change_owner,
     client_audit,
     create_client,

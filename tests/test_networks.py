@@ -4,7 +4,7 @@ enfileira e o estado que ela grava."""
 from datetime import UTC, datetime
 
 from avant_core.db.uow import SqlAlchemyUnitOfWork
-from avant_core.gam.domain import Delegation, McmCandidate
+from avant_core.gam.model import Delegation, McmCandidate
 from fastapi.testclient import TestClient
 from sqlalchemy import Engine
 

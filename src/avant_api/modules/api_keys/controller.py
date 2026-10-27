@@ -6,7 +6,7 @@ também funcionam com a própria chave (por exemplo, para um sistema revogar a s
 
 import uuid
 
-from avant_core.company.application import Actor
+from avant_core.company.service import Actor
 from fastapi import APIRouter, Depends, status
 
 from avant_api.app.security import get_actor, require_session

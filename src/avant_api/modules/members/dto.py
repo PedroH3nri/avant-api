@@ -3,11 +3,11 @@
 import uuid
 from datetime import datetime
 
-from avant_core.access.domain import Effect, MemberPermission
-from avant_core.company.domain import (
+from avant_core.access.model import Effect, MemberPermission
+from avant_core.company.model import (
     MembershipStatus,
 )
-from avant_core.company.team import MemberDetail, MemberView
+from avant_core.company.team_service import MemberDetail, MemberView
 from pydantic import BaseModel, Field
 
 from avant_api.shared.dto import MemberOut

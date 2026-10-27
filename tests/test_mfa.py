@@ -1,9 +1,9 @@
 """2FA pela API: ativar, entrar com código, recuperação e a regra da equipe Groone."""
 
-from avant_core.company.domain import Company, Membership
+from avant_core.company.model import Company, Membership
 from avant_core.db.uow import SqlAlchemyUnitOfWork
 from avant_core.identity import totp
-from avant_core.identity.domain import CredentialProvider, User, UserCredential
+from avant_core.identity.model import CredentialProvider, User, UserCredential
 from avant_core.identity.passwords import Argon2PasswordHasher
 from avant_core.shared.clock import SystemClock
 from fastapi.testclient import TestClient

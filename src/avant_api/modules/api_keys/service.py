@@ -2,8 +2,8 @@
 
 import uuid
 
-from avant_core.access.api_keys import create_api_key, list_api_keys, revoke_api_key
-from avant_core.company.application import Actor
+from avant_core.access.api_key_service import create_api_key, list_api_keys, revoke_api_key
+from avant_core.company.service import Actor
 from avant_core.shared.clock import Clock
 
 from avant_api.app.ports import UnitOfWorkFactory

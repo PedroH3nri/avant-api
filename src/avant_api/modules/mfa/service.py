@@ -2,8 +2,7 @@
 
 import uuid
 
-from avant_core.identity.application import LoginResult
-from avant_core.identity.mfa import (
+from avant_core.identity.mfa_service import (
     MfaSetup,
     begin_mfa_setup,
     confirm_mfa_setup,
@@ -11,6 +10,7 @@ from avant_core.identity.mfa import (
     regenerate_recovery_codes,
     verify_mfa,
 )
+from avant_core.identity.service import LoginResult
 from avant_core.ports import SecretBox
 from avant_core.shared.clock import Clock
 

@@ -6,8 +6,8 @@ Sem período, vêm os seis meses até o atual; sem moeda, o dólar.
 
 from datetime import date
 
-from avant_core.company.application import Actor
-from avant_core.money.domain import BASE_CURRENCY
+from avant_core.company.service import Actor
+from avant_core.money.model import BASE_CURRENCY
 from fastapi import APIRouter, Depends, Query
 
 from avant_api.app.security import require

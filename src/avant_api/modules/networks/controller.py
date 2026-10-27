@@ -5,7 +5,7 @@ A tela acompanha a sincronização pelo estado da network e pelas últimas etapa
 
 import uuid
 
-from avant_core.company.application import Actor
+from avant_core.company.service import Actor
 from fastapi import APIRouter, Depends, Query, status
 
 from avant_api.app.security import require

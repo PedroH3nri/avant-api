@@ -2,8 +2,8 @@
 
 import uuid
 
-from avant_core.company.application import Actor
-from avant_core.company.domain import MembershipStatus
+from avant_core.company.model import MembershipStatus
+from avant_core.company.service import Actor
 from fastapi import APIRouter, Depends, Query, status
 
 from avant_api.app.security import get_session_actor, require
