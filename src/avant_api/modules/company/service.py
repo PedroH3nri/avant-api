@@ -1,7 +1,7 @@
 """Service da Empresa ativa: dados, cor, configurações e dados fiscais."""
 
-from avant_core.company.application import Actor
-from avant_core.company.team import (
+from avant_core.company.service import Actor
+from avant_core.company.team_service import (
     get_company,
     get_fiscal_data,
     update_company,

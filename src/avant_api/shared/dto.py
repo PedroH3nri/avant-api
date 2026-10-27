@@ -3,18 +3,18 @@
 import uuid
 from datetime import datetime
 
-from avant_core.audit.domain import ActorKind, AuditEntry
-from avant_core.company.domain import (
+from avant_core.audit.model import ActorKind, AuditEntry
+from avant_core.company.model import (
     Invitation,
     InvitationStatus,
     MembershipStatus,
 )
-from avant_core.company.profile import (
+from avant_core.company.profile_model import (
     FISCAL_FIELDS,
     ClientProfile,
 )
-from avant_core.company.team import MemberView
-from avant_core.identity.domain import Locale
+from avant_core.company.team_service import MemberView
+from avant_core.identity.model import Locale
 from pydantic import BaseModel
 
 

@@ -2,8 +2,8 @@
 
 import uuid
 
-from avant_core.company.application import Actor
-from avant_core.internal.application import (
+from avant_core.company.service import Actor
+from avant_core.internal.service import (
     PersonView,
     reset_user_mfa,
     search_users,

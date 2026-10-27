@@ -2,8 +2,13 @@
 
 import uuid
 
-from avant_core.identity.account import has_google, link_google, login_with_google, unlink_google
-from avant_core.identity.application import LoginResult, authenticate
+from avant_core.identity.account_service import (
+    has_google,
+    link_google,
+    login_with_google,
+    unlink_google,
+)
+from avant_core.identity.service import LoginResult, authenticate
 from avant_core.ports import Mailer
 from avant_core.shared.clock import Clock
 from avant_core.shared.errors import NotAuthenticated

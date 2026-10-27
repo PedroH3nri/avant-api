@@ -3,8 +3,7 @@
 import uuid
 from datetime import datetime
 
-from avant_core.gam.application import NetworkView
-from avant_core.gam.domain import (
+from avant_core.gam.model import (
     ConnectionType,
     Delegation,
     Network,
@@ -13,6 +12,7 @@ from avant_core.gam.domain import (
     SyncKind,
     SyncStatus,
 )
+from avant_core.gam.service import NetworkView
 from pydantic import BaseModel, Field
 
 

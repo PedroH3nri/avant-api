@@ -1,6 +1,6 @@
 """2FA: /api/v1/auth/mfa."""
 
-from avant_core.identity.application import Authenticated
+from avant_core.identity.service import Authenticated
 from avant_core.shared.errors import NotAuthenticated
 from fastapi import APIRouter, Depends, Request, Response, status
 

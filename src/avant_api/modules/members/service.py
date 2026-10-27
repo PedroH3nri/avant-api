@@ -2,9 +2,9 @@
 
 import uuid
 
-from avant_core.company.application import Actor
-from avant_core.company.domain import MembershipStatus
-from avant_core.company.team import (
+from avant_core.company.model import MembershipStatus
+from avant_core.company.service import Actor
+from avant_core.company.team_service import (
     DirectPermission,
     get_member,
     leave_company,

@@ -6,8 +6,8 @@ verificado na sessão e a permissão) e, no core, ``ensure_staff`` em cada caso 
 
 import uuid
 
-from avant_core.company.application import Actor
-from avant_core.company.domain import CompanyStatus
+from avant_core.company.model import CompanyStatus
+from avant_core.company.service import Actor
 from fastapi import APIRouter, Depends, Query, status
 
 from avant_api.app.security import require_staff

@@ -3,8 +3,8 @@
 import uuid
 
 from avant_core.access.catalog import PermissionDef
-from avant_core.access.domain import Role, SiteScope
-from avant_core.company.team import RoleView
+from avant_core.access.model import Role, SiteScope
+from avant_core.company.team_service import RoleView
 from pydantic import BaseModel, Field
 
 

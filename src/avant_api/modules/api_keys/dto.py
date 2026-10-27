@@ -3,7 +3,7 @@
 import uuid
 from datetime import datetime
 
-from avant_core.access.api_keys import MAX_DAYS, ApiKeyView
+from avant_core.access.api_key_service import MAX_DAYS, ApiKeyView
 from pydantic import BaseModel, Field
 
 from avant_api.shared.dto import UserOut

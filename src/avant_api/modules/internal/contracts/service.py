@@ -2,9 +2,9 @@
 
 import uuid
 
-from avant_core.company.application import Actor
-from avant_core.gam.domain import ContractStatus
-from avant_core.internal.contracts import (
+from avant_core.company.service import Actor
+from avant_core.gam.model import ContractStatus
+from avant_core.internal.contract_service import (
     create_contract,
     delete_contract,
     end_contract,

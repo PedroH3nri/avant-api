@@ -2,8 +2,8 @@
 
 import uuid
 
-from avant_core.company.application import Actor
-from avant_core.company.team import (
+from avant_core.company.service import Actor
+from avant_core.company.team_service import (
     client_permissions,
     create_role,
     delete_role,

@@ -1,7 +1,7 @@
 """Métricas e relatórios: /api/v1/metrics/catalog e /api/v1/reports/query."""
 
-from avant_core.company.application import Actor
-from avant_core.identity.domain import Locale
+from avant_core.company.service import Actor
+from avant_core.identity.model import Locale
 from fastapi import APIRouter, Depends, Response
 
 from avant_api.app.security import require

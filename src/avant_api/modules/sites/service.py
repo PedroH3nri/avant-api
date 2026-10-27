@@ -5,9 +5,8 @@ Quem não vê todos os sites (papel com ``site_scope=assigned``) só recebe os a
 
 import uuid
 
-from avant_core.company.application import Actor
-from avant_core.gam.domain import InventoryStatus
-from avant_core.gam.inventory import (
+from avant_core.company.service import Actor
+from avant_core.gam.inventory_service import (
     add_site,
     get_site,
     link_ad_unit,
@@ -18,6 +17,7 @@ from avant_core.gam.inventory import (
     set_member_sites,
     site_members,
 )
+from avant_core.gam.model import InventoryStatus
 from avant_core.shared.clock import Clock
 
 from avant_api.app.ports import UnitOfWorkFactory

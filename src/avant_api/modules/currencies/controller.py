@@ -2,7 +2,7 @@
 /api/v1/auth/preferences.
 """
 
-from avant_core.identity.application import Authenticated
+from avant_core.identity.service import Authenticated
 from fastapi import APIRouter, Depends
 
 from avant_api.app.security import get_auth, get_session_auth

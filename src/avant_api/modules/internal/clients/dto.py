@@ -4,17 +4,17 @@ import uuid
 from datetime import datetime
 from decimal import Decimal
 
-from avant_core.company.domain import (
+from avant_core.company.model import (
     CompanyStatus,
     InvitationStatus,
 )
-from avant_core.company.profile import (
+from avant_core.company.profile_model import (
     CLIENT_FIELDS,
     ClientData,
     ClientProfile,
 )
-from avant_core.identity.domain import Locale
-from avant_core.internal.application import ClientSummary
+from avant_core.identity.model import Locale
+from avant_core.internal.service import ClientSummary
 from pydantic import BaseModel, EmailStr, Field
 
 from avant_api.shared.dto import CompanyRefOut, FiscalDataOut, InvitationOut, MemberOut, UserOut

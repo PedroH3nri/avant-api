@@ -5,14 +5,15 @@ Tudo aqui acontece antes de haver uma Empresa escolhida, por isso usa trusted_uo
 
 import uuid
 
-from avant_core.company.application import (
+from avant_core.company.model import Membership
+from avant_core.company.service import (
     ExistingAccount,
     NewAccount,
     accept_invitation,
     preview_invitation,
 )
-from avant_core.company.domain import Membership
-from avant_core.identity.application import (
+from avant_core.identity.model import normalize_email
+from avant_core.identity.service import (
     Authenticated,
     LoginResult,
     authenticate,
@@ -21,7 +22,6 @@ from avant_core.identity.application import (
     start_session,
     switch_active_company,
 )
-from avant_core.identity.domain import normalize_email
 from avant_core.ports import PasswordHasher
 from avant_core.shared.clock import Clock
 from avant_core.shared.errors import InvalidCredentials, WrongInvitationKind

@@ -1,6 +1,6 @@
 """Login, sessão, Empresa ativa e aceite de convite: /api/v1/auth."""
 
-from avant_core.identity.application import Authenticated
+from avant_core.identity.service import Authenticated
 from avant_core.shared.errors import NotAuthenticated
 from fastapi import APIRouter, Depends, Request, Response, status
 

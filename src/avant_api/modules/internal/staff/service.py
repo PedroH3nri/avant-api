@@ -1,7 +1,7 @@
 """Service da equipe Groone no painel interno."""
 
-from avant_core.company.application import Actor
-from avant_core.internal.application import invite_staff, list_staff
+from avant_core.company.service import Actor
+from avant_core.internal.service import invite_staff, list_staff
 from avant_core.ports import Mailer
 from avant_core.shared.clock import Clock
 
