@@ -17,7 +17,14 @@ from avant_core.identity.model import Locale
 from avant_core.internal.service import ClientSummary
 from pydantic import BaseModel, EmailStr, Field
 
-from avant_api.shared.dto import CompanyRefOut, FiscalDataOut, InvitationOut, MemberOut, UserOut
+from avant_api.shared.dto import (
+    CompanyRefOut,
+    FiscalDataOut,
+    InvitationOut,
+    MemberOut,
+    UserOut,
+    image_url,
+)
 
 
 class ClientProfileOut(BaseModel):
@@ -72,6 +79,8 @@ class ClientOut(BaseModel):
     # Vazio enquanto ninguém aceitou o convite de dono.
     owner: UserOut | None
     profile: ClientProfileOut | None
+    # Vazio sem imagem: o painel mostra a inicial do nome.
+    image_url: str | None
 
     @classmethod
     def of(cls, summary: ClientSummary) -> "ClientOut":
@@ -92,6 +101,7 @@ class ClientOut(BaseModel):
                 else None
             ),
             profile=ClientProfileOut.of(summary.profile) if summary.profile else None,
+            image_url=image_url(f"/internal/clients/{company.id}/image", company.image_version),
         )
 
 

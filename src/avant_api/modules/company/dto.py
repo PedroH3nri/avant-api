@@ -12,7 +12,7 @@ from avant_core.company.profile_model import (
 from avant_core.company.team_service import CompanyOverview
 from pydantic import BaseModel, Field
 
-from avant_api.shared.dto import FiscalDataOut
+from avant_api.shared.dto import FiscalDataOut, image_url
 
 HEX_COLOR = r"^#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6})$"
 
@@ -27,6 +27,8 @@ class CompanyDetailOut(BaseModel):
     seat_limit: int | None
     seats_used: int
     settings: dict[str, object]
+    # Vazio sem imagem: o painel mostra a inicial do nome sobre a cor da Empresa.
+    image_url: str | None
 
     @classmethod
     def of(cls, overview: CompanyOverview) -> "CompanyDetailOut":
@@ -41,6 +43,7 @@ class CompanyDetailOut(BaseModel):
             seat_limit=company.seat_limit,
             seats_used=overview.seats_used,
             settings=company.settings,
+            image_url=image_url("/company/image", company.image_version),
         )
 
 

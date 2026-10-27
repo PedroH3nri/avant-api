@@ -2,7 +2,12 @@
 
 import ipaddress
 
-from fastapi import Request
+from avant_core.company.model import IMAGE_MAX_BYTES, CompanyImage
+from avant_core.shared.errors import ImageTooLarge
+from fastapi import Request, Response, status
+
+# A URL da imagem muda a cada imagem nova (?v=), então o navegador pode guardar por um ano.
+IMAGE_CACHE = "private, max-age=31536000, immutable"
 
 
 def client_info(request: Request) -> tuple[str | None, str | None]:
@@ -14,3 +19,25 @@ def client_info(request: Request) -> tuple[str | None, str | None]:
     except ValueError:
         ip = None
     return request.headers.get("User-Agent"), ip
+
+
+def image_response(request: Request, image: CompanyImage) -> Response:
+    """Devolve a imagem com ETag; 304 quando o navegador já tem a mesma."""
+    etag = f'"{image.sha256}"'
+    headers = {"ETag": etag, "Cache-Control": IMAGE_CACHE}
+    if request.headers.get("If-None-Match") == etag:
+        return Response(status_code=status.HTTP_304_NOT_MODIFIED, headers=headers)
+    return Response(image.content, media_type=image.content_type, headers=headers)
+
+
+async def image_upload(request: Request) -> bytes:
+    """Corpo do PUT da imagem (o arquivo cru); para de ler ao passar do limite."""
+    declared = request.headers.get("Content-Length", "")
+    if declared.isdigit() and int(declared) > IMAGE_MAX_BYTES:
+        raise ImageTooLarge(f"a imagem passa de {IMAGE_MAX_BYTES} bytes")
+    body = bytearray()
+    async for chunk in request.stream():
+        body.extend(chunk)
+        if len(body) > IMAGE_MAX_BYTES:
+            raise ImageTooLarge(f"a imagem passa de {IMAGE_MAX_BYTES} bytes")
+    return bytes(body)

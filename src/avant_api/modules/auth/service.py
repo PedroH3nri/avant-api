@@ -5,7 +5,8 @@ Tudo aqui acontece antes de haver uma Empresa escolhida, por isso usa trusted_uo
 
 import uuid
 
-from avant_core.company.model import Membership
+from avant_core.company.image_service import get_company_image
+from avant_core.company.model import CompanyImage, Membership
 from avant_core.company.service import (
     ExistingAccount,
     NewAccount,
@@ -70,6 +71,12 @@ class AuthService:
     def logout(self, session_id: uuid.UUID) -> None:
         """Encerra a sessão."""
         logout(self._uows.trusted_uow(), session_id=session_id, clock=self._clock)
+
+    def company_image(self, auth: Authenticated, company_id: uuid.UUID) -> CompanyImage:
+        """Imagem de uma das Empresas da pessoa, para o seletor de Empresas."""
+        return get_company_image(
+            self._uows.uow(company_id), user_id=auth.user.id, company_id=company_id
+        )
 
     def switch_company(
         self, auth: Authenticated, company_id: uuid.UUID, token: str

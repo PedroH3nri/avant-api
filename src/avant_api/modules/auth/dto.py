@@ -12,7 +12,7 @@ from avant_core.identity.model import Locale
 from avant_core.identity.service import Authenticated
 from pydantic import BaseModel, EmailStr, Field
 
-from avant_api.shared.dto import UserOut
+from avant_api.shared.dto import UserOut, image_url
 
 
 class CompanyOut(BaseModel):
@@ -23,6 +23,8 @@ class CompanyOut(BaseModel):
     is_owner: bool
     # A Company Groone: o painel mostra o painel interno.
     is_internal: bool
+    # Vazio sem imagem: o painel mostra a inicial do nome sobre a cor da Empresa.
+    image_url: str | None
 
 
 class MeOut(BaseModel):
@@ -52,6 +54,10 @@ class MeOut(BaseModel):
                     accent_color=access.company.accent_color,
                     is_owner=access.company.owner_user_id == user.id,
                     is_internal=access.company.is_internal,
+                    image_url=image_url(
+                        f"/auth/me/companies/{access.company.id}/image",
+                        access.company.image_version,
+                    ),
                 )
                 for access in auth.companies
             ],

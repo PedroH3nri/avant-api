@@ -8,5 +8,5 @@ from avant_api.modules.company.service import CompanyService
 
 
 def company_service(services: Services = Depends(get_services)) -> CompanyService:
-    """O service da Empresa com o banco e o relógio da aplicação."""
-    return CompanyService(services, services.clock)
+    """O service da Empresa com o banco, o relógio e o conversor de imagem da aplicação."""
+    return CompanyService(services, services.clock, services.images)

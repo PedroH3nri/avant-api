@@ -17,6 +17,7 @@ Outros repositórios: avant-core, avant-worker, avant-web, avant-infra.
 | `POST /auth/logout` | encerra a sessão | sessão |
 | `GET /auth/me` | pessoa, Empresas, Empresa ativa e permissões | sessão |
 | `POST /auth/me/active-company` | troca a Empresa ativa | sessão |
+| `GET /auth/me/companies/{id}/image` | imagem de uma Empresa da pessoa, para o seletor | membro ativo |
 | `GET /auth/invitations/{token}` | dados do convite para a tela do link | nenhuma |
 | `POST /auth/invitations/{token}/accept` | aceita: cria conta (e a Empresa, no convite de dono) ou usa a sessão | conforme o caso |
 | `POST /auth/mfa/verify` | código do 2FA depois da senha; troca a pré-sessão pela sessão | pré-sessão |
@@ -38,6 +39,8 @@ Outros repositórios: avant-core, avant-worker, avant-web, avant-infra.
 | `DELETE /invitations/{id}` | cancela e libera a vaga | `team.invite` |
 | `GET /company` | Empresa ativa, com vagas usadas | membro |
 | `PATCH /company` | nome, cor e preferências | `company.edit` |
+| `GET /company/image` | imagem da Empresa ativa em WebP 256x256, com `ETag` e cache pela URL `?v=` | membro |
+| `PUT /company/image`, `DELETE /company/image` | troca (corpo = arquivo PNG, JPEG ou WebP até 2 MB) ou tira a imagem | `company.edit` |
 | `GET /company/fiscal`, `PUT /company/fiscal` | dados fiscais de pagamento; só o cliente grava, todos juntos | `company.edit` |
 | `GET /members` | equipe; filtros `status`, `role`, `q` | `team.view` |
 | `GET /members/{id}` | detalhe com permissões diretas | `team.view` |
@@ -86,6 +89,7 @@ Painel interno, em `/api/v1/internal` (Company Groone ativa e 2FA verificado na 
 | `POST /internal/clients/{id}/owner-invitation` | envia (ou manda de novo) o convite de dono para o e-mail do cadastro | `internal.clients.manage` |
 | `GET /internal/clients/{id}`, `/audit` | página de suporte e histórico, só leitura | `internal.clients.view` |
 | `PATCH /internal/clients/{id}` | nome, vagas e cadastro (contato e indicação; os fiscais só o cliente muda) | `internal.clients.manage` |
+| `GET`, `PUT`, `DELETE /internal/clients/{id}/image` | imagem do cliente (ver, trocar, tirar) | `internal.clients.view` / `.manage` |
 | `PUT /internal/clients/{id}/status` | situação `active`, `inactive` ou `banned`; as networks acompanham | `internal.clients.manage` |
 | `POST /internal/clients/{id}/owner` | troca o dono | `internal.owner.change` |
 | `GET /internal/owner-invitations`, `POST .../{id}/resend`, `DELETE .../{id}` | convites de dono | `internal.clients.view` / `.manage` |
