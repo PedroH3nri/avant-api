@@ -6,8 +6,13 @@ Usa ``trusted_uow()`` (sem RLS) porque a Groone enxerga todas as Empresas; o cor
 
 import uuid
 
-from avant_core.company.model import CompanyStatus, Invitation
+from avant_core.company.model import CompanyImage, CompanyStatus, Invitation
 from avant_core.company.service import Actor
+from avant_core.internal.image_service import (
+    get_client_image,
+    remove_client_image,
+    set_client_image,
+)
 from avant_core.internal.service import (
     cancel_owner_invitation as cancel_owner_invite,
 )
@@ -24,7 +29,7 @@ from avant_core.internal.service import (
     set_client_status,
     update_client,
 )
-from avant_core.ports import Mailer
+from avant_core.ports import ImageProcessor, Mailer
 from avant_core.shared.clock import Clock
 
 from avant_api.app.ports import UnitOfWorkFactory
@@ -54,10 +59,13 @@ def owner_invitation_out(invitation: Invitation) -> OwnerInvitationOut:
 class ClientService:
     """Empresas cliente vistas pela equipe Groone."""
 
-    def __init__(self, uows: UnitOfWorkFactory, clock: Clock, mailer: Mailer) -> None:
+    def __init__(
+        self, uows: UnitOfWorkFactory, clock: Clock, mailer: Mailer, images: ImageProcessor
+    ) -> None:
         self._uows = uows
         self._clock = clock
         self._mailer = mailer
+        self._images = images
 
     def list_all(
         self, actor: Actor, query: str | None, status: CompanyStatus | None
@@ -145,6 +153,29 @@ class ClientService:
             data=body.profile.to_data() if body.profile else None,
         )
         return ClientOut.of(view)
+
+    def image(self, actor: Actor, company_id: uuid.UUID) -> CompanyImage:
+        """Imagem de uma Empresa cliente."""
+        return get_client_image(self._uows.trusted_uow(), actor=actor, company_id=company_id)
+
+    def set_image(self, actor: Actor, company_id: uuid.UUID, content: bytes) -> ClientOut:
+        """Troca a imagem de uma Empresa cliente e devolve o cliente com a URL nova."""
+        set_client_image(
+            self._uows.trusted_uow(),
+            actor=actor,
+            company_id=company_id,
+            content=content,
+            images=self._images,
+            clock=self._clock,
+        )
+        return self.show(actor, company_id)
+
+    def remove_image(self, actor: Actor, company_id: uuid.UUID) -> ClientOut:
+        """Tira a imagem de uma Empresa cliente."""
+        remove_client_image(
+            self._uows.trusted_uow(), actor=actor, company_id=company_id, clock=self._clock
+        )
+        return self.show(actor, company_id)
 
     def set_status(self, actor: Actor, company_id: uuid.UUID, status: CompanyStatus) -> None:
         """Troca a situação do cliente; as networks acompanham."""

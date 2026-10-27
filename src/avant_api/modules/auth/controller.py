@@ -1,5 +1,7 @@
 """Login, sessão, Empresa ativa e aceite de convite: /api/v1/auth."""
 
+import uuid
+
 from avant_core.identity.service import Authenticated
 from avant_core.shared.errors import NotAuthenticated
 from fastapi import APIRouter, Depends, Request, Response, status
@@ -16,7 +18,7 @@ from avant_api.modules.auth.dto import (
     MeOut,
 )
 from avant_api.modules.auth.service import AuthService
-from avant_api.shared.http import client_info
+from avant_api.shared.http import client_info, image_response
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
@@ -57,6 +59,17 @@ def do_logout(
 def me(auth: Authenticated = Depends(get_session_auth)) -> MeOut:
     """Devolve a pessoa, as Empresas dela e as permissões na Empresa ativa."""
     return MeOut.of(auth)
+
+
+@router.get("/me/companies/{company_id}/image", response_class=Response)
+def company_image(
+    company_id: uuid.UUID,
+    request: Request,
+    auth: Authenticated = Depends(get_session_auth),
+    service: AuthService = Depends(auth_service),
+) -> Response:
+    """Imagem de uma Empresa em que a pessoa é membro ativo, para o seletor de Empresas."""
+    return image_response(request, service.company_image(auth, company_id))
 
 
 @router.post("/me/active-company")

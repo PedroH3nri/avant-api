@@ -7,12 +7,13 @@ from avant_core.db.uow import SqlAlchemyUnitOfWork
 from avant_core.identity.crypto import FernetSecretBox
 from avant_core.identity.passwords import Argon2PasswordHasher
 from avant_core.mail import LogMailer, ResendMailer
-from avant_core.ports import Mailer, PasswordHasher, SecretBox
+from avant_core.ports import ImageProcessor, Mailer, PasswordHasher, SecretBox
 from avant_core.shared.clock import Clock, SystemClock
 from sqlalchemy import Engine, create_engine
 
 from avant_api.app.events import EventSource, NoEvents, RedisEvents
 from avant_api.app.google import GoogleAuth, GoogleOAuth
+from avant_api.app.images import PillowImageProcessor
 from avant_api.app.limits import (
     Bucket,
     Limiter,
@@ -40,6 +41,7 @@ class Services:
     google: GoogleAuth | None = None
     tasks: TaskQueue = field(default_factory=RecordingQueue)
     events: EventSource = field(default_factory=NoEvents)
+    images: ImageProcessor = field(default_factory=PillowImageProcessor)
 
     @classmethod
     def build(cls, settings: Settings) -> "Services":

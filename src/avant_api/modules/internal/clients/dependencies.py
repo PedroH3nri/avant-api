@@ -8,5 +8,5 @@ from avant_api.modules.internal.clients.service import ClientService
 
 
 def client_service(services: Services = Depends(get_services)) -> ClientService:
-    """O service dos clientes com o banco, o relógio e o e-mail da aplicação."""
-    return ClientService(services, services.clock, services.mailer)
+    """O service dos clientes com o banco, o relógio, o e-mail e o conversor de imagem."""
+    return ClientService(services, services.clock, services.mailer, services.images)

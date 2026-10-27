@@ -17,6 +17,14 @@ from avant_core.company.team_service import MemberView
 from avant_core.identity.model import Locale
 from pydantic import BaseModel
 
+# Prefixo das rotas, para montar as URLs que o painel usa direto (como a da imagem).
+API_PATH = "/api/v1"
+
+
+def image_url(path: str, version: str | None) -> str | None:
+    """URL da imagem com a versão, que muda a cada imagem nova; vazia sem imagem."""
+    return f"{API_PATH}{path}?v={version}" if version else None
+
 
 class UserOut(BaseModel):
     id: uuid.UUID

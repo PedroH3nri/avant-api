@@ -8,7 +8,7 @@ import uuid
 
 from avant_core.company.model import CompanyStatus
 from avant_core.company.service import Actor
-from fastapi import APIRouter, Depends, Query, status
+from fastapi import APIRouter, Depends, Query, Request, Response, status
 
 from avant_api.app.security import require_staff
 from avant_api.modules.internal.clients.dependencies import client_service
@@ -24,6 +24,7 @@ from avant_api.modules.internal.clients.dto import (
 )
 from avant_api.modules.internal.clients.service import ClientService
 from avant_api.shared.dto import AuditOut, ItemsOut
+from avant_api.shared.http import image_response, image_upload
 
 router = APIRouter(prefix="/internal", tags=["internal"])
 
@@ -101,6 +102,38 @@ def edit_client(
 ) -> ClientOut:
     """Muda o nome, o limite de vagas ou o cadastro de uma Empresa cliente (sem os fiscais)."""
     return service.update(actor, company_id, body)
+
+
+@router.get("/clients/{company_id}/image", response_class=Response)
+def client_image(
+    company_id: uuid.UUID,
+    request: Request,
+    actor: Actor = Depends(require_staff("internal.clients.view")),
+    service: ClientService = Depends(client_service),
+) -> Response:
+    """Imagem de uma Empresa cliente em WebP, com cache pela URL versionada."""
+    return image_response(request, service.image(actor, company_id))
+
+
+@router.put("/clients/{company_id}/image")
+def edit_client_image(
+    company_id: uuid.UUID,
+    content: bytes = Depends(image_upload),
+    actor: Actor = Depends(require_staff("internal.clients.manage")),
+    service: ClientService = Depends(client_service),
+) -> ClientOut:
+    """Troca a imagem de uma Empresa cliente: o corpo é o arquivo de até 2 MB."""
+    return service.set_image(actor, company_id, content)
+
+
+@router.delete("/clients/{company_id}/image")
+def remove_client_image(
+    company_id: uuid.UUID,
+    actor: Actor = Depends(require_staff("internal.clients.manage")),
+    service: ClientService = Depends(client_service),
+) -> ClientOut:
+    """Tira a imagem de uma Empresa cliente."""
+    return service.remove_image(actor, company_id)
 
 
 @router.put("/clients/{company_id}/status", status_code=status.HTTP_204_NO_CONTENT)

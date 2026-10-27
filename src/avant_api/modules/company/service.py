@@ -1,5 +1,11 @@
-"""Service da Empresa ativa: dados, cor, configurações e dados fiscais."""
+"""Service da Empresa ativa: dados, cor, imagem, configurações e dados fiscais."""
 
+from avant_core.company.image_service import (
+    get_company_image,
+    remove_company_image,
+    set_company_image,
+)
+from avant_core.company.model import CompanyImage
 from avant_core.company.service import Actor
 from avant_core.company.team_service import (
     get_company,
@@ -7,6 +13,7 @@ from avant_core.company.team_service import (
     update_company,
     update_fiscal_data,
 )
+from avant_core.ports import ImageProcessor
 from avant_core.shared.clock import Clock
 
 from avant_api.app.ports import UnitOfWorkFactory
@@ -21,9 +28,10 @@ from avant_api.modules.company.dto import (
 class CompanyService:
     """A Empresa ativa de quem age."""
 
-    def __init__(self, uows: UnitOfWorkFactory, clock: Clock) -> None:
+    def __init__(self, uows: UnitOfWorkFactory, clock: Clock, images: ImageProcessor) -> None:
         self._uows = uows
         self._clock = clock
+        self._images = images
 
     def show(self, actor: Actor) -> CompanyDetailOut:
         """Nome, cor e vagas da Empresa ativa."""
@@ -40,6 +48,28 @@ class CompanyService:
             settings=body.settings,
         )
         return CompanyDetailOut.of(view)
+
+    def image(self, actor: Actor) -> CompanyImage:
+        """Imagem da Empresa ativa."""
+        return get_company_image(
+            self._uows.uow(actor.company_id), user_id=actor.user_id, company_id=actor.company_id
+        )
+
+    def set_image(self, actor: Actor, content: bytes) -> CompanyDetailOut:
+        """Troca a imagem da Empresa ativa e devolve a Empresa com a URL nova."""
+        set_company_image(
+            self._uows.uow(actor.company_id),
+            actor=actor,
+            content=content,
+            images=self._images,
+            clock=self._clock,
+        )
+        return self.show(actor)
+
+    def remove_image(self, actor: Actor) -> CompanyDetailOut:
+        """Tira a imagem da Empresa ativa."""
+        remove_company_image(self._uows.uow(actor.company_id), actor=actor, clock=self._clock)
+        return self.show(actor)
 
     def fiscal(self, actor: Actor) -> CompanyFiscalOut:
         """Contato do cadastro e dados fiscais de pagamento da Empresa cliente."""
