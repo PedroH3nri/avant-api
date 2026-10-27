@@ -51,6 +51,9 @@ Outros repositórios: avant-core, avant-worker, avant-web, avant-infra.
 | `GET /permissions` | catálogo de cliente com nomes PT/EN/ES | `roles.view` |
 | `GET /roles` | predefinidos e personalizados, com contagem | `roles.view` |
 | `POST /roles`, `PATCH /roles/{id}`, `DELETE /roles/{id}` | papéis personalizados | `roles.manage` |
+| `GET /groups`, `GET /groups/{id}` | grupos de funcionários com as pessoas | `groups.view` |
+| `POST /groups`, `PATCH /groups/{id}`, `DELETE /groups/{id}` | criar (com pelo menos uma pessoa), renomear, excluir | `groups.manage` |
+| `POST /groups/{id}/members`, `DELETE /groups/{id}/members/{membership_id}` | pôr e tirar pessoas; a última não sai (409) | `groups.manage` |
 | `GET /audit` | histórico; filtros `actor`, `action`, `from`, `to`; cursor | `audit.view` |
 | `GET /networks` | networks do GAM com as últimas etapas e os sites ativos | `network.view` |
 | `GET /networks/service-account` | e-mail da conta de serviço para o guia de conexão | `network.connect` |

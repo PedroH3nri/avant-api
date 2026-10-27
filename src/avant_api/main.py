@@ -18,6 +18,7 @@ from avant_api.modules.company.controller import router as company
 from avant_api.modules.costs.controller import router as costs
 from avant_api.modules.currencies.controller import router as currencies
 from avant_api.modules.events.controller import router as events
+from avant_api.modules.groups.controller import router as groups
 from avant_api.modules.health.controller import router as health
 from avant_api.modules.internal.router import router as internal
 from avant_api.modules.invitations.controller import router as invitations
@@ -57,6 +58,7 @@ def create_app(services: Services | None = None) -> FastAPI:
         members,
         invitations,
         roles,
+        groups,
         audit,
         networks,
         sites,
