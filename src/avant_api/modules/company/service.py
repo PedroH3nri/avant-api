@@ -44,7 +44,6 @@ class CompanyService:
             actor=actor,
             clock=self._clock,
             name=body.name,
-            accent_color=body.accent_color,
             settings=body.settings,
         )
         return CompanyDetailOut.of(view)

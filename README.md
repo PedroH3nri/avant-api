@@ -82,6 +82,9 @@ Outros repositórios: avant-core, avant-worker, avant-web, avant-infra.
 | `POST /costs/formula` | confere a fórmula e calcula com valores de exemplo, sem gravar | `costs.view` |
 | `GET /results?start=&end=&currency=` | faturamento, deduções (parte do cliente), receita, custos e resultado de cada mês, até 24 meses (padrão: os 6 até o atual); `deductions_pending` enquanto o GAM não fecha o mês | `results.view` |
 | `PUT /auth/preferences` | troca a moeda de visualização da pessoa (`display_currency`, que também vem em `/auth/me`) | sessão |
+| `PATCH /auth/appearance` | tema (`light`, `dark`, `system`) e cor (`default`, `blue`, `green`, `purple`, `orange`) do painel da pessoa, também em `/auth/me` | sessão |
+| `PUT /auth/me/image`, `DELETE /auth/me/image` | troca ou tira a foto de perfil (corpo é o arquivo PNG, JPEG ou WebP de até 2 MB) | sessão |
+| `GET /users/{id}/image` | foto de perfil da própria pessoa ou de alguém da Empresa ativa (`user.image_url` nas respostas) | sessão |
 | `GET /events` | avisos em tempo real (SSE) da Empresa ativa, filtrados pela permissão | membro |
 
 Painel interno, em `/api/v1/internal` (Company Groone ativa e 2FA verificado na sessão):
