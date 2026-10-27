@@ -30,7 +30,7 @@ class ApiKeyOut(BaseModel):
             name=key.name,
             prefix=key.prefix,
             permissions=list(key.permissions),
-            owner=UserOut(id=owner.id, email=owner.email, name=owner.name, locale=owner.locale),
+            owner=UserOut.of(owner),
             created_at=key.created_at,
             expires_at=key.expires_at,
             last_used_at=key.last_used_at,

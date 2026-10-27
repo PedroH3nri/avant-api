@@ -14,14 +14,11 @@ from pydantic import BaseModel, Field
 
 from avant_api.shared.dto import FiscalDataOut, image_url
 
-HEX_COLOR = r"^#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6})$"
-
 
 class CompanyDetailOut(BaseModel):
     id: uuid.UUID
     name: str
     slug: str
-    accent_color: str | None
     status: CompanyStatus
     # Vazio na Company Groone: limites valem só para clientes.
     seat_limit: int | None
@@ -38,7 +35,6 @@ class CompanyDetailOut(BaseModel):
             id=company.id,
             name=company.name,
             slug=company.slug,
-            accent_color=company.accent_color,
             status=company.status,
             seat_limit=company.seat_limit,
             seats_used=overview.seats_used,
@@ -49,7 +45,6 @@ class CompanyDetailOut(BaseModel):
 
 class CompanyPatchIn(BaseModel):
     name: str | None = Field(default=None, min_length=2, max_length=120)
-    accent_color: str | None = Field(default=None, pattern=HEX_COLOR)
     settings: dict[str, object] | None = None
 
 

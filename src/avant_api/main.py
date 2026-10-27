@@ -25,6 +25,7 @@ from avant_api.modules.invitations.controller import router as invitations
 from avant_api.modules.members.controller import router as members
 from avant_api.modules.mfa.controller import router as mfa
 from avant_api.modules.networks.controller import router as networks
+from avant_api.modules.profile.controller import router as profile
 from avant_api.modules.reports.controller import router as reports
 from avant_api.modules.results.controller import router as results
 from avant_api.modules.roles.controller import router as roles
@@ -53,6 +54,7 @@ def create_app(services: Services | None = None) -> FastAPI:
         health,
         auth,
         account,
+        profile,
         mfa,
         company,
         members,

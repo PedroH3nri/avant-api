@@ -37,7 +37,7 @@ def test_company_and_members(client: TestClient, engine: Engine, mailer: Capturi
 
     r = client.patch(
         "/api/v1/company",
-        json={"name": "Açaí Mídia", "accent_color": "#0a0a0a"},
+        json={"name": "Açaí Mídia"},
         headers=_csrf(client),
     )
     assert r.status_code == 200 and r.json()["name"] == "Açaí Mídia"

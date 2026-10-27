@@ -8,7 +8,7 @@ from avant_core.company.model import (
     InvitationKind,
     InvitationStatus,
 )
-from avant_core.identity.model import Locale
+from avant_core.identity.model import Accent, Locale, Theme
 from avant_core.identity.service import Authenticated
 from pydantic import BaseModel, EmailStr, Field
 
@@ -19,7 +19,6 @@ class CompanyOut(BaseModel):
     id: uuid.UUID
     name: str
     slug: str
-    accent_color: str | None
     is_owner: bool
     # A Company Groone: o painel mostra o painel interno.
     is_internal: bool
@@ -39,19 +38,21 @@ class MeOut(BaseModel):
     mfa_setup_required: bool
     # Moeda em que a pessoa vê os valores do painel.
     display_currency: str
+    # Aparência do painel, escolha de cada pessoa.
+    theme: Theme
+    accent: Accent
 
     @classmethod
     def of(cls, auth: Authenticated) -> "MeOut":
         """Monta a resposta de /me com a pessoa, as Empresas e as permissões na ativa."""
         user = auth.user
         return cls(
-            user=UserOut(id=user.id, email=user.email, name=user.name, locale=user.locale),
+            user=UserOut.of(user),
             companies=[
                 CompanyOut(
                     id=access.company.id,
                     name=access.company.name,
                     slug=access.company.slug,
-                    accent_color=access.company.accent_color,
                     is_owner=access.company.owner_user_id == user.id,
                     is_internal=access.company.is_internal,
                     image_url=image_url(
@@ -68,6 +69,8 @@ class MeOut(BaseModel):
             mfa_enabled=user.mfa_enabled,
             mfa_setup_required=auth.mfa_setup_required,
             display_currency=user.display_currency,
+            theme=Theme(user.theme),
+            accent=Accent(user.accent),
         )
 
 

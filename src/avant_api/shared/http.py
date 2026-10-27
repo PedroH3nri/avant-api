@@ -2,8 +2,10 @@
 
 import ipaddress
 
-from avant_core.company.model import IMAGE_MAX_BYTES, CompanyImage
+from avant_core.company.model import CompanyImage
+from avant_core.identity.model import UserImage
 from avant_core.shared.errors import ImageTooLarge
+from avant_core.shared.images import IMAGE_MAX_BYTES
 from fastapi import Request, Response, status
 
 # A URL da imagem muda a cada imagem nova (?v=), então o navegador pode guardar por um ano.
@@ -21,7 +23,7 @@ def client_info(request: Request) -> tuple[str | None, str | None]:
     return request.headers.get("User-Agent"), ip
 
 
-def image_response(request: Request, image: CompanyImage) -> Response:
+def image_response(request: Request, image: CompanyImage | UserImage) -> Response:
     """Devolve a imagem com ETag; 304 quando o navegador já tem a mesma."""
     etag = f'"{image.sha256}"'
     headers = {"ETag": etag, "Cache-Control": IMAGE_CACHE}

@@ -21,7 +21,7 @@ def person_out(person: PersonView) -> PersonOut:
     """Monta a resposta de uma pessoa com as Empresas em que está."""
     user = person.user
     return PersonOut(
-        user=UserOut(id=user.id, email=user.email, name=user.name, locale=user.locale),
+        user=UserOut.of(user),
         status=user.status,
         mfa_enabled=user.mfa_enabled,
         last_login_at=user.last_login_at,

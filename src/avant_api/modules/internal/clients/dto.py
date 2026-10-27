@@ -95,11 +95,7 @@ class ClientOut(BaseModel):
             status=company.status,
             seat_limit=company.seat_limit,
             seats_used=summary.seats_used,
-            owner=(
-                UserOut(id=owner.id, email=owner.email, name=owner.name, locale=owner.locale)
-                if owner
-                else None
-            ),
+            owner=(UserOut.of(owner) if owner else None),
             profile=ClientProfileOut.of(summary.profile) if summary.profile else None,
             image_url=image_url(f"/internal/clients/{company.id}/image", company.image_version),
         )

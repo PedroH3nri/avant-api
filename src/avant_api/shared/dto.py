@@ -14,7 +14,7 @@ from avant_core.company.profile_model import (
     ClientProfile,
 )
 from avant_core.company.team_service import MemberView
-from avant_core.identity.model import Locale
+from avant_core.identity.model import Locale, User
 from pydantic import BaseModel
 
 # Prefixo das rotas, para montar as URLs que o painel usa direto (como a da imagem).
@@ -31,6 +31,18 @@ class UserOut(BaseModel):
     email: str
     name: str
     locale: Locale
+    image_url: str | None = None
+
+    @classmethod
+    def of(cls, user: User) -> "UserOut":
+        """Monta a pessoa com a URL versionada da foto de perfil."""
+        return cls(
+            id=user.id,
+            email=user.email,
+            name=user.name,
+            locale=user.locale,
+            image_url=image_url(f"/users/{user.id}/image", user.image_version),
+        )
 
 
 class InvitationOut(BaseModel):
@@ -80,7 +92,7 @@ class MemberOut(BaseModel):
         user, membership, role = view.user, view.membership, view.role
         return cls(
             id=membership.id,
-            user=UserOut(id=user.id, email=user.email, name=user.name, locale=user.locale),
+            user=UserOut.of(user),
             role=RoleRefOut(id=role.id, key=role.key, name=role.name) if role else None,
             status=membership.status,
             is_owner=view.is_owner,
