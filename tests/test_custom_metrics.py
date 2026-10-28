@@ -46,6 +46,7 @@ def test_custom_metrics_crud_check_catalog_and_query(
         "code": None,
         "error": None,
         "variables": ["page_views", "revenue"],
+        "value": None,
     }
     broken = client.post(
         "/api/v1/custom-metrics/validate",
