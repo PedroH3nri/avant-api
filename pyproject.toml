@@ -15,11 +15,12 @@ dependencies = [
     "redis>=5.2",
     "celery>=5.4,<6",
     "pillow>=11",
+    "openpyxl>=3.1.5",
 ]
 
 [tool.uv.sources]
 # Sempre por tag: atualizar o avant-core é uma mudança explícita neste repositório.
-avant-core = { git = "https://github.com/PedroH3nri/avant-core", tag = "v0.31.0" }
+avant-core = { git = "https://github.com/PedroH3nri/avant-core", tag = "v0.32.0" }
 
 [dependency-groups]
 dev = [
@@ -27,6 +28,7 @@ dev = [
     "ruff>=0.8",
     "mypy>=1.13",
     "celery-types>=0.22",
+    "types-openpyxl>=3.1.5.20261017",
 ]
 
 [build-system]

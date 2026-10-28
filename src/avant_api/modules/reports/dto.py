@@ -1,9 +1,11 @@
 """DTOs de entrada e saída do domínio reports. Datas sempre em ISO 8601 UTC."""
 
-from datetime import date
+import uuid
+from datetime import date, datetime
 from decimal import Decimal
-from typing import Annotated
+from typing import Annotated, Any, Literal
 
+from avant_core.access.enums.visibility import Visibility
 from avant_core.metrics.enums import (
     FilterOperator,
     MetricFormat,
@@ -30,7 +32,13 @@ from avant_core.metrics.services.query_rules import (
     UNFILTERABLE_DIMENSIONS,
 )
 from avant_core.money.catalog import BASE_CURRENCY
+from avant_core.reports.enums.chart_type import ChartType
+from avant_core.reports.models.report_template import ReportTemplate
+from avant_core.reports.models.saved_report import SavedReport
+from avant_core.reports.services import ReportInput
 from pydantic import BaseModel, Field
+
+ExportFormat = Literal["csv", "xlsx"]
 
 
 class LabelOut(BaseModel):
@@ -119,6 +127,11 @@ class PeriodIn(BaseModel):
     preset: RelativePeriod | None = None
     start: date | None = None
     end: date | None = None
+
+    @classmethod
+    def of(cls, period: Period) -> "PeriodIn":
+        """Monta o período salvo: relativo ou fixo."""
+        return cls(preset=period.preset, start=period.start, end=period.end)
 
 
 class FilterIn(BaseModel):
@@ -226,3 +239,115 @@ def dimension_text(value: DimensionValue) -> str | None:
     if isinstance(value, date):
         return value.isoformat()
     return str(value)
+
+
+class SavedQueryOut(BaseModel):
+    # A consulta salva, no formato de ``ReportQueryIn`` sem a moeda (cada um roda na sua).
+    source: MetricSource
+    metrics: list[str]
+    period: PeriodIn
+    dimensions: list[str]
+    filters: list[FilterIn]
+    compare: bool
+    order: list[OrderIn]
+    limit: int
+
+    @classmethod
+    def of(cls, definition: QueryDefinition) -> "SavedQueryOut":
+        """Monta a consulta a partir da definição do motor."""
+        return cls(
+            source=definition.source,
+            metrics=list(definition.metrics),
+            period=PeriodIn.of(definition.period),
+            dimensions=list(definition.dimensions),
+            filters=[
+                FilterIn(field=item.field, operator=item.operator, values=list(item.values))
+                for item in definition.filters
+            ],
+            compare=definition.compare,
+            order=[
+                OrderIn(field=item.field, descending=item.descending) for item in definition.order
+            ],
+            limit=definition.limit,
+        )
+
+
+class SavedReportIn(BaseModel):
+    name: str = Field(min_length=1, max_length=120)
+    description: str | None = Field(default=None, max_length=500)
+    # A moeda da consulta não fica salva: cada execução usa a de quem roda.
+    query: ReportQueryIn
+    chart_type: ChartType
+    chart_options: dict[str, Any] = Field(default_factory=dict, max_length=10)
+    visibility: Visibility = Visibility.PRIVATE
+    # Papéis que veem o relatório, só com a visibilidade ``roles``.
+    role_ids: list[uuid.UUID] = Field(default_factory=list, max_length=50)
+
+    def input(self) -> ReportInput:
+        """O formulário no formato do caso de uso."""
+        return ReportInput(
+            name=self.name,
+            query=self.query.definition(),
+            chart_type=self.chart_type,
+            chart_options=self.chart_options,
+            visibility=self.visibility,
+            role_ids=tuple(self.role_ids),
+            description=self.description,
+        )
+
+
+class SavedReportOut(BaseModel):
+    id: uuid.UUID
+    name: str
+    description: str | None
+    query: SavedQueryOut
+    chart_type: ChartType
+    chart_options: dict[str, Any]
+    visibility: Visibility
+    role_ids: list[uuid.UUID]
+    owner_user_id: uuid.UUID
+    created_by: uuid.UUID
+    created_at: datetime
+    updated_at: datetime
+    # A pessoa pode editar e apagar (é a dona ou tem reports.manage).
+    editable: bool
+
+    @classmethod
+    def of(
+        cls, report: SavedReport, definition: QueryDefinition, editable: bool
+    ) -> "SavedReportOut":
+        """Monta o relatório salvo com a consulta já lida."""
+        return cls(
+            id=report.id,
+            name=report.name,
+            description=report.description,
+            query=SavedQueryOut.of(definition),
+            chart_type=report.chart_type,
+            chart_options=report.chart_options,
+            visibility=report.visibility,
+            role_ids=report.role_ids,
+            owner_user_id=report.owner_user_id,
+            created_by=report.created_by,
+            created_at=report.created_at,
+            updated_at=report.updated_at,
+            editable=editable,
+        )
+
+
+class ReportTemplateOut(BaseModel):
+    key: str
+    name: LabelOut
+    query: SavedQueryOut
+    chart_type: ChartType
+    chart_options: dict[str, Any]
+
+    @classmethod
+    def of(cls, template: ReportTemplate) -> "ReportTemplateOut":
+        """Monta o modelo pronto com o nome nos três idiomas."""
+        return cls(
+            key=template.key,
+            name=LabelOut(**template.name),
+            query=SavedQueryOut.of(template.query),
+            chart_type=template.chart_type,
+            chart_options=template.chart_options,
+        )

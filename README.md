@@ -76,9 +76,15 @@ Outros repositórios: avant-core, avant-worker, avant-web, avant-infra.
 | `GET /metrics/catalog` | métricas e dimensões que dá para pedir, com os textos em PT, EN e ES (sem as métricas internas da Groone), e as métricas personalizadas da Empresa (`custom_metrics`, com a `query_key` e as fontes) | `reports.view` |
 | `GET /custom-metrics` | métricas personalizadas da Empresa, pelo nome, com a chave da consulta (`custom.<chave>`) e as fontes em que cada uma pode ser pedida | `reports.view` |
 | `POST /custom-metrics`, `PUT /custom-metrics/{id}`, `DELETE /custom-metrics/{id}` | cadastra, edita ou apaga uma métrica personalizada (fórmula sobre as métricas do catálogo; erro `invalid_formula`; `409 custom_metric_in_use` se outra usa); a chave nasce do nome e não muda | `metrics.manage` |
-| `POST /custom-metrics/validate` | confere o formulário como salvar faria, sem gravar: `valid`, `code`, `error` (com a posição) e as variáveis | `metrics.manage` |
+| `POST /custom-metrics/validate` | confere o formulário como salvar faria, sem gravar: `valid`, `code`, `error` (com a posição) e as variáveis; com `sample` (valores de exemplo por métrica), devolve em `value` a fórmula calculada no core (vazio sem denominador) | `metrics.manage` |
 | `POST /reports/query` | roda uma consulta sem salvar: métricas, período (fixo ou relativo), dimensões, filtros, comparação, ordem e limite; `currency` converte o dinheiro pela cotação de cada dia (padrão `USD`; sem cotação, `currency_unavailable`); decimais como texto; só os sites que a pessoa vê; 10 seguidas e depois 1 a cada 2 s (`rate_limited`); passou de 15 s no banco, `query_too_heavy` | `reports.view` |
 | `POST /reports/query/export?locale=` | a mesma consulta em CSV, sites e networks pelo nome, texto que parece fórmula escapado com `'` | `reports.view` |
+| `GET /reports`, `GET /reports/{id}` | relatórios salvos que a pessoa vê (os dela, os da Empresa e os dos papéis dela; o privado de outra pessoa é 404), com a consulta, o gráfico, a visibilidade e `editable` | `reports.view` |
+| `POST /reports`, `PUT /reports/{id}`, `DELETE /reports/{id}` | salva, edita ou apaga um relatório: nome, descrição, consulta (a de `/reports/query`, sem a moeda), `chart_type` e opções, `visibility` (`private`, `company`, `roles` com `role_ids`); editar e apagar são do dono ou de quem tem `reports.manage` | `reports.manage` para criar |
+| `POST /reports/{id}/duplicate` | cópia privada de quem duplica, com " (cópia)" no nome | `reports.manage` |
+| `GET /reports/templates`, `POST /reports/templates/{key}` | modelos prontos da Groone (nome em PT, EN e ES) e um relatório privado novo a partir de um deles | `reports.view` / `reports.manage` |
+| `POST /reports/{id}/run` | roda o relatório salvo na moeda de visualização de quem roda, só nos sites que a pessoa vê; mesmo limite de taxa de `/reports/query` | `reports.view` |
+| `GET /reports/{id}/export?format=csv\|xlsx&locale=` | o relatório salvo em CSV ou XLSX (números como números, texto sempre como texto), personalizadas pelo nome | `reports.view` |
 | `GET /currencies` | as moedas do painel, com `available` quando já há cotação | sessão |
 | `GET /costs` | custos da aba Custos, do mês mais novo para o mais antigo | `costs.view` |
 | `POST /costs`, `PUT /costs/{id}`, `DELETE /costs/{id}` | cadastra, troca ou apaga um custo: `one_time` (um mês), `recurring` (do início até o fim, se tiver) ou `formula` (sobre `faturamento` e `receita` do mês; erro `invalid_formula`) | `costs.manage` |
@@ -131,7 +137,7 @@ src/avant_api/
     service.py         um só: chama os casos de uso do avant-core e devolve os DTOs
     dependencies.py    um só: monta o service com os adaptadores do container
     <assunto>.py       apoio só deste módulo, com o nome do assunto (google/redirects.py,
-                       reports/csv_export.py, results/period.py); nunca um segundo controller
+                       reports/export.py, results/period.py); nunca um segundo controller
                        ou service: recurso novo é módulo novo
   modules/internal/    painel interno, um subdomínio por assunto (clients, people,
                        staff, mcm, results, contracts), cada um com os mesmos arquivos, e
