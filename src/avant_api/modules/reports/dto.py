@@ -12,6 +12,7 @@ from avant_core.metrics.enums import (
     RelativePeriod,
 )
 from avant_core.metrics.models import (
+    CustomMetric,
     DateRange,
     Dimension,
     DimensionValue,
@@ -81,8 +82,32 @@ class DimensionOut(BaseModel):
         )
 
 
+class CustomCatalogMetricOut(BaseModel):
+    # A chave para pedir a métrica numa consulta (``custom.<chave>``).
+    query_key: str
+    name: str
+    description: str | None
+    format: MetricFormat
+    decimals: int
+    sources: list[MetricSource]
+
+    @classmethod
+    def of(cls, metric: CustomMetric, sources: frozenset[MetricSource]) -> "CustomCatalogMetricOut":
+        """Monta a métrica personalizada da Empresa para o catálogo."""
+        return cls(
+            query_key=f"custom.{metric.key}",
+            name=metric.name,
+            description=metric.description,
+            format=metric.format,
+            decimals=metric.decimals,
+            sources=sorted(sources),
+        )
+
+
 class MetricCatalogOut(BaseModel):
     metrics: list[MetricOut]
+    # As métricas personalizadas da Empresa ativa.
+    custom_metrics: list[CustomCatalogMetricOut]
     dimensions: list[DimensionOut]
     operators: list[FilterOperator]
     periods: list[RelativePeriod]
