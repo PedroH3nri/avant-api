@@ -2,7 +2,7 @@
 
 import secrets
 
-from avant_core.identity.service import LoginResult
+from avant_core.identity.services import LoginResult
 from avant_core.shared.clock import Clock
 from fastapi import Response
 

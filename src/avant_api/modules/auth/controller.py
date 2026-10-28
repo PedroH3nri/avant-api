@@ -2,7 +2,7 @@
 
 import uuid
 
-from avant_core.identity.service import Authenticated
+from avant_core.identity.services import Authenticated
 from avant_core.shared.errors import NotAuthenticated
 from fastapi import APIRouter, Depends, Request, Response, status
 

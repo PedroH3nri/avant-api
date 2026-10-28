@@ -5,8 +5,8 @@ A cotação é dado público, sem Empresa, e a moeda é da pessoa: os dois usam 
 
 import uuid
 
-from avant_core.money.model import BASE_CURRENCY, CURRENCIES
-from avant_core.money.service import set_display_currency
+from avant_core.money.catalog import BASE_CURRENCY, CURRENCIES
+from avant_core.money.services import set_display_currency
 
 from avant_api.app.ports import UnitOfWorkFactory
 from avant_api.modules.currencies.dto import CurrencyOut, PreferencesIn

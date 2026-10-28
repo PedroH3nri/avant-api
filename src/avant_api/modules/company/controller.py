@@ -1,6 +1,6 @@
 """Empresa ativa: /api/v1/company."""
 
-from avant_core.company.service import Actor
+from avant_core.access.models import Actor
 from fastapi import APIRouter, Depends, Request, Response
 
 from avant_api.app.security import get_actor, require

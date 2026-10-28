@@ -2,8 +2,8 @@
 
 import uuid
 
-from avant_core.company.service import Actor
-from avant_core.gam.model import ContractStatus
+from avant_core.access.models import Actor
+from avant_core.gam.contracts.enums import ContractStatus
 from fastapi import APIRouter, Depends, Query, status
 
 from avant_api.app.security import require_staff

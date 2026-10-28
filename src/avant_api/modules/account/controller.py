@@ -5,7 +5,7 @@ import secrets
 import uuid
 from typing import Literal
 
-from avant_core.identity.service import Authenticated
+from avant_core.identity.services import Authenticated
 from avant_core.shared.errors import DomainError
 from fastapi import APIRouter, Depends, Query, Request, Response, status
 from fastapi.responses import RedirectResponse

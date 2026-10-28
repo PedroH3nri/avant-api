@@ -1,6 +1,6 @@
 """DTOs de entrada e saída do perfil da pessoa: aparência do painel, idioma e foto."""
 
-from avant_core.identity.model import Accent, Locale, Theme
+from avant_core.identity.enums import Accent, Locale, Theme
 from pydantic import BaseModel
 
 

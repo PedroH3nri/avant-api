@@ -3,12 +3,9 @@
 import uuid
 from datetime import datetime
 
-from avant_core.gam.inventory_service import SiteDetail, SiteMember, SiteView
-from avant_core.gam.model import (
-    AdUnit,
-    InventoryStatus,
-    Site,
-)
+from avant_core.gam.inventory.enums import InventoryStatus
+from avant_core.gam.inventory.models import AdUnit, Site
+from avant_core.gam.inventory.services import SiteDetail, SiteMember, SiteView
 from pydantic import BaseModel, Field
 
 from avant_api.shared.dto import MemberOut

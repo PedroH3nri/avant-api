@@ -5,7 +5,8 @@ import uuid
 from datetime import UTC, datetime
 
 from avant_core.db.uow import SqlAlchemyUnitOfWork
-from avant_core.gam.model import ConnectionType, Delegation, Network
+from avant_core.gam.networks.enums import ConnectionType, Delegation
+from avant_core.gam.networks.models import Network
 from fastapi.testclient import TestClient
 from sqlalchemy import Engine, text
 

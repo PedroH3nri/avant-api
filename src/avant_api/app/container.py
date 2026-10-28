@@ -4,8 +4,8 @@ import uuid
 from dataclasses import dataclass, field
 
 from avant_core.db.uow import SqlAlchemyUnitOfWork
-from avant_core.identity.crypto import FernetSecretBox
-from avant_core.identity.passwords import Argon2PasswordHasher
+from avant_core.identity.security.crypto import FernetSecretBox
+from avant_core.identity.security.passwords import Argon2PasswordHasher
 from avant_core.mail import LogMailer, ResendMailer
 from avant_core.ports import ImageProcessor, Mailer, PasswordHasher, SecretBox
 from avant_core.shared.clock import Clock, SystemClock

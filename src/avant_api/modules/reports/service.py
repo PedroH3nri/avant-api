@@ -8,17 +8,13 @@ import time
 from collections.abc import Iterator
 from contextlib import contextmanager
 
-from avant_core.company.service import Actor
-from avant_core.identity.model import Locale
+from avant_core.access.models import Actor
+from avant_core.identity.enums import Locale
 from avant_core.metrics.catalog import DIMENSIONS, visible_metrics
-from avant_core.metrics.query import (
-    MAX_DAYS,
-    MAX_LIMIT,
-    FilterOperator,
-    QueryResult,
-    RelativePeriod,
-)
-from avant_core.metrics.report_service import run_query
+from avant_core.metrics.enums import FilterOperator, RelativePeriod
+from avant_core.metrics.models import QueryResult
+from avant_core.metrics.services import run_query
+from avant_core.metrics.services.query_rules import MAX_DAYS, MAX_LIMIT
 from avant_core.shared.clock import Clock
 from sqlalchemy.exc import OperationalError
 

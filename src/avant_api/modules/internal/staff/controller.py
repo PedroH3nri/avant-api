@@ -1,6 +1,6 @@
 """Equipe Groone: /api/v1/internal/staff."""
 
-from avant_core.company.service import Actor
+from avant_core.access.models import Actor
 from fastapi import APIRouter, Depends, status
 
 from avant_api.app.security import require_staff

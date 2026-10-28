@@ -2,8 +2,8 @@
 
 import uuid
 
-from avant_core.company.service import Actor
-from avant_core.groups.service import (
+from avant_core.access.models import Actor
+from avant_core.groups.services import (
     add_group_members,
     create_group,
     delete_group,

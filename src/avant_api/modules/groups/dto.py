@@ -3,8 +3,10 @@
 import uuid
 from datetime import datetime
 
-from avant_core.groups.model import GroupMember, GroupStatus
-from avant_core.groups.service import MAX_DESCRIPTION_LENGTH, MAX_NAME_LENGTH, GroupView
+from avant_core.groups.enums import GroupStatus
+from avant_core.groups.models import GroupMember
+from avant_core.groups.services import GroupView
+from avant_core.groups.services.group_service import MAX_DESCRIPTION_LENGTH, MAX_NAME_LENGTH
 from pydantic import BaseModel, Field
 
 

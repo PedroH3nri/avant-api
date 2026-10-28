@@ -2,13 +2,8 @@
 
 import uuid
 
-from avant_core.company.service import Actor
-from avant_core.internal.service import (
-    PersonView,
-    reset_user_mfa,
-    search_users,
-    set_user_status,
-)
+from avant_core.access.models import Actor
+from avant_core.internal.services import PersonView, reset_user_mfa, search_users, set_user_status
 from avant_core.ports import Mailer
 from avant_core.shared.clock import Clock
 

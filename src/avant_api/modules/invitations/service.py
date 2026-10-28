@@ -2,8 +2,13 @@
 
 import uuid
 
-from avant_core.company.service import Actor, invite_member, list_pending_invitations
-from avant_core.company.team_service import cancel_invitation, resend_invitation
+from avant_core.access.models import Actor
+from avant_core.company.services import (
+    cancel_invitation,
+    invite_member,
+    list_pending_invitations,
+    resend_invitation,
+)
 from avant_core.ports import Mailer
 from avant_core.shared.clock import Clock
 

@@ -1,15 +1,13 @@
 """Service da Empresa ativa: dados, cor, imagem, configurações e dados fiscais."""
 
-from avant_core.company.image_service import (
+from avant_core.access.models import Actor
+from avant_core.company.models import CompanyImage
+from avant_core.company.services import (
+    get_company,
     get_company_image,
+    get_fiscal_data,
     remove_company_image,
     set_company_image,
-)
-from avant_core.company.model import CompanyImage
-from avant_core.company.service import Actor
-from avant_core.company.team_service import (
-    get_company,
-    get_fiscal_data,
     update_company,
     update_fiscal_data,
 )

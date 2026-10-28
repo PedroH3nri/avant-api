@@ -6,9 +6,9 @@ A API não fala com o GAM: conectar e sincronizar gravam o pedido e enfileiram
 
 import uuid
 
-from avant_core.company.service import Actor
-from avant_core.gam.model import Network
-from avant_core.gam.service import (
+from avant_core.access.models import Actor
+from avant_core.gam.networks.models import Network
+from avant_core.gam.networks.services import (
     connect_network,
     disconnect_network,
     get_network,
