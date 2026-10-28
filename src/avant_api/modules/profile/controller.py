@@ -3,7 +3,7 @@
 
 import uuid
 
-from avant_core.identity.service import Authenticated
+from avant_core.identity.services import Authenticated
 from fastapi import APIRouter, Depends, Request, Response
 
 from avant_api.app.security import get_auth

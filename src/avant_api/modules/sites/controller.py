@@ -7,8 +7,8 @@ e se atribui sites.
 
 import uuid
 
-from avant_core.company.service import Actor
-from avant_core.gam.model import InventoryStatus
+from avant_core.access.models import Actor
+from avant_core.gam.inventory.enums import InventoryStatus
 from fastapi import APIRouter, Depends, Query, status
 
 from avant_api.app.security import require

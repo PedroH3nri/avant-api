@@ -9,10 +9,12 @@ import hmac
 import time
 from collections.abc import Callable
 
-from avant_core.access.api_key_service import authenticate_api_key
-from avant_core.company.service import Actor
-from avant_core.identity.service import Authenticated, authenticate
-from avant_core.shared.errors import MfaRequired, NotAuthenticated, StaffOnly
+from avant_core.access.errors import StaffOnly
+from avant_core.access.models import Actor
+from avant_core.access.services import authenticate_api_key
+from avant_core.identity.errors import MfaRequired
+from avant_core.identity.services import Authenticated, authenticate
+from avant_core.shared.errors import NotAuthenticated
 from fastapi import Depends, Request
 
 from avant_api.app.container import Services

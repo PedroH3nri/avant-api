@@ -2,8 +2,8 @@
 
 import uuid
 
-from avant_core.company.service import Actor
-from avant_core.gam.service import assign_mcm_candidate, list_mcm_candidates
+from avant_core.access.models import Actor
+from avant_core.gam.mcm.services import assign_mcm_candidate, list_mcm_candidates
 from avant_core.shared.clock import Clock
 
 from avant_api.app.ports import UnitOfWorkFactory

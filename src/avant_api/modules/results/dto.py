@@ -4,9 +4,9 @@ import uuid
 from datetime import date
 from decimal import Decimal
 
-from avant_core.costs.model import CostKind
-from avant_core.results.model import CostLine, MonthResult
-from avant_core.results.service import CompanyResults, Totals
+from avant_core.costs.enums import CostKind
+from avant_core.results.models import CostLine, MonthResult
+from avant_core.results.services import CompanyResults, Totals
 from pydantic import BaseModel
 
 from avant_api.shared.dto import ContractClientRefOut

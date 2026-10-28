@@ -4,14 +4,11 @@ import uuid
 from datetime import datetime
 from decimal import Decimal
 
-from avant_core.gam.model import (
-    Contract,
-    ContractSource,
-    ContractStatus,
-    Delegation,
-    Network,
-)
-from avant_core.internal.contract_service import ContractNetworkView, ContractView
+from avant_core.gam.contracts.enums import ContractSource, ContractStatus
+from avant_core.gam.contracts.models import Contract
+from avant_core.gam.networks.enums import Delegation
+from avant_core.gam.networks.models import Network
+from avant_core.internal.services import ContractNetworkView, ContractView
 from pydantic import BaseModel, Field
 
 from avant_api.shared.dto import ContractClientRefOut

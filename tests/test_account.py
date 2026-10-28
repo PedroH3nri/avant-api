@@ -8,7 +8,7 @@ import uuid
 from urllib.parse import parse_qs, urlparse
 
 import pytest
-from avant_core.identity.account_service import GoogleIdentity
+from avant_core.identity.services import GoogleIdentity
 from avant_core.mail import render_notice, render_password_reset
 from avant_core.ports import Notice
 from fastapi.testclient import TestClient

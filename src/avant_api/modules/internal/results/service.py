@@ -2,8 +2,8 @@
 
 from datetime import date
 
-from avant_core.company.service import Actor
-from avant_core.results.service import clients_results
+from avant_core.access.models import Actor
+from avant_core.results.services import clients_results
 from avant_core.shared.clock import Clock
 
 from avant_api.app.ports import UnitOfWorkFactory

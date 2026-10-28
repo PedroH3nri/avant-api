@@ -4,7 +4,9 @@ import uuid
 from datetime import date, datetime
 from decimal import Decimal
 
-from avant_core.costs.model import MICROS, Cost, CostKind
+from avant_core.costs.enums import CostKind
+from avant_core.costs.models import Cost
+from avant_core.costs.models.cost import MICROS
 from pydantic import BaseModel, Field
 
 

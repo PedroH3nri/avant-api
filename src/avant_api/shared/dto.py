@@ -3,18 +3,14 @@
 import uuid
 from datetime import datetime
 
-from avant_core.audit.model import ActorKind, AuditEntry
-from avant_core.company.model import (
-    Invitation,
-    InvitationStatus,
-    MembershipStatus,
-)
-from avant_core.company.profile_model import (
-    FISCAL_FIELDS,
-    ClientProfile,
-)
-from avant_core.company.team_service import MemberView
-from avant_core.identity.model import Locale, User
+from avant_core.audit.enums import ActorKind
+from avant_core.audit.models import AuditEntry
+from avant_core.company.enums import InvitationStatus, MembershipStatus
+from avant_core.company.models import ClientProfile, Invitation
+from avant_core.company.models.fiscal_data import FISCAL_FIELDS
+from avant_core.company.services import MemberView
+from avant_core.identity.enums import Locale
+from avant_core.identity.models import User
 from pydantic import BaseModel
 
 # Prefixo das rotas, para montar as URLs que o painel usa direto (como a da imagem).

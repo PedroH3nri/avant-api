@@ -3,10 +3,8 @@
 import uuid
 from datetime import datetime
 
-from avant_core.gam.model import (
-    Delegation,
-    McmCandidate,
-)
+from avant_core.gam.mcm.models import McmCandidate
+from avant_core.gam.networks.enums import Delegation
 from pydantic import BaseModel
 
 
