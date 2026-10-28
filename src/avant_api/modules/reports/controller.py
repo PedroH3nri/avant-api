@@ -14,11 +14,12 @@ router = APIRouter(tags=["reports"])
 
 @router.get("/metrics/catalog")
 def catalog(
-    _: Actor = Depends(require("reports.view")),
+    actor: Actor = Depends(require("reports.view")),
     service: ReportService = Depends(report_service),
 ) -> MetricCatalogOut:
-    """Métricas e dimensões que a pessoa pode pedir, com os textos nos três idiomas."""
-    return service.catalog()
+    """Métricas e dimensões que a pessoa pode pedir, com os textos nos três idiomas, e as
+    métricas personalizadas da Empresa ativa."""
+    return service.catalog(actor)
 
 
 @router.post("/reports/query")
