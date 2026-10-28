@@ -10,6 +10,7 @@ from avant_core.metrics.services import (
     create_custom_metric,
     delete_custom_metric,
     list_custom_metrics,
+    preview_custom_metric,
     update_custom_metric,
 )
 from avant_core.shared.clock import Clock
@@ -61,7 +62,7 @@ class CustomMetricService:
         )
 
     def check(self, actor: Actor, body: CustomMetricCheckIn) -> CustomMetricCheckOut:
-        """Confere o formulário como salvar faria, sem gravar."""
+        """Confere o formulário como salvar faria, sem gravar; com amostra, calcula a prévia."""
         try:
             variables = check_custom_metric(
                 self._uows.uow(actor.company_id),
@@ -69,11 +70,20 @@ class CustomMetricService:
                 data=body.input(),
                 metric_id=body.metric_id,
             )
+            value = None
+            if body.sample is not None:
+                value = preview_custom_metric(
+                    self._uows.uow(actor.company_id),
+                    actor=actor,
+                    data=body.input(),
+                    sample=body.sample,
+                    metric_id=body.metric_id,
+                )
         except DomainError as error:
             if error.code in ("permission_denied", "not_found"):
                 raise
             return CustomMetricCheckOut(valid=False, code=error.code, error=str(error))
-        return CustomMetricCheckOut(valid=True, variables=sorted(variables))
+        return CustomMetricCheckOut(valid=True, variables=sorted(variables), value=value)
 
     def _one(self, actor: Actor, metric_id: uuid.UUID) -> CustomMetricOut:
         """A métrica recém-gravada, com as fontes calculadas junto das outras da Empresa."""

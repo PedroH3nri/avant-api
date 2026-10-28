@@ -2,6 +2,7 @@
 
 import uuid
 from datetime import datetime
+from decimal import Decimal
 
 from avant_core.metrics.enums import MetricFormat, MetricSource
 from avant_core.metrics.models import CustomMetric
@@ -31,6 +32,8 @@ class CustomMetricIn(BaseModel):
 class CustomMetricCheckIn(CustomMetricIn):
     # Na edição, a métrica que está sendo editada (a chave dela não muda).
     metric_id: uuid.UUID | None = None
+    # Valores de exemplo das métricas do catálogo (``revenue``); as personalizadas são calculadas.
+    sample: dict[str, Decimal] | None = Field(default=None, max_length=40)
 
 
 class CustomMetricCheckOut(BaseModel):
@@ -40,6 +43,8 @@ class CustomMetricCheckOut(BaseModel):
     # Onde a fórmula quebrou, em português.
     error: str | None = None
     variables: list[str] = Field(default_factory=list)
+    # A fórmula calculada sobre a amostra; vazio sem amostra ou sem denominador.
+    value: Decimal | None = None
 
 
 class CustomMetricOut(BaseModel):

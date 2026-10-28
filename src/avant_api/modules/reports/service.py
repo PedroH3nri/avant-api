@@ -1,41 +1,64 @@
-"""Service dos relatórios: traduz a definição para o motor de consulta do avant-core.
+"""Service dos relatórios: consultas avulsas e relatórios salvos, pelo motor do avant-core.
 
 O motor confere tudo contra o catálogo e soma no banco com RLS, só nos sites que a pessoa
-enxerga. As consultas têm um limite de taxa próprio, por pessoa e Empresa.
+enxerga. As consultas têm um limite de taxa próprio, por pessoa e Empresa, e o mesmo vale
+para rodar e exportar um relatório salvo.
 """
 
 import time
+import uuid
 from collections.abc import Iterator
 from contextlib import contextmanager
 
 from avant_core.access.models import Actor
 from avant_core.identity.enums import Locale
-from avant_core.metrics.catalog import DIMENSIONS, visible_metrics
+from avant_core.metrics.catalog import CUSTOM_PREFIX, DIMENSIONS, visible_metrics
 from avant_core.metrics.enums import FilterOperator, RelativePeriod
-from avant_core.metrics.models import QueryResult
-from avant_core.metrics.services import CustomMetricSet, list_custom_metrics, run_query
+from avant_core.metrics.models import QueryDefinition, QueryResult
+from avant_core.metrics.services import (
+    CustomMetricSet,
+    decode_query,
+    list_custom_metrics,
+    run_query,
+)
 from avant_core.metrics.services.query_rules import MAX_DAYS, MAX_LIMIT
+from avant_core.reports.models.saved_report import SavedReport
+from avant_core.reports.services import (
+    create_from_template,
+    create_report,
+    delete_report,
+    duplicate_report,
+    get_report,
+    list_reports,
+    list_templates,
+    run_report,
+    update_report,
+)
 from avant_core.shared.clock import Clock
 from sqlalchemy.exc import OperationalError
 
 from avant_api.app.errors import QueryTooHeavy, RateLimited
 from avant_api.app.limits import REPORTS, Bucket
 from avant_api.app.ports import UnitOfWorkFactory
-from avant_api.modules.reports.csv_export import to_csv
 from avant_api.modules.reports.dto import (
     CustomCatalogMetricOut,
     DimensionOut,
+    ExportFormat,
     MetricCatalogOut,
     MetricOut,
     ReportQueryIn,
     ReportResultOut,
+    ReportTemplateOut,
+    SavedReportIn,
+    SavedReportOut,
 )
+from avant_api.modules.reports.export import to_csv, to_xlsx
 
 QUERY_CANCELED = "57014"
 
 
 class ReportService:
-    """Catálogo de métricas e consultas de relatório com limite de taxa."""
+    """Catálogo de métricas, consultas avulsas e relatórios salvos, com limite de taxa."""
 
     def __init__(self, uows: UnitOfWorkFactory, clock: Clock, bucket: Bucket) -> None:
         self._uows = uows
@@ -62,14 +85,106 @@ class ReportService:
 
     def query(self, actor: Actor, body: ReportQueryIn) -> ReportResultOut:
         """Roda uma consulta sem salvar."""
-        return ReportResultOut.of(self._run(actor, body))
+        return ReportResultOut.of(self._run(actor, body.definition()))
 
     def export(self, actor: Actor, body: ReportQueryIn, locale: Locale) -> str:
         """A mesma consulta em CSV, com o cabeçalho no idioma pedido."""
-        return to_csv(self._run(actor, body), body, locale)
+        definition = body.definition()
+        return to_csv(self._run(actor, definition), definition, locale, self._names(actor))
 
-    def _run(self, actor: Actor, body: ReportQueryIn) -> QueryResult:
+    def list_saved(self, actor: Actor) -> list[SavedReportOut]:
+        """Os relatórios salvos que a pessoa vê, pelo nome."""
+        reports = list_reports(self._uows.uow(actor.company_id), actor=actor)
+        return [self._out(actor, report) for report in reports]
+
+    def get_saved(self, actor: Actor, report_id: uuid.UUID) -> SavedReportOut:
+        """Um relatório salvo que a pessoa vê."""
+        report = get_report(self._uows.uow(actor.company_id), actor=actor, report_id=report_id)
+        return self._out(actor, report)
+
+    def create_saved(self, actor: Actor, body: SavedReportIn) -> SavedReportOut:
+        """Salva um relatório novo, de quem cria."""
+        report = create_report(
+            self._uows.uow(actor.company_id), actor=actor, data=body.input(), clock=self._clock
+        )
+        return self._out(actor, report)
+
+    def update_saved(
+        self, actor: Actor, report_id: uuid.UUID, body: SavedReportIn
+    ) -> SavedReportOut:
+        """Troca tudo do relatório, menos o dono."""
+        report = update_report(
+            self._uows.uow(actor.company_id),
+            actor=actor,
+            report_id=report_id,
+            data=body.input(),
+            clock=self._clock,
+        )
+        return self._out(actor, report)
+
+    def delete_saved(self, actor: Actor, report_id: uuid.UUID) -> None:
+        """Apaga um relatório que a pessoa pode editar."""
+        delete_report(
+            self._uows.uow(actor.company_id), actor=actor, report_id=report_id, clock=self._clock
+        )
+
+    def duplicate_saved(self, actor: Actor, report_id: uuid.UUID) -> SavedReportOut:
+        """Faz uma cópia privada, da pessoa, de um relatório que ela vê."""
+        report = duplicate_report(
+            self._uows.uow(actor.company_id), actor=actor, report_id=report_id, clock=self._clock
+        )
+        return self._out(actor, report)
+
+    def templates(self) -> list[ReportTemplateOut]:
+        """Os modelos prontos da Groone."""
+        return [ReportTemplateOut.of(template) for template in list_templates()]
+
+    def create_from_template(self, actor: Actor, key: str) -> SavedReportOut:
+        """Cria um relatório privado a partir de um modelo, no idioma da pessoa."""
+        report = create_from_template(
+            self._uows.uow(actor.company_id), actor=actor, key=key, clock=self._clock
+        )
+        return self._out(actor, report)
+
+    def run_saved(self, actor: Actor, report_id: uuid.UUID) -> ReportResultOut:
+        """Roda um relatório salvo na moeda de quem roda, só nos sites que ela enxerga."""
+        return ReportResultOut.of(self._run_saved(actor, report_id))
+
+    def export_saved(
+        self, actor: Actor, report_id: uuid.UUID, locale: Locale, file_format: ExportFormat
+    ) -> bytes:
+        """O relatório salvo em CSV ou XLSX, com o cabeçalho no idioma pedido."""
+        report = get_report(self._uows.uow(actor.company_id), actor=actor, report_id=report_id)
+        result = self._run_saved(actor, report_id)
+        definition = decode_query(report.query)
+        if file_format == "xlsx":
+            return to_xlsx(result, definition, locale, self._names(actor))
+        return to_csv(result, definition, locale, self._names(actor)).encode()
+
+    def _run(self, actor: Actor, definition: QueryDefinition) -> QueryResult:
         """Aplica o limite de taxa e roda o motor de consulta na Empresa ativa."""
+        self._take_slot(actor)
+        with _statement_timeout():
+            return run_query(
+                self._uows.uow(actor.company_id),
+                actor=actor,
+                definition=definition,
+                clock=self._clock,
+            )
+
+    def _run_saved(self, actor: Actor, report_id: uuid.UUID) -> QueryResult:
+        """Aplica o limite de taxa e roda o relatório salvo."""
+        self._take_slot(actor)
+        with _statement_timeout():
+            return run_report(
+                self._uows.uow(actor.company_id),
+                actor=actor,
+                report_id=report_id,
+                clock=self._clock,
+            )
+
+    def _take_slot(self, actor: Actor) -> None:
+        """Gasta uma consulta do limite da pessoa na Empresa; sem saldo, ``rate_limited``."""
         taken = self._bucket.take(
             f"reports:{actor.company_id}:{actor.user_id}", REPORTS, time.time()
         )
@@ -77,13 +192,16 @@ class ReportService:
             raise RateLimited(
                 "muitas consultas de relatório", retry_after=max(taken.retry_after, 1)
             )
-        with _statement_timeout():
-            return run_query(
-                self._uows.uow(actor.company_id),
-                actor=actor,
-                definition=body.definition(),
-                clock=self._clock,
-            )
+
+    def _names(self, actor: Actor) -> dict[str, str]:
+        """O nome de cada métrica personalizada da Empresa, pela chave da consulta."""
+        custom = list_custom_metrics(self._uows.uow(actor.company_id), actor=actor)
+        return {CUSTOM_PREFIX + metric.key: metric.name for metric in custom}
+
+    def _out(self, actor: Actor, report: SavedReport) -> SavedReportOut:
+        """O relatório com a consulta lida e se a pessoa pode editá-lo."""
+        editable = report.owner_user_id == actor.user_id or actor.grants.can("reports.manage")
+        return SavedReportOut.of(report, decode_query(report.query), editable)
 
 
 @contextmanager
