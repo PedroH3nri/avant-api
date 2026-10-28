@@ -93,6 +93,7 @@ STATUS: dict[str, int] = {
     "invalid_image": 422,
     "image_too_large": 413,
     "invalid_formula": 422,
+    "custom_metric_in_use": 409,
     "unsupported_currency": 422,
     "currency_unavailable": 409,
     "wrong_invitation_kind": 422,

@@ -13,7 +13,7 @@ from avant_core.identity.enums import Locale
 from avant_core.metrics.catalog import DIMENSIONS, visible_metrics
 from avant_core.metrics.enums import FilterOperator, RelativePeriod
 from avant_core.metrics.models import QueryResult
-from avant_core.metrics.services import run_query
+from avant_core.metrics.services import CustomMetricSet, list_custom_metrics, run_query
 from avant_core.metrics.services.query_rules import MAX_DAYS, MAX_LIMIT
 from avant_core.shared.clock import Clock
 from sqlalchemy.exc import OperationalError
@@ -23,6 +23,7 @@ from avant_api.app.limits import REPORTS, Bucket
 from avant_api.app.ports import UnitOfWorkFactory
 from avant_api.modules.reports.csv_export import to_csv
 from avant_api.modules.reports.dto import (
+    CustomCatalogMetricOut,
     DimensionOut,
     MetricCatalogOut,
     MetricOut,
@@ -41,10 +42,17 @@ class ReportService:
         self._clock = clock
         self._bucket = bucket
 
-    def catalog(self) -> MetricCatalogOut:
-        """Métricas e dimensões que um cliente pode pedir, nos três idiomas."""
+    def catalog(self, actor: Actor) -> MetricCatalogOut:
+        """Métricas e dimensões que um cliente pode pedir, nos três idiomas, mais as
+        personalizadas da Empresa ativa."""
+        custom = list_custom_metrics(self._uows.uow(actor.company_id), actor=actor)
+        rules = CustomMetricSet(custom)
         return MetricCatalogOut(
             metrics=[MetricOut.of(metric) for metric in visible_metrics(internal=False)],
+            custom_metrics=[
+                CustomCatalogMetricOut.of(metric, rules.sources(f"custom.{metric.key}"))
+                for metric in custom
+            ],
             dimensions=[DimensionOut.of(dimension) for dimension in DIMENSIONS],
             operators=list(FilterOperator),
             periods=list(RelativePeriod),

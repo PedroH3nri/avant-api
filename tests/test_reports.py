@@ -246,7 +246,7 @@ def test_page_views_query_by_hour(
 
     catalog = client.get("/api/v1/metrics/catalog").json()
     page_views = next(metric for metric in catalog["metrics"] if metric["key"] == "page_views")
-    assert page_views["sources"] == ["page_views"]
+    assert page_views["sources"] == ["gam", "page_views"]
     hour = next(item for item in catalog["dimensions"] if item["key"] == "hour")
     assert hour["sources"] == ["page_views"] and hour["filterable"] is False
 
