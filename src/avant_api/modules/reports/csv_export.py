@@ -4,9 +4,9 @@ import csv
 import io
 from decimal import Decimal
 
-from avant_core.identity.model import Locale
+from avant_core.identity.enums import Locale
 from avant_core.metrics.catalog import DIMENSIONS_BY_KEY, METRICS_BY_KEY
-from avant_core.metrics.query import QueryResult
+from avant_core.metrics.models import QueryResult
 
 from avant_api.modules.reports.dto import ReportQueryIn, dimension_text
 

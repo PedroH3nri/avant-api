@@ -12,9 +12,9 @@ from dataclasses import dataclass, field
 import pytest
 from alembic import command
 from alembic.config import Config
-from avant_core.company.model import InvitationKind
-from avant_core.identity.crypto import FernetSecretBox
-from avant_core.identity.passwords import Argon2PasswordHasher
+from avant_core.company.enums import InvitationKind
+from avant_core.identity.security.crypto import FernetSecretBox
+from avant_core.identity.security.passwords import Argon2PasswordHasher
 from avant_core.ports import Notice
 from avant_core.shared.clock import SystemClock
 from cryptography.fernet import Fernet

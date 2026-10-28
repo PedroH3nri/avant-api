@@ -2,7 +2,7 @@
 
 from datetime import datetime
 
-from avant_core.identity.model import UserStatus
+from avant_core.identity.enums import UserStatus
 from pydantic import BaseModel
 
 from avant_api.shared.dto import CompanyRefOut, UserOut

@@ -2,8 +2,8 @@
 
 from datetime import date
 
-from avant_core.company.service import Actor
-from avant_core.money.model import BASE_CURRENCY
+from avant_core.access.models import Actor
+from avant_core.money.catalog import BASE_CURRENCY
 from fastapi import APIRouter, Depends, Query
 
 from avant_api.app.security import require_staff

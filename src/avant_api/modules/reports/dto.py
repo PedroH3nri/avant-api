@@ -4,29 +4,31 @@ from datetime import date
 from decimal import Decimal
 from typing import Annotated
 
-from avant_core.metrics.catalog import (
-    Dimension,
-    Label,
-    Metric,
+from avant_core.metrics.enums import (
+    FilterOperator,
     MetricFormat,
     MetricKind,
     MetricSource,
+    RelativePeriod,
 )
-from avant_core.metrics.query import (
-    MAX_FILTER_VALUES,
-    MAX_LIMIT,
-    UNFILTERABLE_DIMENSIONS,
+from avant_core.metrics.models import (
     DateRange,
+    Dimension,
     DimensionValue,
     Filter,
-    FilterOperator,
+    Label,
+    Metric,
     Order,
     Period,
     QueryDefinition,
     QueryResult,
-    RelativePeriod,
 )
-from avant_core.money.model import BASE_CURRENCY
+from avant_core.metrics.services.query_rules import (
+    MAX_FILTER_VALUES,
+    MAX_LIMIT,
+    UNFILTERABLE_DIMENSIONS,
+)
+from avant_core.money.catalog import BASE_CURRENCY
 from pydantic import BaseModel, Field
 
 

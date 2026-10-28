@@ -2,14 +2,15 @@
 
 import uuid
 
-from avant_core.identity.model import Accent, Locale, Theme, UserImage
-from avant_core.identity.profile_service import (
+from avant_core.identity.enums import Accent, Locale, Theme
+from avant_core.identity.models import UserImage
+from avant_core.identity.services import (
+    Authenticated,
     get_user_image,
     remove_user_image,
     set_appearance,
     set_user_image,
 )
-from avant_core.identity.service import Authenticated
 from avant_core.ports import ImageProcessor
 from avant_core.shared.clock import Clock
 

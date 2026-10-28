@@ -5,6 +5,9 @@ API FastAPI do Groone Avant. Leia o README antes de mudar algo.
 - Regra de negócio fica no avant-core. Rota aqui só valida a entrada, chama um caso de uso
   e formata a saída. Se faltar um caso de uso, ele entra no avant-core primeiro.
 - Rotas em inglês, em `/api/v1`, sem `company_id` no caminho: a Empresa vem da sessão.
+- Um módulo por recurso em `modules/<recurso>/`, com um `controller.py`, um `dto.py`, um
+  `service.py` e um `dependencies.py`. Recurso novo é módulo novo; apoio só do módulo fica num
+  arquivo com o nome do assunto. Detalhes no README, "Estrutura".
 - Toda rota de Empresa usa `Depends(require("permissao"))` e `services.uow(actor.company_id)`.
   `trusted_uow()` (sem RLS) só para login, sessão e aceite de convite.
 - Erro novo do domínio: um `code` em `errors.STATUS`. Nunca devolver erro fora do formato

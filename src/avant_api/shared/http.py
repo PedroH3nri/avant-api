@@ -2,8 +2,8 @@
 
 import ipaddress
 
-from avant_core.company.model import CompanyImage
-from avant_core.identity.model import UserImage
+from avant_core.company.models import CompanyImage
+from avant_core.identity.models import UserImage
 from avant_core.shared.errors import ImageTooLarge
 from avant_core.shared.images import IMAGE_MAX_BYTES
 from fastapi import Request, Response, status
