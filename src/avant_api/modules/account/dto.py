@@ -34,9 +34,3 @@ class SessionOut(BaseModel):
 
 class RevokedOut(BaseModel):
     revoked: int
-
-
-class GoogleStatusOut(BaseModel):
-    # A Groone configurou o cliente OAuth.
-    available: bool
-    linked: bool

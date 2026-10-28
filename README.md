@@ -121,18 +121,24 @@ src/avant_api/
                        (autenticação e permissões), cookies, errors, middleware,
                        logs, limits, events, tasks, google e ports
   shared/              DTOs usados por mais de um domínio (dto.py) e leitura do pedido (http.py)
-  modules/<domínio>/
-    controller.py      rotas: só HTTP (validação, status, cookies, redirecionamento)
-    dto.py             modelos Pydantic de entrada e saída
-    service.py         chama os casos de uso do avant-core e devolve os DTOs
-    dependencies.py    monta o service com os adaptadores do container
+  modules/<recurso>/    um módulo por recurso (members, roles, networks, google...), com
+    controller.py      um só: as rotas do recurso, só HTTP (validação, status, cookies,
+                       redirecionamento)
+    dto.py             um só: modelos Pydantic de entrada e saída (sem DTO, não tem o arquivo)
+    service.py         um só: chama os casos de uso do avant-core e devolve os DTOs
+    dependencies.py    um só: monta o service com os adaptadores do container
+    <assunto>.py       apoio só deste módulo, com o nome do assunto (google/redirects.py,
+                       reports/csv_export.py, results/period.py); nunca um segundo controller
+                       ou service: recurso novo é módulo novo
   modules/internal/    painel interno, um subdomínio por assunto (clients, people,
-                       staff, mcm, results, contracts) e router.py que junta todos
+                       staff, mcm, results, contracts), cada um com os mesmos arquivos, e
+                       router.py que junta todos
 ```
 
-- **Model e repository** ficam no avant-core: entidades em dataclass (`<módulo>/domain.py`),
-  interfaces dos repositórios em `ports.py` e implementação SQL em `db/`. A API e o worker
-  usam os mesmos.
+- **Model e repository** ficam no avant-core, organizado por domínio: entidades em
+  `<domínio>/models/`, interfaces em `<domínio>/interfaces/`, implementação SQL em
+  `<domínio>/repositories/` e casos de uso em `<domínio>/services/`. A API e o worker usam
+  os mesmos.
 - **Inversão de dependência**: o service recebe interfaces (`app/ports.UnitOfWorkFactory`,
   `Clock`, `Mailer`, `TaskQueue`...) pelo construtor, nunca o container. Só o
   `dependencies.py` conhece o `Services`; nos testes, dá para montar o service com fakes.
