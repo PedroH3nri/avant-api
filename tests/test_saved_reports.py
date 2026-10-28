@@ -5,12 +5,15 @@ import io
 import uuid
 from decimal import Decimal
 
+from avant_core.db.uow import SqlAlchemyUnitOfWork
+from avant_core.money.services import store_exchange_rates
+from avant_core.shared.clock import SystemClock
 from fastapi.testclient import TestClient
 from openpyxl import load_workbook
 from sqlalchemy import Engine
 
 from tests.conftest import FINANCE, CapturingMailer
-from tests.test_api import _csrf, _onboard_owner
+from tests.test_api import PASSWORD, _csrf, _onboard_owner, _owner_invite
 from tests.test_reports import YESTERDAY, _metrics
 from tests.test_team import _member_client
 
@@ -242,3 +245,112 @@ def test_custom_metric_in_reports_preview_export_and_in_use(
     in_use = client.delete(f"/api/v1/custom-metrics/{created['id']}", headers=_csrf(client))
     assert in_use.status_code == 409
     assert in_use.json()["error"]["code"] == "custom_metric_in_use"
+
+
+def _ana_id(owner: TestClient) -> str:
+    """O id do vínculo da Ana na Empresa."""
+    return next(
+        str(member["id"])
+        for member in owner.get("/api/v1/members").json()["items"]
+        if member["user"]["name"] == "Ana"
+    )
+
+
+def test_private_and_other_company_reports_are_404_on_every_route(
+    client: TestClient, engine: Engine, mailer: CapturingMailer
+) -> None:
+    _onboard_owner(client, engine, mailer)
+    ana = _member_client(client, mailer, "ana@acai.com")
+    manager = client.post(
+        "/api/v1/roles",
+        json={"name": "Gestão", "permissions": ["reports.view", "reports.manage"]},
+        headers=_csrf(client),
+    ).json()
+    client.patch(
+        f"/api/v1/members/{_ana_id(client)}",
+        json={"role_id": manager["id"]},
+        headers=_csrf(client),
+    )
+    private = client.post(
+        "/api/v1/reports", json=_report(visibility="private"), headers=_csrf(client)
+    ).json()
+
+    other = TestClient(client.app)
+    token = _owner_invite(engine, mailer, "dono@outra.com", "Outra")
+    other.post(
+        f"/api/v1/auth/invitations/{token}/accept", json={"name": "Outro", "password": PASSWORD}
+    )
+    shared = client.post("/api/v1/reports", json=_report(), headers=_csrf(client)).json()
+
+    for person, report_id in ((ana, private["id"]), (other, shared["id"])):
+        for response in (
+            person.get(f"/api/v1/reports/{report_id}"),
+            person.put(f"/api/v1/reports/{report_id}", json=_report(), headers=_csrf(person)),
+            person.delete(f"/api/v1/reports/{report_id}", headers=_csrf(person)),
+            person.post(f"/api/v1/reports/{report_id}/run", headers=_csrf(person)),
+            person.get(f"/api/v1/reports/{report_id}/export"),
+            person.post(f"/api/v1/reports/{report_id}/duplicate", headers=_csrf(person)),
+        ):
+            assert response.status_code == 404, response.text
+    assert other.get("/api/v1/reports").json()["items"] == []
+
+
+def test_manager_edits_and_runs_with_own_sites_and_currency(
+    client: TestClient, engine: Engine, mailer: CapturingMailer
+) -> None:
+    me = _onboard_owner(client, engine, mailer)
+    ids = _metrics(engine, uuid.UUID(me["active_company_id"]))
+    ana = _member_client(client, mailer, "ana@acai.com")
+    manager = client.post(
+        "/api/v1/roles",
+        json={"name": "Gestão", "permissions": ["reports.view", "reports.manage"]},
+        headers=_csrf(client),
+    ).json()
+    ana_id = _ana_id(client)
+    client.patch(
+        f"/api/v1/members/{ana_id}", json={"role_id": manager["id"]}, headers=_csrf(client)
+    )
+    client.put(
+        f"/api/v1/members/{ana_id}/sites",
+        json={"site_ids": [str(ids["acai"])]},
+        headers=_csrf(client),
+    )
+    report = client.post("/api/v1/reports", json=_report(), headers=_csrf(client)).json()
+
+    seen = ana.get(f"/api/v1/reports/{report['id']}").json()
+    assert seen["editable"] is True
+    renamed = ana.put(
+        f"/api/v1/reports/{report['id']}", json=_report(name="Da Ana"), headers=_csrf(ana)
+    )
+    assert renamed.status_code == 200 and renamed.json()["owner_user_id"] == me["user"]["id"]
+
+    store_exchange_rates(
+        SqlAlchemyUnitOfWork(engine, bypass_rls=True),
+        day=YESTERDAY,
+        rates={"BRL": Decimal("5")},
+        clock=SystemClock(),
+    )
+    ana.put("/api/v1/auth/preferences", json={"display_currency": "brl"}, headers=_csrf(ana))
+    run = ana.post(f"/api/v1/reports/{report['id']}/run", headers=_csrf(ana)).json()
+    assert run["currency"] == "BRL"
+    assert [row["metrics"]["revenue"] for row in run["rows"]] == ["40"]
+    rows = list(csv.reader(io.StringIO(ana.get(f"/api/v1/reports/{report['id']}/export").text)))
+    assert [row[0] for row in rows[1:]] == ["acai.com.br"]
+    assert (
+        client.post(f"/api/v1/reports/{report['id']}/run", headers=_csrf(client)).json()["currency"]
+        == "USD"
+    )
+
+
+def test_run_and_export_share_the_query_rate_limit(
+    client: TestClient, engine: Engine, mailer: CapturingMailer
+) -> None:
+    _onboard_owner(client, engine, mailer)
+    report = client.post("/api/v1/reports", json=_report(), headers=_csrf(client)).json()
+    statuses = [
+        client.post(f"/api/v1/reports/{report['id']}/run", headers=_csrf(client)).status_code
+        for _ in range(10)
+    ]
+    exported = client.get(f"/api/v1/reports/{report['id']}/export")
+    assert statuses == [200] * 10
+    assert exported.status_code == 429 and exported.json()["error"]["code"] == "rate_limited"

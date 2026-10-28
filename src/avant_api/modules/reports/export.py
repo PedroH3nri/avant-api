@@ -9,6 +9,10 @@ from avant_core.identity.enums import Locale
 from avant_core.metrics.catalog import DIMENSIONS_BY_KEY, METRICS_BY_KEY
 from avant_core.metrics.models import QueryDefinition, QueryResult
 from openpyxl import Workbook
+from openpyxl.cell import WriteOnlyCell
+from openpyxl.cell.cell import ILLEGAL_CHARACTERS_RE
+from openpyxl.cell.cell import Cell as SheetCell
+from openpyxl.worksheet._write_only import WriteOnlyWorksheet
 
 from avant_api.modules.reports.dto import dimension_text
 
@@ -22,7 +26,7 @@ def to_csv(
     """Uma linha por grupo: dimensões (sites e networks pelo nome) e depois as métricas."""
     buffer = io.StringIO()
     writer = csv.writer(buffer)
-    writer.writerow(_header(definition, locale, names))
+    writer.writerow([_csv_cell(label) for label in _header(definition, locale, names)])
     for row in _rows(result, definition):
         writer.writerow([_csv_cell(cell) for cell in row])
     return buffer.getvalue()
@@ -32,15 +36,11 @@ def to_xlsx(
     result: QueryResult, definition: QueryDefinition, locale: Locale, names: Mapping[str, str]
 ) -> bytes:
     """A mesma tabela numa planilha: números como números e texto sempre como texto."""
-    workbook = Workbook()
-    sheet = workbook.active
-    assert sheet is not None
-    sheet.append(_header(definition, locale, names))
+    workbook = Workbook(write_only=True)
+    sheet = workbook.create_sheet()
+    sheet.append([_xlsx_cell(sheet, label) for label in _header(definition, locale, names)])
     for row in _rows(result, definition):
-        sheet.append(row)
-        for cell in sheet[sheet.max_row]:
-            if isinstance(cell.value, str):
-                cell.data_type = "s"
+        sheet.append([_xlsx_cell(sheet, cell) for cell in row])
     buffer = io.BytesIO()
     workbook.save(buffer)
     return buffer.getvalue()
@@ -76,6 +76,15 @@ def _rows(result: QueryResult, definition: QueryDefinition) -> list[list[Cell]]:
             cells += [previous.get(key) for key in definition.metrics]
         rows.append(cells)
     return rows
+
+
+def _xlsx_cell(sheet: WriteOnlyWorksheet, cell: Cell) -> SheetCell | Decimal | None:
+    """Texto sem caracteres de controle e marcado como texto, para nunca virar fórmula."""
+    if not isinstance(cell, str):
+        return cell
+    text = WriteOnlyCell(sheet, value=ILLEGAL_CHARACTERS_RE.sub("", cell))
+    text.data_type = "s"
+    return text
 
 
 def _csv_cell(cell: Cell) -> str:

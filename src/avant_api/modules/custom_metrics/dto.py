@@ -32,7 +32,7 @@ class CustomMetricIn(BaseModel):
 class CustomMetricCheckIn(CustomMetricIn):
     # Na edição, a métrica que está sendo editada (a chave dela não muda).
     metric_id: uuid.UUID | None = None
-    # Valores de exemplo das métricas (``revenue``, ``custom.<chave>``) para a prévia.
+    # Valores de exemplo das métricas do catálogo (``revenue``); as personalizadas são calculadas.
     sample: dict[str, Decimal] | None = Field(default=None, max_length=40)
 
 
