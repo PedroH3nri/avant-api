@@ -85,7 +85,10 @@ class ClientService:
     def options(self, actor: Actor) -> list[ClientOptionOut]:
         """Todas as Empresas de cliente, pelo nome, para seletores."""
         items = list_clients(self._uows.trusted_uow(), actor=actor)
-        return [ClientOptionOut(id=item.company.id, name=item.company.name) for item in items]
+        return [
+            ClientOptionOut(id=item.company.id, name=item.company.name, status=item.company.status)
+            for item in items
+        ]
 
     def register(self, actor: Actor, body: ClientIn) -> ClientOut:
         """Cadastra o cliente pendente, sem e-mail: o convite de dono sai depois."""
