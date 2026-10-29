@@ -188,3 +188,41 @@ def test_costs_and_reports_come_in_pages(
     found = client.get("/api/v1/reports?q=r1&scope=mine").json()
     assert [item["name"] for item in found["items"]] == ["R10"]
     assert client.get("/api/v1/reports?scope=outro").status_code == 422
+
+
+def test_internal_client_lists_come_in_pages(
+    client: TestClient, engine: Engine, mailer: CapturingMailer
+) -> None:
+    from tests.test_api import _csrf
+    from tests.test_internal import _staff
+
+    me = _onboard_owner(client, engine, mailer)
+    company_id = me["active_company_id"]
+    staff = _staff(client, engine)
+    for index in range(10):
+        body = {
+            "name": f"Cliente {index:02d}",
+            "seat_limit": 3,
+            "profile": {"first_name": "Dono", "last_name": f"C{index}", "email": f"c{index}@x.com"},
+        }
+        created = staff.post("/api/v1/internal/clients", json=body, headers=_csrf(staff))
+        assert created.status_code == 201, created.text
+        sent = staff.post(
+            f"/api/v1/internal/clients/{created.json()['id']}/owner-invitation",
+            headers=_csrf(staff),
+        )
+        assert sent.status_code == 200, sent.text
+    clients = staff.get("/api/v1/internal/clients").json()
+    assert (clients["total"], clients["pages"], clients["items"][0]["name"]) == (
+        11,
+        2,
+        "Cliente 09",
+    )
+    options = staff.get("/api/v1/internal/clients/options").json()["items"]
+    assert len(options) == 11 and set(options[0]) == {"id", "name"}
+    teams = staff.get("/api/v1/internal/teams").json()
+    assert teams["total"] == 1
+    invitations = staff.get("/api/v1/internal/owner-invitations?page=2").json()
+    assert (invitations["total"], len(invitations["items"])) == (10, 0)
+    audit = staff.get(f"/api/v1/internal/clients/{company_id}/audit").json()
+    assert audit["total"] >= 1 and audit["page"] == 1
