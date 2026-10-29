@@ -57,21 +57,24 @@ Outros repositórios: avant-core, avant-worker, avant-web, avant-infra.
 | `POST /groups`, `PATCH /groups/{id}`, `DELETE /groups/{id}` | criar (com pelo menos uma pessoa), renomear, excluir | `groups.manage` |
 | `POST /groups/{id}/members`, `DELETE /groups/{id}/members/{membership_id}` | pôr e tirar pessoas; a última não sai (409) | `groups.manage` |
 | `GET /audit?page=` | histórico em páginas de 10, o mais recente primeiro; filtros `actor`, `action`, `from`, `to` | `audit.view` |
-| `GET /networks` | networks do GAM com as últimas etapas e os sites ativos | `network.view` |
+| `GET /networks` | uma página (`page`) das networks do GAM, a mais recente primeiro, com as últimas etapas e os sites ativos | `network.view` |
+| `GET /networks/options` | todas as networks, para seletores | `network.view` |
 | `GET /networks/service-account` | e-mail da conta de serviço para o guia de conexão | `network.connect` |
 | `POST /networks` | conecta pelo network code; 202, nasce `pending` e o worker testa | `network.connect` |
-| `GET /networks/{id}`, `/sync-runs` | detalhe e histórico das etapas | `network.view` |
+| `GET /networks/{id}`, `/sync-runs` | detalhe e histórico das etapas (em páginas, `page`) | `network.view` |
 | `POST /networks/{id}/sync` | "sincronizar agora"; 1 vez a cada 10 minutos (429 com `Retry-After`) | `network.sync` |
 | `POST /networks/{id}/disconnect` | para as sincronizações; o histórico fica | `network.disconnect` |
 | `GET /api-keys?page=` | chaves da Empresa (com `api_keys.manage`) ou só as próprias, em páginas de 10 | membro |
 | `POST /api-keys` | cria uma chave; o valor `avk_...` volta só nesta resposta; só pela sessão | `api_keys.manage` |
 | `DELETE /api-keys/{id}` | revoga; a dona da chave ou quem gerencia | membro |
-| `GET /sites` | sites da Empresa (filtros `network_id`, `approval_status`, `q`, `include_archived`); quem não vê todos recebe só os atribuídos | `sites.view` |
+| `GET /sites` | uma página (`page`) dos sites da Empresa, o mais recente primeiro (filtros `network_id`, `approval_status`, `q`, `include_archived`); quem não vê todos recebe só os atribuídos | `sites.view` |
+| `GET /sites/options` | todos os sites ativos que a pessoa vê, para seletores | `sites.view` |
 | `POST /sites` | cadastra site pelo domínio, aguardando o GAM (`awaiting_gam`); a importação junta ao site do GAM com o mesmo domínio | `sites.manage` |
 | `GET /sites/{id}` | detalhe com os ad units; `assigned_to` só para quem atribui | `sites.view` |
 | `DELETE /sites/{id}` | remove o site que ainda aguarda o GAM (o do GAM responde `site_from_gam`) | `sites.manage` |
 | `GET /sites/{id}/members` | quem vê o site: atribuído ou por ver todos | `sites.assign` |
 | `GET /ad-units` | lista plana (`parent_id` monta a árvore); filtros `network_id`, `site_id`, `status`, `unlinked` | `sites.view` |
+| `GET /ad-units/unlinked` | uma página dos ad units sem site (filtro `network_id`); só quem vê todos os sites | `sites.view` |
 | `PATCH /ad-units/{id}` | liga a um site à mão (os filhos seguem) ou volta ao automático | `sites.assign` |
 | `GET /members/{id}/sites` | sites atribuídos ao membro | `team.view` |
 | `PUT /members/{id}/sites` | troca a lista inteira de sites do membro | `sites.assign` |

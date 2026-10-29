@@ -17,17 +17,27 @@ from avant_api.modules.networks.dto import (
     SyncRunOut,
 )
 from avant_api.modules.networks.service import NetworkService
-from avant_api.shared.dto import ItemsOut
+from avant_api.shared.dto import ItemsOut, PageOut
 
 router = APIRouter(prefix="/networks", tags=["networks"])
 
 
 @router.get("")
 def index(
+    page: int = Query(default=1, ge=1),
+    actor: Actor = Depends(require("network.view")),
+    service: NetworkService = Depends(network_service),
+) -> PageOut[NetworkDetailOut]:
+    """Uma página das networks da Empresa ativa, a mais recente primeiro."""
+    return service.page(actor, page)
+
+
+@router.get("/options")
+def options(
     actor: Actor = Depends(require("network.view")),
     service: NetworkService = Depends(network_service),
 ) -> ItemsOut[NetworkDetailOut]:
-    """Lista as networks da Empresa ativa."""
+    """Todas as networks da Empresa ativa, para seletores e telas que juntam dados."""
     return ItemsOut(items=service.list_all(actor))
 
 
@@ -73,12 +83,12 @@ def sync(
 @router.get("/{network_id}/sync-runs")
 def sync_runs(
     network_id: uuid.UUID,
-    limit: int = Query(default=50, ge=1, le=200),
+    page: int = Query(default=1, ge=1),
     actor: Actor = Depends(require("network.view")),
     service: NetworkService = Depends(network_service),
-) -> ItemsOut[SyncRunOut]:
-    """Lista as sincronizações recentes de uma network."""
-    return ItemsOut(items=service.sync_runs(actor, network_id, limit))
+) -> PageOut[SyncRunOut]:
+    """Uma página das sincronizações de uma network, a mais recente primeiro."""
+    return service.sync_runs(actor, network_id, page)
 
 
 @router.post("/{network_id}/disconnect")
