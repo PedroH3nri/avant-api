@@ -8,7 +8,7 @@ from avant_core.company.services import (
     DirectPermission,
     get_member,
     leave_company,
-    list_members,
+    page_members,
     remove_member,
     set_member_permissions,
     update_member,
@@ -17,7 +17,7 @@ from avant_core.shared.clock import Clock
 
 from avant_api.app.ports import UnitOfWorkFactory
 from avant_api.modules.members.dto import MemberDetailOut, MemberPatchIn, MemberPermissionsIn
-from avant_api.shared.dto import MemberOut
+from avant_api.shared.dto import MemberOut, PageOut
 
 
 class MemberService:
@@ -27,23 +27,31 @@ class MemberService:
         self._uows = uows
         self._clock = clock
 
-    def list_all(
+    def page(
         self,
         actor: Actor,
         *,
         status: MembershipStatus | None,
         role_id: uuid.UUID | None,
         query: str | None,
-    ) -> list[MemberOut]:
-        """A equipe inteira, com filtros de situação, papel e busca."""
-        items = list_members(
+        page: int,
+    ) -> PageOut[MemberOut]:
+        """Uma página da equipe, mais recente primeiro, com filtros e busca no banco."""
+        found = page_members(
             self._uows.uow(actor.company_id),
             actor=actor,
             status=status,
             role_id=role_id,
             query=query,
+            page=page,
         )
-        return [MemberOut.of(member) for member in items]
+        return PageOut(
+            items=[MemberOut.of(member) for member in found.items],
+            total=found.total,
+            page=found.page,
+            pages=found.pages,
+            page_size=found.page_size,
+        )
 
     def leave(self, actor: Actor) -> None:
         """Tira quem está agindo da Empresa ativa."""

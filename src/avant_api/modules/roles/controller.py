@@ -7,7 +7,7 @@ from fastapi import APIRouter, Depends, status
 
 from avant_api.app.security import require
 from avant_api.modules.roles.dependencies import role_service
-from avant_api.modules.roles.dto import PermissionOut, RoleIn, RoleOut, RolePatchIn
+from avant_api.modules.roles.dto import PermissionOut, RoleIn, RoleOptionOut, RoleOut, RolePatchIn
 from avant_api.modules.roles.service import RoleService
 from avant_api.shared.dto import ItemsOut
 
@@ -20,6 +20,15 @@ def permissions(
 ) -> ItemsOut[PermissionOut]:
     """Lista as permissões que um papel de cliente pode ter."""
     return ItemsOut(items=service.permissions(actor))
+
+
+@router.get("/roles/options")
+def options(
+    actor: Actor = Depends(require("roles.view")),
+    service: RoleService = Depends(role_service),
+) -> ItemsOut[RoleOptionOut]:
+    """Os papéis só com id e nome, inteiros, para os seletores (sem paginar)."""
+    return ItemsOut(items=service.options(actor))
 
 
 @router.get("/roles")

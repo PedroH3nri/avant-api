@@ -13,7 +13,7 @@ from avant_core.company.services import (
 from avant_core.shared.clock import Clock
 
 from avant_api.app.ports import UnitOfWorkFactory
-from avant_api.modules.roles.dto import PermissionOut, RoleIn, RoleOut, RolePatchIn
+from avant_api.modules.roles.dto import PermissionOut, RoleIn, RoleOptionOut, RoleOut, RolePatchIn
 
 
 class RoleService:
@@ -32,6 +32,11 @@ class RoleService:
         return [
             RoleOut.of(role) for role in list_roles(self._uows.uow(actor.company_id), actor=actor)
         ]
+
+    def options(self, actor: Actor) -> list[RoleOptionOut]:
+        """Os papéis só com id e nome, para os seletores."""
+        roles = list_roles(self._uows.uow(actor.company_id), actor=actor)
+        return [RoleOptionOut(id=view.role.id, name=view.role.name) for view in roles]
 
     def create(self, actor: Actor, body: RoleIn) -> RoleOut:
         """Cria um papel personalizado."""
