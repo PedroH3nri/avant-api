@@ -4,12 +4,13 @@ import uuid
 
 from avant_core.access.models import Actor
 from avant_core.costs.formula import parse_formula
-from avant_core.costs.services import CostInput, create_cost, delete_cost, list_costs, update_cost
+from avant_core.costs.services import CostInput, create_cost, delete_cost, page_costs, update_cost
 from avant_core.shared.clock import Clock
 from avant_core.shared.errors import InvalidFormula
 
 from avant_api.app.ports import UnitOfWorkFactory
 from avant_api.modules.costs.dto import CostIn, CostOut, FormulaCheckIn, FormulaCheckOut
+from avant_api.shared.dto import PageOut, page_out
 
 
 class CostService:
@@ -19,10 +20,10 @@ class CostService:
         self._uows = uows
         self._clock = clock
 
-    def list_all(self, actor: Actor) -> list[CostOut]:
-        """Custos da Empresa, do mês mais novo para o mais antigo."""
-        costs = list_costs(self._uows.uow(actor.company_id), actor=actor)
-        return [CostOut.of(cost) for cost in costs]
+    def page(self, actor: Actor, page: int) -> PageOut[CostOut]:
+        """Uma página dos custos da Empresa, do mês mais novo para o mais antigo."""
+        found = page_costs(self._uows.uow(actor.company_id), actor=actor, page=page)
+        return page_out(found, CostOut.of)
 
     def create(self, actor: Actor, body: CostIn) -> CostOut:
         """Cadastra um custo."""

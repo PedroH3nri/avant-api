@@ -38,6 +38,8 @@ from avant_core.reports.models.saved_report import SavedReport
 from avant_core.reports.services import ReportInput
 from pydantic import BaseModel, Field
 
+from avant_api.shared.dto import PageOut
+
 ExportFormat = Literal["csv", "xlsx"]
 
 
@@ -351,3 +353,17 @@ class ReportTemplateOut(BaseModel):
             chart_type=template.chart_type,
             chart_options=template.chart_options,
         )
+
+
+class ReportCountsOut(BaseModel):
+    """Quantos relatórios cada aba tem, sem a busca."""
+
+    all: int
+    mine: int
+    shared: int
+
+
+class ReportPageOut(PageOut[SavedReportOut]):
+    """Uma página dos relatórios salvos com as contagens das abas."""
+
+    counts: ReportCountsOut

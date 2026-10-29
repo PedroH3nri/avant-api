@@ -7,24 +7,25 @@ fórmula responde a prévia do formulário sem gravar nada.
 import uuid
 
 from avant_core.access.models import Actor
-from fastapi import APIRouter, Depends, status
+from fastapi import APIRouter, Depends, Query, status
 
 from avant_api.app.security import require
 from avant_api.modules.costs.dependencies import cost_service
 from avant_api.modules.costs.dto import CostIn, CostOut, FormulaCheckIn, FormulaCheckOut
 from avant_api.modules.costs.service import CostService
-from avant_api.shared.dto import ItemsOut
+from avant_api.shared.dto import PageOut
 
 router = APIRouter(tags=["costs"])
 
 
 @router.get("/costs")
 def index(
+    page: int = Query(default=1, ge=1),
     actor: Actor = Depends(require("costs.view")),
     service: CostService = Depends(cost_service),
-) -> ItemsOut[CostOut]:
-    """Custos da Empresa, do mês mais novo para o mais antigo."""
-    return ItemsOut(items=service.list_all(actor))
+) -> PageOut[CostOut]:
+    """Uma página dos custos da Empresa, do mês mais novo para o mais antigo."""
+    return service.page(actor, page)
 
 
 @router.post("/costs", status_code=status.HTTP_201_CREATED)

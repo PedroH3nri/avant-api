@@ -155,3 +155,36 @@ def test_inventory_lists_come_in_pages(
     assert len(client.get("/api/v1/sites/options").json()["items"]) == 11
     unlinked = client.get("/api/v1/ad-units/unlinked?page=2").json()
     assert (unlinked["total"], len(unlinked["items"])) == (11, 1)
+
+
+def test_costs_and_reports_come_in_pages(
+    client: TestClient, engine: Engine, mailer: CapturingMailer
+) -> None:
+    from tests.test_api import _csrf
+    from tests.test_saved_reports import _report
+
+    _onboard_owner(client, engine, mailer)
+    for index in range(11):
+        cost = {
+            "name": f"C{index:02d}",
+            "kind": "recurring",
+            "currency": "USD",
+            "start_month": f"2025-{index + 1:02d}-01",
+            "amount": "1",
+        }
+        created = client.post("/api/v1/costs", json=cost, headers=_csrf(client))
+        assert created.status_code == 201, created.text
+        report = client.post(
+            "/api/v1/reports", json=_report(name=f"R{index:02d}"), headers=_csrf(client)
+        )
+        assert report.status_code == 201, report.text
+    costs = client.get("/api/v1/costs").json()
+    assert (costs["total"], costs["pages"], costs["items"][0]["name"]) == (11, 2, "C10")
+    reports = client.get("/api/v1/reports").json()
+    assert (reports["total"], reports["items"][0]["name"]) == (11, "R10")
+    assert reports["counts"] == {"all": 11, "mine": 11, "shared": 0}
+    shared = client.get("/api/v1/reports?scope=shared").json()
+    assert (shared["total"], shared["counts"]["all"]) == (0, 11)
+    found = client.get("/api/v1/reports?q=r1&scope=mine").json()
+    assert [item["name"] for item in found["items"]] == ["R10"]
+    assert client.get("/api/v1/reports?scope=outro").status_code == 422
