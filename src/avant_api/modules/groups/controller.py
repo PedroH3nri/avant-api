@@ -3,24 +3,34 @@
 import uuid
 
 from avant_core.access.models import Actor
-from fastapi import APIRouter, Depends, status
+from fastapi import APIRouter, Depends, Query, status
 
 from avant_api.app.security import require
 from avant_api.modules.groups.dependencies import group_service
 from avant_api.modules.groups.dto import GroupIn, GroupMembersIn, GroupOut, GroupPatchIn
 from avant_api.modules.groups.service import GroupService
-from avant_api.shared.dto import ItemsOut
+from avant_api.shared.dto import ItemsOut, PageOut
 
 router = APIRouter(prefix="/groups", tags=["groups"])
 
 
-@router.get("")
-def index(
+@router.get("/options")
+def options(
     actor: Actor = Depends(require("groups.view")),
     service: GroupService = Depends(group_service),
 ) -> ItemsOut[GroupOut]:
-    """Lista os grupos da Empresa ativa com as pessoas de cada um."""
+    """Todos os grupos, sem paginar, para telas que juntam pessoas e grupos."""
     return ItemsOut(items=service.list_all(actor))
+
+
+@router.get("")
+def index(
+    page: int = Query(default=1, ge=1),
+    actor: Actor = Depends(require("groups.view")),
+    service: GroupService = Depends(group_service),
+) -> PageOut[GroupOut]:
+    """Os grupos da Empresa ativa em páginas de 10, com as pessoas de cada um."""
+    return service.page(actor, page)
 
 
 @router.post("", status_code=status.HTTP_201_CREATED)

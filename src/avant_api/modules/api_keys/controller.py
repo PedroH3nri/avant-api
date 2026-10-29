@@ -7,23 +7,25 @@ também funcionam com a própria chave (por exemplo, para um sistema revogar a s
 import uuid
 
 from avant_core.access.models import Actor
-from fastapi import APIRouter, Depends, status
+from fastapi import APIRouter, Depends, Query, status
 
 from avant_api.app.security import get_actor, require_session
 from avant_api.modules.api_keys.dependencies import api_key_service
 from avant_api.modules.api_keys.dto import ApiKeyCreatedOut, ApiKeyIn, ApiKeyOut
 from avant_api.modules.api_keys.service import ApiKeyService
-from avant_api.shared.dto import ItemsOut
+from avant_api.shared.dto import PageOut
 
 router = APIRouter(prefix="/api-keys", tags=["api-keys"])
 
 
 @router.get("")
 def index(
-    actor: Actor = Depends(get_actor), service: ApiKeyService = Depends(api_key_service)
-) -> ItemsOut[ApiKeyOut]:
+    page: int = Query(default=1, ge=1),
+    actor: Actor = Depends(get_actor),
+    service: ApiKeyService = Depends(api_key_service),
+) -> PageOut[ApiKeyOut]:
     """Com ``api_keys.manage``, as da Empresa toda; sem, só as próprias."""
-    return ItemsOut(items=service.list_all(actor))
+    return service.page(actor, page)
 
 
 @router.post("", status_code=status.HTTP_201_CREATED)

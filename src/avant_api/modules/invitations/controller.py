@@ -3,24 +3,25 @@
 import uuid
 
 from avant_core.access.models import Actor
-from fastapi import APIRouter, Depends, status
+from fastapi import APIRouter, Depends, Query, status
 
 from avant_api.app.security import require
 from avant_api.modules.invitations.dependencies import invitation_service
 from avant_api.modules.invitations.dto import InviteIn
 from avant_api.modules.invitations.service import InvitationService
-from avant_api.shared.dto import InvitationOut, ItemsOut
+from avant_api.shared.dto import InvitationOut, PageOut
 
 router = APIRouter(prefix="/invitations", tags=["team"])
 
 
 @router.get("")
 def list_invitations(
+    page: int = Query(default=1, ge=1),
     actor: Actor = Depends(require("team.view")),
     service: InvitationService = Depends(invitation_service),
-) -> ItemsOut[InvitationOut]:
+) -> PageOut[InvitationOut]:
     """Lista os convites pendentes da Empresa ativa."""
-    return ItemsOut(items=service.list_all(actor))
+    return service.page(actor, page)
 
 
 @router.post("", status_code=status.HTTP_201_CREATED)

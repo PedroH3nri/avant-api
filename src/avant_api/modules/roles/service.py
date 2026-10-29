@@ -8,12 +8,14 @@ from avant_core.company.services import (
     create_role,
     delete_role,
     list_roles,
+    page_roles,
     update_role,
 )
 from avant_core.shared.clock import Clock
 
 from avant_api.app.ports import UnitOfWorkFactory
 from avant_api.modules.roles.dto import PermissionOut, RoleIn, RoleOptionOut, RoleOut, RolePatchIn
+from avant_api.shared.dto import PageOut, page_out
 
 
 class RoleService:
@@ -27,11 +29,10 @@ class RoleService:
         """As permissões que um papel de cliente pode ter."""
         return [PermissionOut.of(permission) for permission in client_permissions(actor=actor)]
 
-    def list_all(self, actor: Actor) -> list[RoleOut]:
-        """Os papéis da Empresa ativa."""
-        return [
-            RoleOut.of(role) for role in list_roles(self._uows.uow(actor.company_id), actor=actor)
-        ]
+    def page(self, actor: Actor, page: int) -> PageOut[RoleOut]:
+        """Uma página dos papéis da Empresa ativa."""
+        found = page_roles(self._uows.uow(actor.company_id), actor=actor, page=page)
+        return page_out(found, RoleOut.of)
 
     def options(self, actor: Actor) -> list[RoleOptionOut]:
         """Os papéis só com id e nome, para os seletores."""
