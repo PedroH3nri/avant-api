@@ -10,7 +10,7 @@ from avant_api.app.security import get_session_actor, require
 from avant_api.modules.members.dependencies import member_service
 from avant_api.modules.members.dto import MemberDetailOut, MemberPatchIn, MemberPermissionsIn
 from avant_api.modules.members.service import MemberService
-from avant_api.shared.dto import ItemsOut, MemberOut
+from avant_api.shared.dto import MemberOut, PageOut
 
 router = APIRouter(prefix="/members", tags=["team"])
 
@@ -20,11 +20,12 @@ def index(
     member_status: MembershipStatus | None = Query(default=None, alias="status"),
     role: uuid.UUID | None = None,
     query: str | None = Query(alias="q", default=None, max_length=120),
+    page: int = Query(default=1, ge=1),
     actor: Actor = Depends(require("team.view")),
     service: MemberService = Depends(member_service),
-) -> ItemsOut[MemberOut]:
-    """A equipe cabe no limite de vagas, então a lista vem inteira, sem cursor."""
-    return ItemsOut(items=service.list_all(actor, status=member_status, role_id=role, query=query))
+) -> PageOut[MemberOut]:
+    """Uma página de 10 da equipe, mais recente primeiro; busca e filtros no banco."""
+    return service.page(actor, status=member_status, role_id=role, query=query, page=page)
 
 
 @router.post("/me/leave", status_code=status.HTTP_204_NO_CONTENT)

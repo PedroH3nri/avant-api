@@ -43,9 +43,9 @@ def test_company_and_members(client: TestClient, engine: Engine, mailer: Capturi
     assert r.status_code == 200 and r.json()["name"] == "Açaí Mídia"
 
     members = client.get("/api/v1/members").json()["items"]
-    assert [m["user"]["email"] for m in members] == ["dono@acai.com", "ana@acai.com"]
-    owner_id, ana_id = members[0]["id"], members[1]["id"]
-    assert members[1]["role"]["key"] == "finance"
+    assert [m["user"]["email"] for m in members] == ["ana@acai.com", "dono@acai.com"]
+    ana_id, owner_id = members[0]["id"], members[1]["id"]
+    assert members[0]["role"]["key"] == "finance"
 
     r = client.patch(
         f"/api/v1/members/{owner_id}", json={"status": "suspended"}, headers=_csrf(client)
