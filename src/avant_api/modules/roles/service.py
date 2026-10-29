@@ -37,7 +37,10 @@ class RoleService:
     def options(self, actor: Actor) -> list[RoleOptionOut]:
         """Os papéis só com id e nome, para os seletores."""
         roles = list_roles(self._uows.uow(actor.company_id), actor=actor)
-        return [RoleOptionOut(id=view.role.id, name=view.role.name) for view in roles]
+        return [
+            RoleOptionOut(id=view.role.id, name=view.role.name, is_system=view.role.is_system)
+            for view in roles
+        ]
 
     def create(self, actor: Actor, body: RoleIn) -> RoleOut:
         """Cria um papel personalizado."""
