@@ -42,13 +42,15 @@ Outros repositórios: avant-core, avant-worker, avant-web, avant-infra.
 | `GET /company/image` | imagem da Empresa ativa em WebP 256x256, com `ETag` e cache pela URL `?v=` | membro |
 | `PUT /company/image`, `DELETE /company/image` | troca (corpo = arquivo PNG, JPEG ou WebP até 2 MB) ou tira a imagem | `company.edit` |
 | `GET /company/fiscal`, `PUT /company/fiscal` | dados fiscais de pagamento; só o cliente grava, todos juntos | `company.edit` |
-| `GET /members` | equipe; filtros `status`, `role`, `q` | `team.view` |
+| `GET /members?page=` | equipe em páginas de 10 (`items`, `total`, `page`, `pages`, `page_size`), mais recente primeiro; filtros `status`, `role`, `q` no banco | `team.view` |
+| `GET /members/options` | a equipe inteira, sem paginar, para seletores e telas que juntam pessoas (grupos, donos de relatório) | `team.view` |
 | `GET /members/{id}` | detalhe com permissões diretas | `team.view` |
 | `PATCH /members/{id}` | troca papel, suspende ou reativa | `team.manage` |
 | `DELETE /members/{id}` | remove e libera a vaga | `team.manage` |
 | `POST /members/me/leave` | sai da Empresa (o dono não pode) | membro |
 | `PUT /members/{id}/permissions` | lista inteira de permissões diretas | `permissions.grant` |
 | `GET /permissions` | catálogo de cliente com nomes PT/EN/ES | `roles.view` |
+| `GET /roles/options` | papéis só com `id` e `name`, inteiros, para os seletores | `roles.view` |
 | `GET /roles` | predefinidos e personalizados, com contagem | `roles.view` |
 | `POST /roles`, `PATCH /roles/{id}`, `DELETE /roles/{id}` | papéis personalizados | `roles.manage` |
 | `GET /groups`, `GET /groups/{id}` | grupos de funcionários com as pessoas | `groups.view` |

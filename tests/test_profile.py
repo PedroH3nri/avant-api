@@ -65,7 +65,7 @@ def test_profile_picture(client: TestClient, engine: Engine, mailer: CapturingMa
         assert stored.size == (256, 256)
     assert client.get(image_url).content == own.content
     members = client.get("/api/v1/members").json()["items"]
-    assert [member["user"]["image_url"] for member in members] == [None, image_url]
+    assert [member["user"]["image_url"] for member in members] == [image_url, None]
 
     outsider = TestClient(client.app)
     assert outsider.get(image_url).status_code == 401

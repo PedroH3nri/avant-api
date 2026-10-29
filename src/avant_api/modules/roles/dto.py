@@ -19,6 +19,11 @@ class PermissionOut(BaseModel):
         return cls(key=definition.key, group=definition.group, name=definition.label)
 
 
+class RoleOptionOut(BaseModel):
+    id: uuid.UUID
+    name: dict[str, str]
+
+
 class RoleOut(BaseModel):
     id: uuid.UUID
     key: str

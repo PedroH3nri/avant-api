@@ -67,6 +67,16 @@ class ItemsOut[T](BaseModel):
     next_cursor: str | None = None
 
 
+class PageOut[T](BaseModel):
+    """Uma página de 10 itens de uma listagem, com o total e quantas páginas há."""
+
+    items: list[T]
+    total: int
+    page: int
+    pages: int
+    page_size: int
+
+
 class RoleRefOut(BaseModel):
     id: uuid.UUID
     key: str
