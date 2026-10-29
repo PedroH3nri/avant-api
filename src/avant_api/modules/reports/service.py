@@ -22,6 +22,7 @@ from avant_core.metrics.services import (
     run_query,
 )
 from avant_core.metrics.services.query_rules import MAX_DAYS, MAX_LIMIT
+from avant_core.reports.enums import ReportScope
 from avant_core.reports.models.saved_report import SavedReport
 from avant_core.reports.services import (
     create_from_template,
@@ -29,8 +30,8 @@ from avant_core.reports.services import (
     delete_report,
     duplicate_report,
     get_report,
-    list_reports,
     list_templates,
+    page_reports,
     run_report,
     update_report,
 )
@@ -46,6 +47,8 @@ from avant_api.modules.reports.dto import (
     ExportFormat,
     MetricCatalogOut,
     MetricOut,
+    ReportCountsOut,
+    ReportPageOut,
     ReportQueryIn,
     ReportResultOut,
     ReportTemplateOut,
@@ -92,10 +95,23 @@ class ReportService:
         definition = body.definition()
         return to_csv(self._run(actor, definition), definition, locale, self._names(actor))
 
-    def list_saved(self, actor: Actor) -> list[SavedReportOut]:
-        """Os relatórios salvos que a pessoa vê, pelo nome."""
-        reports = list_reports(self._uows.uow(actor.company_id), actor=actor)
-        return [self._out(actor, report) for report in reports]
+    def page_saved(
+        self, actor: Actor, scope: ReportScope | None, query: str | None, page: int
+    ) -> ReportPageOut:
+        """Uma página dos relatórios salvos que a pessoa vê, com a aba, a busca e as contagens."""
+        found = page_reports(
+            self._uows.uow(actor.company_id), actor=actor, scope=scope, query=query, page=page
+        )
+        return ReportPageOut(
+            items=[self._out(actor, report) for report in found.page.items],
+            total=found.page.total,
+            page=found.page.page,
+            pages=found.page.pages,
+            page_size=found.page.page_size,
+            counts=ReportCountsOut(
+                all=found.counts.all, mine=found.counts.mine, shared=found.counts.shared
+            ),
+        )
 
     def get_saved(self, actor: Actor, report_id: uuid.UUID) -> SavedReportOut:
         """Um relatório salvo que a pessoa vê."""
