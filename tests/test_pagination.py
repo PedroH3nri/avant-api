@@ -226,3 +226,32 @@ def test_internal_client_lists_come_in_pages(
     assert (invitations["total"], len(invitations["items"])) == (10, 0)
     audit = staff.get(f"/api/v1/internal/clients/{company_id}/audit").json()
     assert audit["total"] >= 1 and audit["page"] == 1
+
+
+def test_internal_lists_come_in_pages(
+    client: TestClient, engine: Engine, mailer: CapturingMailer
+) -> None:
+    from tests.test_api import _csrf
+    from tests.test_internal import _staff
+
+    _onboard_owner(client, engine, mailer)
+    staff = _staff(client, engine)
+    for index in range(11):
+        body = {"name": f"M{index:02d}", "year": 2020 + index, "months": ["1"] * 12}
+        created = staff.post("/api/v1/internal/goal-templates", json=body, headers=_csrf(staff))
+        assert created.status_code == 201, created.text
+    templates = staff.get("/api/v1/internal/goal-templates").json()
+    options = staff.get("/api/v1/internal/goal-templates/options").json()["items"]
+    assert len(options) == templates["total"] >= 11 and templates["pages"] == 2
+    assert templates["items"][0]["year"] == max(item["year"] for item in options)
+    for path in (
+        "/api/v1/internal/contracts",
+        "/api/v1/internal/staff",
+        "/api/v1/internal/networks/unassigned",
+        "/api/v1/internal/results",
+        "/api/v1/internal/users?q=dono",
+    ):
+        found = staff.get(path)
+        assert found.status_code == 200, (path, found.text)
+        assert {"total", "page", "pages"} <= set(found.json()), path
+    assert staff.get("/api/v1/internal/staff").json()["total"] == 1

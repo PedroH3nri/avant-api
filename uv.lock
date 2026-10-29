@@ -212,7 +212,7 @@ dev = [
 
 [package.metadata]
 requires-dist = [
-    { name = "avant-core", git = "https://github.com/PedroH3nri/avant-core?tag=v0.39.0" },
+    { name = "avant-core", git = "https://github.com/PedroH3nri/avant-core?tag=v0.40.0" },
     { name = "celery", specifier = ">=5.4,<6" },
     { name = "fastapi", specifier = ">=0.115,<1" },
     { name = "httpx", specifier = ">=0.27" },
@@ -236,8 +236,8 @@ dev = [
 
 [[package]]
 name = "avant-core"
-version = "0.39.0"
-source = { git = "https://github.com/PedroH3nri/avant-core?tag=v0.39.0#0df18403f980a902e9d5c8d4d4707d4b312f3f44" }
+version = "0.40.0"
+source = { git = "https://github.com/PedroH3nri/avant-core?tag=v0.40.0#f8dd69ec5603c105088dc50ff381b0868753de1b" }
 dependencies = [
     { name = "alembic" },
     { name = "argon2-cffi" },

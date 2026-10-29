@@ -3,13 +3,13 @@
 import uuid
 
 from avant_core.access.models import Actor
-from avant_core.internal.services import PersonView, reset_user_mfa, search_users, set_user_status
+from avant_core.internal.services import PersonView, page_users, reset_user_mfa, set_user_status
 from avant_core.ports import Mailer
 from avant_core.shared.clock import Clock
 
 from avant_api.app.ports import UnitOfWorkFactory
 from avant_api.modules.internal.people.dto import PersonOut
-from avant_api.shared.dto import CompanyRefOut, UserOut
+from avant_api.shared.dto import CompanyRefOut, PageOut, UserOut, page_out
 
 
 def person_out(person: PersonView) -> PersonOut:
@@ -37,10 +37,10 @@ class PeopleService:
         self._clock = clock
         self._mailer = mailer
 
-    def search(self, actor: Actor, query: str) -> list[PersonOut]:
-        """Pessoas por nome ou e-mail."""
-        people = search_users(self._uows.trusted_uow(), actor=actor, query=query)
-        return [person_out(person) for person in people]
+    def search(self, actor: Actor, query: str, page: int) -> PageOut[PersonOut]:
+        """Uma página das pessoas com o trecho no nome ou no e-mail, a mais recente primeiro."""
+        found = page_users(self._uows.trusted_uow(), actor=actor, query=query, page=page)
+        return page_out(found, person_out)
 
     def set_disabled(self, actor: Actor, user_id: uuid.UUID, disabled: bool) -> None:
         """Desativa (encerrando as sessões) ou reativa a conta de uma pessoa."""
