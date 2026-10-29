@@ -219,7 +219,7 @@ def test_internal_client_lists_come_in_pages(
         "Cliente 09",
     )
     options = staff.get("/api/v1/internal/clients/options").json()["items"]
-    assert len(options) == 11 and set(options[0]) == {"id", "name"}
+    assert len(options) == 11 and set(options[0]) == {"id", "name", "status"}
     teams = staff.get("/api/v1/internal/teams").json()
     assert teams["total"] == 1
     invitations = staff.get("/api/v1/internal/owner-invitations?page=2").json()
