@@ -3,13 +3,13 @@
 import uuid
 
 from avant_core.access.models import Actor
-from fastapi import APIRouter, Depends, status
+from fastapi import APIRouter, Depends, Query, status
 
 from avant_api.app.security import require
 from avant_api.modules.roles.dependencies import role_service
 from avant_api.modules.roles.dto import PermissionOut, RoleIn, RoleOptionOut, RoleOut, RolePatchIn
 from avant_api.modules.roles.service import RoleService
-from avant_api.shared.dto import ItemsOut
+from avant_api.shared.dto import ItemsOut, PageOut
 
 router = APIRouter(tags=["roles"])
 
@@ -33,11 +33,12 @@ def options(
 
 @router.get("/roles")
 def index(
+    page: int = Query(default=1, ge=1),
     actor: Actor = Depends(require("roles.view")),
     service: RoleService = Depends(role_service),
-) -> ItemsOut[RoleOut]:
+) -> PageOut[RoleOut]:
     """Lista os papéis da Empresa ativa."""
-    return ItemsOut(items=service.list_all(actor))
+    return service.page(actor, page)
 
 
 @router.post("/roles", status_code=status.HTTP_201_CREATED)

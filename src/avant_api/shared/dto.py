@@ -1,6 +1,7 @@
 """DTOs usados por mais de um domínio."""
 
 import uuid
+from collections.abc import Callable
 from datetime import datetime
 
 from avant_core.audit.enums import ActorKind
@@ -11,6 +12,7 @@ from avant_core.company.models.fiscal_data import FISCAL_FIELDS
 from avant_core.company.services import MemberView
 from avant_core.identity.enums import Locale
 from avant_core.identity.models import User
+from avant_core.shared.models import Page
 from pydantic import BaseModel
 
 # Prefixo das rotas, para montar as URLs que o painel usa direto (como a da imagem).
@@ -75,6 +77,17 @@ class PageOut[T](BaseModel):
     page: int
     pages: int
     page_size: int
+
+
+def page_out[S, T](found: Page[S], convert: Callable[[S], T]) -> PageOut[T]:
+    """A página do core convertida para o DTO, item a item."""
+    return PageOut[T](
+        items=[convert(item) for item in found.items],
+        total=found.total,
+        page=found.page,
+        pages=found.pages,
+        page_size=found.page_size,
+    )
 
 
 class RoleRefOut(BaseModel):

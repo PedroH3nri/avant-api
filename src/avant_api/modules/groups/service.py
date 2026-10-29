@@ -9,6 +9,7 @@ from avant_core.groups.services import (
     delete_group,
     get_group,
     list_groups,
+    page_groups,
     remove_group_member,
     update_group,
 )
@@ -16,6 +17,7 @@ from avant_core.shared.clock import Clock
 
 from avant_api.app.ports import UnitOfWorkFactory
 from avant_api.modules.groups.dto import GroupIn, GroupMembersIn, GroupOut, GroupPatchIn
+from avant_api.shared.dto import PageOut, page_out
 
 
 class GroupService:
@@ -24,6 +26,11 @@ class GroupService:
     def __init__(self, uows: UnitOfWorkFactory, clock: Clock) -> None:
         self._uows = uows
         self._clock = clock
+
+    def page(self, actor: Actor, page: int) -> PageOut[GroupOut]:
+        """Uma página dos grupos da Empresa ativa, o mais recente primeiro."""
+        found = page_groups(self._uows.uow(actor.company_id), actor=actor, page=page)
+        return page_out(found, GroupOut.of)
 
     def list_all(self, actor: Actor) -> list[GroupOut]:
         """Os grupos da Empresa ativa, pelo nome."""

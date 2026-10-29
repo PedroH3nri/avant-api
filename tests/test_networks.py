@@ -38,7 +38,7 @@ def test_connect_sync_and_disconnect(
 ) -> None:
     me = _onboard_owner(client, engine, mailer)
     company_id = me["active_company_id"]
-    assert client.get("/api/v1/networks").json() == {"items": [], "next_cursor": None}
+    assert client.get("/api/v1/networks").json()["total"] == 0
     guide = client.get("/api/v1/networks/service-account").json()
     assert guide["email"].endswith(".iam.gserviceaccount.com") and guide["role"] == "Administrator"
 

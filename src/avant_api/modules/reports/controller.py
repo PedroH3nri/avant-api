@@ -10,6 +10,7 @@ import uuid
 
 from avant_core.access.models import Actor
 from avant_core.identity.enums import Locale
+from avant_core.reports.enums import ReportScope
 from fastapi import APIRouter, Depends, Query, Response, status
 
 from avant_api.app.security import require
@@ -17,6 +18,7 @@ from avant_api.modules.reports.dependencies import report_service
 from avant_api.modules.reports.dto import (
     ExportFormat,
     MetricCatalogOut,
+    ReportPageOut,
     ReportQueryIn,
     ReportResultOut,
     ReportTemplateOut,
@@ -71,11 +73,15 @@ def export(
 
 @router.get("/reports")
 def index(
+    scope: ReportScope | None = None,
+    query: str | None = Query(alias="q", default=None, max_length=200),
+    page: int = Query(default=1, ge=1),
     actor: Actor = Depends(require("reports.view")),
     service: ReportService = Depends(report_service),
-) -> ItemsOut[SavedReportOut]:
-    """Os relatórios salvos que a pessoa vê, pelo nome."""
-    return ItemsOut(items=service.list_saved(actor))
+) -> ReportPageOut:
+    """Uma página dos relatórios salvos que a pessoa vê, o mais recente primeiro; ``scope``
+    separa os da pessoa (``mine``) dos compartilhados (``shared``) e a busca olha o nome."""
+    return service.page_saved(actor, scope, query, page)
 
 
 @router.post("/reports", status_code=status.HTTP_201_CREATED)

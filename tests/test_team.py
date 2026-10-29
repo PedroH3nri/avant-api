@@ -150,14 +150,17 @@ def test_audit_log(client: TestClient, engine: Engine, mailer: CapturingMailer) 
     _onboard_owner(client, engine, mailer)
     ana = _member_client(client, mailer, "ana@acai.com")
     assert ana.get("/api/v1/audit").status_code == 403
-    first = client.get("/api/v1/audit", params={"limit": 2}).json()
-    assert [e["action"] for e in first["items"]] == ["invitation.accepted", "invitation.created"]
-    rest = client.get("/api/v1/audit", params={"cursor": first["next_cursor"]}).json()
-    assert [e["action"] for e in rest["items"]] == ["company.owner_joined"]
+    first = client.get("/api/v1/audit").json()
+    assert [e["action"] for e in first["items"]] == [
+        "invitation.accepted",
+        "invitation.created",
+        "company.owner_joined",
+    ]
+    assert (first["total"], first["pages"], first["page"]) == (3, 1, 1)
     only = client.get("/api/v1/audit", params={"action": "invitation.created"}).json()
-    assert len(only["items"]) == 1
-    bad = client.get("/api/v1/audit", params={"cursor": "lixo"})
-    assert bad.status_code == 422 and bad.json()["error"]["code"] == "invalid_input"
+    assert len(only["items"]) == 1 and only["total"] == 1
+    assert client.get("/api/v1/audit", params={"page": 2}).json()["items"] == []
+    assert client.get("/api/v1/audit", params={"page": 0}).status_code == 422
 
 
 def test_requires_session(client: TestClient) -> None:

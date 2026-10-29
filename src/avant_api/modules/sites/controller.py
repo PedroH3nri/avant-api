@@ -24,7 +24,7 @@ from avant_api.modules.sites.dto import (
     SiteOut,
 )
 from avant_api.modules.sites.service import SiteService
-from avant_api.shared.dto import ItemsOut
+from avant_api.shared.dto import ItemsOut, PageOut
 
 router = APIRouter(tags=["sites"])
 
@@ -35,13 +35,21 @@ def index(
     approval_status: str | None = Query(default=None, max_length=40),
     query: str | None = Query(alias="q", default=None, max_length=200),
     include_archived: bool = False,
+    page: int = Query(default=1, ge=1),
+    actor: Actor = Depends(require("sites.view")),
+    service: SiteService = Depends(site_service),
+) -> PageOut[SiteListOut]:
+    """Uma página dos sites que quem age enxerga, o mais recente primeiro, com filtros."""
+    return service.page(actor, network_id, approval_status, query, include_archived, page)
+
+
+@router.get("/sites/options")
+def site_options(
     actor: Actor = Depends(require("sites.view")),
     service: SiteService = Depends(site_service),
 ) -> ItemsOut[SiteListOut]:
-    """Lista os sites que quem age enxerga, com filtros."""
-    return ItemsOut(
-        items=service.list_all(actor, network_id, approval_status, query, include_archived)
-    )
+    """Todos os sites ativos que quem age enxerga, para seletores e telas que juntam dados."""
+    return ItemsOut(items=service.list_all(actor))
 
 
 @router.post("/sites", status_code=status.HTTP_201_CREATED)
@@ -82,6 +90,17 @@ def members(
 ) -> ItemsOut[SiteMemberOut]:
     """Lista quem vê o site."""
     return ItemsOut(items=service.members(actor, site_id))
+
+
+@router.get("/ad-units/unlinked")
+def unlinked(
+    network_id: uuid.UUID | None = None,
+    page: int = Query(default=1, ge=1),
+    actor: Actor = Depends(require("sites.view")),
+    service: SiteService = Depends(site_service),
+) -> PageOut[AdUnitOut]:
+    """Uma página dos ad units sem site; só quem vê todos os sites os enxerga."""
+    return service.unlinked(actor, network_id, page)
 
 
 @router.get("/ad-units")

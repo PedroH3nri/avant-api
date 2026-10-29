@@ -33,7 +33,7 @@ Outros repositórios: avant-core, avant-worker, avant-web, avant-infra.
 | `GET /auth/google/start?mode=login\|link` | manda para o Google; `link` liga a conta em Configurações | nenhuma ou sessão |
 | `GET /auth/google/callback` | volta do Google e redireciona para o painel | nenhuma |
 | `GET /auth/google` e `DELETE /auth/google` | se o Google está ligado; desligar | sessão |
-| `GET /invitations` | convites pendentes da Empresa ativa | `team.view` |
+| `GET /invitations?page=` | convites pendentes em páginas de 10, o mais recente primeiro | `team.view` |
 | `POST /invitations` | convida por e-mail e papel | `team.invite` |
 | `POST /invitations/{id}/resend` | token novo e mais 1 dia | `team.invite` |
 | `DELETE /invitations/{id}` | cancela e libera a vaga | `team.invite` |
@@ -51,27 +51,30 @@ Outros repositórios: avant-core, avant-worker, avant-web, avant-infra.
 | `PUT /members/{id}/permissions` | lista inteira de permissões diretas | `permissions.grant` |
 | `GET /permissions` | catálogo de cliente com nomes PT/EN/ES | `roles.view` |
 | `GET /roles/options` | papéis só com `id` e `name`, inteiros, para os seletores | `roles.view` |
-| `GET /roles` | predefinidos e personalizados, com contagem | `roles.view` |
+| `GET /roles?page=` | predefinidos e personalizados, com contagem, em páginas de 10 | `roles.view` |
 | `POST /roles`, `PATCH /roles/{id}`, `DELETE /roles/{id}` | papéis personalizados | `roles.manage` |
-| `GET /groups`, `GET /groups/{id}` | grupos de funcionários com as pessoas | `groups.view` |
+| `GET /groups?page=`, `GET /groups/{id}` | grupos de funcionários com as pessoas, em páginas de 10, o mais recente primeiro; `GET /groups/options` traz todos para telas que juntam pessoas e grupos | `groups.view` |
 | `POST /groups`, `PATCH /groups/{id}`, `DELETE /groups/{id}` | criar (com pelo menos uma pessoa), renomear, excluir | `groups.manage` |
 | `POST /groups/{id}/members`, `DELETE /groups/{id}/members/{membership_id}` | pôr e tirar pessoas; a última não sai (409) | `groups.manage` |
-| `GET /audit` | histórico; filtros `actor`, `action`, `from`, `to`; cursor | `audit.view` |
-| `GET /networks` | networks do GAM com as últimas etapas e os sites ativos | `network.view` |
+| `GET /audit?page=` | histórico em páginas de 10, o mais recente primeiro; filtros `actor`, `action`, `from`, `to` | `audit.view` |
+| `GET /networks` | uma página (`page`) das networks do GAM, a mais recente primeiro, com as últimas etapas e os sites ativos | `network.view` |
+| `GET /networks/options` | todas as networks, para seletores | `network.view` |
 | `GET /networks/service-account` | e-mail da conta de serviço para o guia de conexão | `network.connect` |
 | `POST /networks` | conecta pelo network code; 202, nasce `pending` e o worker testa | `network.connect` |
-| `GET /networks/{id}`, `/sync-runs` | detalhe e histórico das etapas | `network.view` |
+| `GET /networks/{id}`, `/sync-runs` | detalhe e histórico das etapas (em páginas, `page`) | `network.view` |
 | `POST /networks/{id}/sync` | "sincronizar agora"; 1 vez a cada 10 minutos (429 com `Retry-After`) | `network.sync` |
 | `POST /networks/{id}/disconnect` | para as sincronizações; o histórico fica | `network.disconnect` |
-| `GET /api-keys` | chaves da Empresa (com `api_keys.manage`) ou só as próprias | membro |
+| `GET /api-keys?page=` | chaves da Empresa (com `api_keys.manage`) ou só as próprias, em páginas de 10 | membro |
 | `POST /api-keys` | cria uma chave; o valor `avk_...` volta só nesta resposta; só pela sessão | `api_keys.manage` |
 | `DELETE /api-keys/{id}` | revoga; a dona da chave ou quem gerencia | membro |
-| `GET /sites` | sites da Empresa (filtros `network_id`, `approval_status`, `q`, `include_archived`); quem não vê todos recebe só os atribuídos | `sites.view` |
+| `GET /sites` | uma página (`page`) dos sites da Empresa, o mais recente primeiro (filtros `network_id`, `approval_status`, `q`, `include_archived`); quem não vê todos recebe só os atribuídos | `sites.view` |
+| `GET /sites/options` | todos os sites ativos que a pessoa vê, para seletores | `sites.view` |
 | `POST /sites` | cadastra site pelo domínio, aguardando o GAM (`awaiting_gam`); a importação junta ao site do GAM com o mesmo domínio | `sites.manage` |
 | `GET /sites/{id}` | detalhe com os ad units; `assigned_to` só para quem atribui | `sites.view` |
 | `DELETE /sites/{id}` | remove o site que ainda aguarda o GAM (o do GAM responde `site_from_gam`) | `sites.manage` |
 | `GET /sites/{id}/members` | quem vê o site: atribuído ou por ver todos | `sites.assign` |
 | `GET /ad-units` | lista plana (`parent_id` monta a árvore); filtros `network_id`, `site_id`, `status`, `unlinked` | `sites.view` |
+| `GET /ad-units/unlinked` | uma página dos ad units sem site (filtro `network_id`); só quem vê todos os sites | `sites.view` |
 | `PATCH /ad-units/{id}` | liga a um site à mão (os filhos seguem) ou volta ao automático | `sites.assign` |
 | `GET /members/{id}/sites` | sites atribuídos ao membro | `team.view` |
 | `PUT /members/{id}/sites` | troca a lista inteira de sites do membro | `sites.assign` |
@@ -81,14 +84,14 @@ Outros repositórios: avant-core, avant-worker, avant-web, avant-infra.
 | `POST /custom-metrics/validate` | confere o formulário como salvar faria, sem gravar: `valid`, `code`, `error` (com a posição) e as variáveis; com `sample` (valores de exemplo das métricas do catálogo; as personalizadas aninhadas são calculadas), devolve em `value` a fórmula calculada no core (vazio sem denominador) | `metrics.manage` |
 | `POST /reports/query` | roda uma consulta sem salvar: métricas, período (fixo ou relativo), dimensões, filtros, comparação, ordem e limite; `currency` converte o dinheiro pela cotação de cada dia (padrão `USD`; sem cotação, `currency_unavailable`); decimais como texto; só os sites que a pessoa vê; 10 seguidas e depois 1 a cada 2 s (`rate_limited`); passou de 15 s no banco, `query_too_heavy` | `reports.view` |
 | `POST /reports/query/export?locale=` | a mesma consulta em CSV, sites e networks pelo nome, texto que parece fórmula escapado com `'` | `reports.view` |
-| `GET /reports`, `GET /reports/{id}` | relatórios salvos que a pessoa vê (os dela, os da Empresa e os dos papéis dela; o privado de outra pessoa é 404), com a consulta, o gráfico, a visibilidade e `editable` | `reports.view` |
+| `GET /reports`, `GET /reports/{id}` | relatórios salvos que a pessoa vê, em páginas (`page`, o mais recente primeiro, `scope` `mine`/`shared`, `q` no nome, `counts` de cada aba) (os dela, os da Empresa e os dos papéis dela; o privado de outra pessoa é 404), com a consulta, o gráfico, a visibilidade e `editable` | `reports.view` |
 | `POST /reports`, `PUT /reports/{id}`, `DELETE /reports/{id}` | salva, edita ou apaga um relatório: nome, descrição, consulta (a de `/reports/query`, sem a moeda), `chart_type` e opções (`stacked`; `metrics` com a cor de cada métrica, `lime`/`cyan`/`magenta`/`violet`/`orange`/`yellow`/`red`, e a aparência `green_red`/`red_green` com `from` < `to`), `visibility` (`private`, `company`, `roles` com `role_ids`); editar e apagar são do dono ou de quem tem `reports.manage` | `reports.manage` para criar |
 | `POST /reports/{id}/duplicate` | cópia privada de quem duplica, com " (cópia)" no nome | `reports.manage` |
 | `GET /reports/templates`, `POST /reports/templates/{key}` | modelos prontos da Groone (nome em PT, EN e ES) e um relatório privado novo a partir de um deles | `reports.view` / `reports.manage` |
 | `POST /reports/{id}/run` | roda o relatório salvo na moeda de visualização de quem roda, só nos sites que a pessoa vê; mesmo limite de taxa de `/reports/query` | `reports.view` |
 | `GET /reports/{id}/export?format=csv\|xlsx&locale=` | o relatório salvo em CSV ou XLSX (números como números, texto sempre como texto), personalizadas pelo nome | `reports.view` |
 | `GET /currencies` | as moedas do painel, com `available` quando já há cotação | sessão |
-| `GET /costs` | custos da aba Custos, do mês mais novo para o mais antigo | `costs.view` |
+| `GET /costs` | uma página (`page`) dos custos da aba Custos, do mês mais novo para o mais antigo | `costs.view` |
 | `POST /costs`, `PUT /costs/{id}`, `DELETE /costs/{id}` | cadastra, troca ou apaga um custo: `one_time` (um mês), `recurring` (do início até o fim, se tiver) ou `formula` (sobre `faturamento` e `receita` do mês; erro `invalid_formula`) | `costs.manage` |
 | `POST /costs/formula` | confere a fórmula e calcula com valores de exemplo, sem gravar | `costs.view` |
 | `GET /results?start=&end=&currency=` | faturamento, deduções (parte do cliente), receita, custos e resultado de cada mês, até 24 meses (padrão: os 6 até o atual); `deductions_pending` enquanto o GAM não fecha o mês | `results.view` |

@@ -6,7 +6,7 @@ from avant_core.access.models import Actor
 from avant_core.company.services import (
     cancel_invitation,
     invite_member,
-    list_pending_invitations,
+    page_pending_invitations,
     resend_invitation,
 )
 from avant_core.ports import Mailer
@@ -14,7 +14,7 @@ from avant_core.shared.clock import Clock
 
 from avant_api.app.ports import UnitOfWorkFactory
 from avant_api.modules.invitations.dto import InviteIn
-from avant_api.shared.dto import InvitationOut
+from avant_api.shared.dto import InvitationOut, PageOut, page_out
 
 
 class InvitationService:
@@ -25,10 +25,10 @@ class InvitationService:
         self._clock = clock
         self._mailer = mailer
 
-    def list_all(self, actor: Actor) -> list[InvitationOut]:
-        """Os convites pendentes da Empresa ativa."""
-        items = list_pending_invitations(self._uows.uow(actor.company_id), actor=actor)
-        return [InvitationOut.of(invitation) for invitation in items]
+    def page(self, actor: Actor, page: int) -> PageOut[InvitationOut]:
+        """Uma página dos convites pendentes da Empresa ativa."""
+        found = page_pending_invitations(self._uows.uow(actor.company_id), actor=actor, page=page)
+        return page_out(found, InvitationOut.of)
 
     def invite(self, actor: Actor, body: InviteIn) -> InvitationOut:
         """Convida alguém para a equipe da Empresa ativa."""

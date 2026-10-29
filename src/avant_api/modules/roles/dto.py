@@ -22,6 +22,9 @@ class PermissionOut(BaseModel):
 class RoleOptionOut(BaseModel):
     id: uuid.UUID
     name: dict[str, str]
+    # Predefinido do Avant (vale para toda Empresa) ou criado pela Empresa.
+    is_system: bool
+    site_scope: SiteScope
 
 
 class RoleOut(BaseModel):
