@@ -33,7 +33,7 @@ Outros repositórios: avant-core, avant-worker, avant-web, avant-infra.
 | `GET /auth/google/start?mode=login\|link` | manda para o Google; `link` liga a conta em Configurações | nenhuma ou sessão |
 | `GET /auth/google/callback` | volta do Google e redireciona para o painel | nenhuma |
 | `GET /auth/google` e `DELETE /auth/google` | se o Google está ligado; desligar | sessão |
-| `GET /invitations` | convites pendentes da Empresa ativa | `team.view` |
+| `GET /invitations?page=` | convites pendentes em páginas de 10, o mais recente primeiro | `team.view` |
 | `POST /invitations` | convida por e-mail e papel | `team.invite` |
 | `POST /invitations/{id}/resend` | token novo e mais 1 dia | `team.invite` |
 | `DELETE /invitations/{id}` | cancela e libera a vaga | `team.invite` |
@@ -51,19 +51,19 @@ Outros repositórios: avant-core, avant-worker, avant-web, avant-infra.
 | `PUT /members/{id}/permissions` | lista inteira de permissões diretas | `permissions.grant` |
 | `GET /permissions` | catálogo de cliente com nomes PT/EN/ES | `roles.view` |
 | `GET /roles/options` | papéis só com `id` e `name`, inteiros, para os seletores | `roles.view` |
-| `GET /roles` | predefinidos e personalizados, com contagem | `roles.view` |
+| `GET /roles?page=` | predefinidos e personalizados, com contagem, em páginas de 10 | `roles.view` |
 | `POST /roles`, `PATCH /roles/{id}`, `DELETE /roles/{id}` | papéis personalizados | `roles.manage` |
-| `GET /groups`, `GET /groups/{id}` | grupos de funcionários com as pessoas | `groups.view` |
+| `GET /groups?page=`, `GET /groups/{id}` | grupos de funcionários com as pessoas, em páginas de 10, o mais recente primeiro; `GET /groups/options` traz todos para telas que juntam pessoas e grupos | `groups.view` |
 | `POST /groups`, `PATCH /groups/{id}`, `DELETE /groups/{id}` | criar (com pelo menos uma pessoa), renomear, excluir | `groups.manage` |
 | `POST /groups/{id}/members`, `DELETE /groups/{id}/members/{membership_id}` | pôr e tirar pessoas; a última não sai (409) | `groups.manage` |
-| `GET /audit` | histórico; filtros `actor`, `action`, `from`, `to`; cursor | `audit.view` |
+| `GET /audit?page=` | histórico em páginas de 10, o mais recente primeiro; filtros `actor`, `action`, `from`, `to` | `audit.view` |
 | `GET /networks` | networks do GAM com as últimas etapas e os sites ativos | `network.view` |
 | `GET /networks/service-account` | e-mail da conta de serviço para o guia de conexão | `network.connect` |
 | `POST /networks` | conecta pelo network code; 202, nasce `pending` e o worker testa | `network.connect` |
 | `GET /networks/{id}`, `/sync-runs` | detalhe e histórico das etapas | `network.view` |
 | `POST /networks/{id}/sync` | "sincronizar agora"; 1 vez a cada 10 minutos (429 com `Retry-After`) | `network.sync` |
 | `POST /networks/{id}/disconnect` | para as sincronizações; o histórico fica | `network.disconnect` |
-| `GET /api-keys` | chaves da Empresa (com `api_keys.manage`) ou só as próprias | membro |
+| `GET /api-keys?page=` | chaves da Empresa (com `api_keys.manage`) ou só as próprias, em páginas de 10 | membro |
 | `POST /api-keys` | cria uma chave; o valor `avk_...` volta só nesta resposta; só pela sessão | `api_keys.manage` |
 | `DELETE /api-keys/{id}` | revoga; a dona da chave ou quem gerencia | membro |
 | `GET /sites` | sites da Empresa (filtros `network_id`, `approval_status`, `q`, `include_archived`); quem não vê todos recebe só os atribuídos | `sites.view` |

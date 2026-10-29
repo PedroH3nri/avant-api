@@ -2,10 +2,10 @@
 
 from avant_core.access.models import Actor
 from avant_core.audit.interfaces import AuditFilter
-from avant_core.audit.services import list_audit
+from avant_core.audit.services import page_audit
 
 from avant_api.app.ports import UnitOfWorkFactory
-from avant_api.shared.dto import AuditOut, ItemsOut
+from avant_api.shared.dto import AuditOut, PageOut, page_out
 
 
 class AuditService:
@@ -14,17 +14,9 @@ class AuditService:
     def __init__(self, uows: UnitOfWorkFactory) -> None:
         self._uows = uows
 
-    def list_all(
-        self, actor: Actor, filters: AuditFilter, limit: int, cursor: str | None
-    ) -> ItemsOut[AuditOut]:
+    def page(self, actor: Actor, filters: AuditFilter, page: int) -> PageOut[AuditOut]:
         """Uma página da auditoria com os filtros pedidos."""
-        page = list_audit(
-            self._uows.uow(actor.company_id),
-            actor=actor,
-            filters=filters,
-            limit=limit,
-            cursor=cursor,
+        found = page_audit(
+            self._uows.uow(actor.company_id), actor=actor, filters=filters, page=page
         )
-        return ItemsOut(
-            items=[AuditOut.of(entry) for entry in page.items], next_cursor=page.next_cursor
-        )
+        return page_out(found, AuditOut.of)

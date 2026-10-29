@@ -63,3 +63,52 @@ def test_member_options_bring_the_whole_team(
     options = client.get("/api/v1/members/options")
     assert options.status_code == 200, options.text
     assert len(options.json()["items"]) == 12
+
+
+def test_team_lists_come_in_pages(
+    client: TestClient, engine: Engine, mailer: CapturingMailer
+) -> None:
+    from avant_core.audit.enums import ActorKind
+    from avant_core.audit.models import AuditEntry
+    from avant_core.company.enums import InvitationKind
+    from avant_core.company.models import Invitation
+
+    me = _onboard_owner(client, engine, mailer)
+    company_id = uuid.UUID(me["active_company_id"])
+    owner_id = uuid.UUID(me["user"]["id"])
+    now = datetime.now(UTC)
+    with SqlAlchemyUnitOfWork(engine, bypass_rls=True) as uow:
+        for index in range(11):
+            uow.invitations.add(
+                Invitation(
+                    InvitationKind.TEAM,
+                    f"c{index}@acai.com",
+                    f"hash-{index}",
+                    now + timedelta(days=1, minutes=index),
+                    owner_id,
+                    company_id,
+                    FINANCE,
+                )
+            )
+            uow.audit.add(
+                AuditEntry(
+                    company_id,
+                    "test.paged",
+                    ActorKind.MEMBER,
+                    now + timedelta(minutes=index),
+                    actor_user_id=owner_id,
+                )
+            )
+        uow.commit()
+    invitations = client.get("/api/v1/invitations").json()
+    assert (invitations["total"], invitations["pages"]) == (11, 2)
+    assert invitations["items"][0]["email"] == "c10@acai.com"
+    audit = client.get("/api/v1/audit?action=test.paged&page=2").json()
+    assert (audit["total"], len(audit["items"]), audit["page"]) == (11, 1, 2)
+    roles = client.get("/api/v1/roles").json()
+    assert roles["page"] == 1 and roles["total"] >= len(roles["items"])
+    groups = client.get("/api/v1/groups").json()
+    assert groups["total"] == 0 and groups["pages"] == 0
+    assert client.get("/api/v1/groups/options").status_code == 200
+    keys = client.get("/api/v1/api-keys").json()
+    assert keys["total"] == 0

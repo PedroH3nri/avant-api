@@ -3,11 +3,12 @@
 import uuid
 
 from avant_core.access.models import Actor
-from avant_core.access.services import create_api_key, list_api_keys, revoke_api_key
+from avant_core.access.services import create_api_key, list_api_keys, page_api_keys, revoke_api_key
 from avant_core.shared.clock import Clock
 
 from avant_api.app.ports import UnitOfWorkFactory
 from avant_api.modules.api_keys.dto import ApiKeyCreatedOut, ApiKeyIn, ApiKeyOut
+from avant_api.shared.dto import PageOut, page_out
 
 
 class ApiKeyService:
@@ -17,10 +18,10 @@ class ApiKeyService:
         self._uows = uows
         self._clock = clock
 
-    def list_all(self, actor: Actor) -> list[ApiKeyOut]:
-        """Com ``api_keys.manage``, as da Empresa toda; sem, só as próprias."""
-        views = list_api_keys(self._uows.uow(actor.company_id), actor=actor)
-        return [ApiKeyOut.of(view) for view in views]
+    def page(self, actor: Actor, page: int) -> PageOut[ApiKeyOut]:
+        """Uma página das chaves: as da Empresa com ``api_keys.manage``; senão, só as próprias."""
+        found = page_api_keys(self._uows.uow(actor.company_id), actor=actor, page=page)
+        return page_out(found, ApiKeyOut.of)
 
     def create(self, actor: Actor, body: ApiKeyIn) -> ApiKeyCreatedOut:
         """Cria uma chave para quem está agindo; o token só volta aqui."""
