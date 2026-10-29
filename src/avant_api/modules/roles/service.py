@@ -38,7 +38,12 @@ class RoleService:
         """Os papéis só com id e nome, para os seletores."""
         roles = list_roles(self._uows.uow(actor.company_id), actor=actor)
         return [
-            RoleOptionOut(id=view.role.id, name=view.role.name, is_system=view.role.is_system)
+            RoleOptionOut(
+                id=view.role.id,
+                name=view.role.name,
+                is_system=view.role.is_system,
+                site_scope=view.role.site_scope,
+            )
             for view in roles
         ]
 
