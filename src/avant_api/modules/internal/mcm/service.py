@@ -3,7 +3,7 @@
 import uuid
 
 from avant_core.access.models import Actor
-from avant_core.gam.mcm.services import assign_mcm_candidate, list_mcm_candidates
+from avant_core.gam.mcm.services import assign_mcm_candidate, page_mcm_candidates
 from avant_core.shared.clock import Clock
 
 from avant_api.app.ports import UnitOfWorkFactory
@@ -11,6 +11,7 @@ from avant_api.app.tasks import TaskQueue
 from avant_api.modules.internal.mcm.dto import McmCandidateOut
 from avant_api.modules.networks.dto import NetworkOut
 from avant_api.modules.networks.service import enqueue_sync
+from avant_api.shared.dto import PageOut, page_out
 
 
 class McmService:
@@ -21,10 +22,10 @@ class McmService:
         self._clock = clock
         self._tasks = tasks
 
-    def unassigned(self, actor: Actor) -> list[McmCandidateOut]:
-        """Networks MCM aprovadas cujo e-mail não é dono de nenhuma Empresa."""
-        candidates = list_mcm_candidates(self._uows.trusted_uow(), actor=actor)
-        return [McmCandidateOut.of(candidate) for candidate in candidates]
+    def unassigned(self, actor: Actor, page: int) -> PageOut[McmCandidateOut]:
+        """Uma página das networks MCM sem Empresa, a vista primeiro por último antes."""
+        found = page_mcm_candidates(self._uows.trusted_uow(), actor=actor, page=page)
+        return page_out(found, McmCandidateOut.of)
 
     def assign(self, actor: Actor, candidate_id: uuid.UUID, company_id: uuid.UUID) -> NetworkOut:
         """Liga a network a uma Empresa e agenda a primeira sincronização."""

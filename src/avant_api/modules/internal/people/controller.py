@@ -9,7 +9,7 @@ from avant_api.app.security import require_staff
 from avant_api.modules.internal.people.dependencies import people_service
 from avant_api.modules.internal.people.dto import PersonOut
 from avant_api.modules.internal.people.service import PeopleService
-from avant_api.shared.dto import ItemsOut
+from avant_api.shared.dto import PageOut
 
 router = APIRouter(prefix="/internal/users", tags=["internal"])
 
@@ -17,11 +17,12 @@ router = APIRouter(prefix="/internal/users", tags=["internal"])
 @router.get("")
 def users(
     query: str = Query(alias="q", min_length=3, max_length=120),
+    page: int = Query(default=1, ge=1),
     actor: Actor = Depends(require_staff("internal.users.manage")),
     service: PeopleService = Depends(people_service),
-) -> ItemsOut[PersonOut]:
-    """Busca pessoas por nome ou email."""
-    return ItemsOut(items=service.search(actor, query))
+) -> PageOut[PersonOut]:
+    """Uma página das pessoas com o trecho no nome ou no e-mail, a mais recente primeiro."""
+    return service.search(actor, query, page)
 
 
 @router.post("/{user_id}/disable", status_code=status.HTTP_204_NO_CONTENT)

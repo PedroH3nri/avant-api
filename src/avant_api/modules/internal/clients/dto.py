@@ -132,3 +132,11 @@ class OwnerInvitationOut(BaseModel):
 
 class ClientMemberOut(MemberOut):
     company: CompanyRefOut
+
+
+class ClientOptionOut(BaseModel):
+    """O cliente nas listas inteiras para seletores e para contar as abas por situação."""
+
+    id: uuid.UUID
+    name: str
+    status: CompanyStatus

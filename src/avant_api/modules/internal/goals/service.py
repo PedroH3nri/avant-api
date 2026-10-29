@@ -14,6 +14,7 @@ from avant_core.goals.services import (
     list_goal_templates,
     list_role_goals,
     my_goal,
+    page_goal_templates,
     set_role_goal,
     team_goals,
     update_goal_template,
@@ -29,6 +30,7 @@ from avant_api.modules.internal.goals.dto import (
     RoleGoalOut,
     TeamGoalsOut,
 )
+from avant_api.shared.dto import PageOut, page_out
 
 
 class GoalService:
@@ -37,6 +39,11 @@ class GoalService:
     def __init__(self, uows: UnitOfWorkFactory, clock: Clock) -> None:
         self._uows = uows
         self._clock = clock
+
+    def template_page(self, actor: Actor, page: int) -> PageOut[GoalTemplateOut]:
+        """Uma página dos modelos de meta, do ano mais novo para o mais velho."""
+        found = page_goal_templates(self._uows.uow(actor.company_id), actor=actor, page=page)
+        return page_out(found, GoalTemplateOut.of)
 
     def templates(self, actor: Actor) -> list[GoalTemplateOut]:
         """Os modelos de meta, do ano mais novo para o mais velho."""

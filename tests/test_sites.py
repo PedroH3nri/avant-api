@@ -57,6 +57,8 @@ def test_sites_and_assignment(client: TestClient, engine: Engine, mailer: Captur
 
     # A Ana não vê nada até ter um site atribuído, e não atribui.
     assert ana.get("/api/v1/sites").json()["items"] == []
+    assert ana.get("/api/v1/sites/options").json()["items"] == []
+    assert ana.get("/api/v1/ad-units/unlinked").json()["total"] == 0
     assert ana.get(f"/api/v1/sites/{ids['acai']}").status_code == 404
     put = {"site_ids": [str(ids["acai"])]}
     denied = ana.put(f"/api/v1/members/{ana_id}/sites", json=put, headers=_csrf(ana))
@@ -69,6 +71,8 @@ def test_sites_and_assignment(client: TestClient, engine: Engine, mailer: Captur
         "acai.com.br"
     ]
 
+    ana_options = ana.get("/api/v1/sites/options").json()["items"]
+    assert [s["domain"] for s in ana_options] == ["acai.com.br"]
     detail = ana.get(f"/api/v1/sites/{ids['acai']}").json()
     assert [u["name"] for u in detail["ad_units"]] == ["acai.com.br", "topo"]
     assert detail["assigned_to"] is None

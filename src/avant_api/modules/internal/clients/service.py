@@ -12,13 +12,14 @@ from avant_core.company.models import CompanyImage, Invitation
 from avant_core.internal.services import cancel_owner_invitation as cancel_owner_invite
 from avant_core.internal.services import (
     change_owner,
-    client_audit,
     create_client,
     get_client,
     get_client_image,
-    list_client_teams,
     list_clients,
-    list_owner_invitations,
+    page_client_audit,
+    page_client_teams,
+    page_clients,
+    page_owner_invitations,
     remove_client_image,
     resend_owner_invitation,
     send_owner_invitation,
@@ -34,11 +35,19 @@ from avant_api.modules.internal.clients.dto import (
     ClientDetailOut,
     ClientIn,
     ClientMemberOut,
+    ClientOptionOut,
     ClientOut,
     ClientPatchIn,
     OwnerInvitationOut,
 )
-from avant_api.shared.dto import AuditOut, CompanyRefOut, InvitationOut, ItemsOut, MemberOut
+from avant_api.shared.dto import (
+    AuditOut,
+    CompanyRefOut,
+    InvitationOut,
+    MemberOut,
+    PageOut,
+    page_out,
+)
 
 
 def owner_invitation_out(invitation: Invitation) -> OwnerInvitationOut:
@@ -64,12 +73,22 @@ class ClientService:
         self._mailer = mailer
         self._images = images
 
-    def list_all(
-        self, actor: Actor, query: str | None, status: CompanyStatus | None
-    ) -> list[ClientOut]:
-        """As Empresas de cliente, com busca e filtro de status."""
-        items = list_clients(self._uows.trusted_uow(), actor=actor, query=query, status=status)
-        return [ClientOut.of(client) for client in items]
+    def page(
+        self, actor: Actor, query: str | None, status: CompanyStatus | None, page: int
+    ) -> PageOut[ClientOut]:
+        """Uma página das Empresas de cliente, a mais recente primeiro, com busca e status."""
+        found = page_clients(
+            self._uows.trusted_uow(), actor=actor, query=query, status=status, page=page
+        )
+        return page_out(found, ClientOut.of)
+
+    def options(self, actor: Actor) -> list[ClientOptionOut]:
+        """Todas as Empresas de cliente, pelo nome, para seletores."""
+        items = list_clients(self._uows.trusted_uow(), actor=actor)
+        return [
+            ClientOptionOut(id=item.company.id, name=item.company.name, status=item.company.status)
+            for item in items
+        ]
 
     def register(self, actor: Actor, body: ClientIn) -> ClientOut:
         """Cadastra o cliente pendente, sem e-mail: o convite de dono sai depois."""
@@ -95,14 +114,15 @@ class ClientService:
         return owner_invitation_out(invitation)
 
     def teams(
-        self, actor: Actor, query: str | None, company_id: uuid.UUID | None
-    ) -> list[ClientMemberOut]:
-        """As pessoas das equipes das Empresas cliente, sem a equipe Groone."""
-        rows = list_client_teams(
-            self._uows.trusted_uow(), actor=actor, query=query, company_id=company_id
+        self, actor: Actor, query: str | None, company_id: uuid.UUID | None, page: int
+    ) -> PageOut[ClientMemberOut]:
+        """Uma página das pessoas das equipes das Empresas cliente, a mais recente primeiro."""
+        found = page_client_teams(
+            self._uows.trusted_uow(), actor=actor, query=query, company_id=company_id, page=page
         )
-        return [
-            ClientMemberOut(
+        return page_out(
+            found,
+            lambda row: ClientMemberOut(
                 **MemberOut.of(row.member).model_dump(),
                 company=CompanyRefOut(
                     id=row.company.id,
@@ -110,9 +130,8 @@ class ClientService:
                     slug=row.company.slug,
                     is_internal=row.company.is_internal,
                 ),
-            )
-            for row in rows
-        ]
+            ),
+        )
 
     def show(self, actor: Actor, company_id: uuid.UUID) -> ClientDetailOut:
         """Uma Empresa cliente com membros e convites."""
@@ -123,20 +142,12 @@ class ClientService:
             invitations=[InvitationOut.of(invitation) for invitation in detail.invitations],
         )
 
-    def audit(
-        self, actor: Actor, company_id: uuid.UUID, limit: int, cursor: str | None
-    ) -> ItemsOut[AuditOut]:
-        """Uma página da auditoria de uma Empresa cliente."""
-        page = client_audit(
-            self._uows.trusted_uow(),
-            actor=actor,
-            company_id=company_id,
-            limit=limit,
-            cursor=cursor,
+    def audit(self, actor: Actor, company_id: uuid.UUID, page: int) -> PageOut[AuditOut]:
+        """Uma página numerada da auditoria de uma Empresa cliente, a mais nova primeiro."""
+        found = page_client_audit(
+            self._uows.trusted_uow(), actor=actor, company_id=company_id, page=page
         )
-        return ItemsOut(
-            items=[AuditOut.of(entry) for entry in page.items], next_cursor=page.next_cursor
-        )
+        return page_out(found, AuditOut.of)
 
     def update(self, actor: Actor, company_id: uuid.UUID, body: ClientPatchIn) -> ClientOut:
         """Muda o nome, o limite de vagas ou o cadastro (sem os dados fiscais)."""
@@ -194,10 +205,12 @@ class ClientService:
             clock=self._clock,
         )
 
-    def owner_invitations(self, actor: Actor) -> list[OwnerInvitationOut]:
-        """Os convites de dono pendentes e vencidos."""
-        items = list_owner_invitations(self._uows.trusted_uow(), actor=actor, clock=self._clock)
-        return [owner_invitation_out(invitation) for invitation in items]
+    def owner_invitations(self, actor: Actor, page: int) -> PageOut[OwnerInvitationOut]:
+        """Uma página dos convites de dono pendentes e vencidos."""
+        found = page_owner_invitations(
+            self._uows.trusted_uow(), actor=actor, clock=self._clock, page=page
+        )
+        return page_out(found, owner_invitation_out)
 
     def resend_owner(self, actor: Actor, invitation_id: uuid.UUID) -> OwnerInvitationOut:
         """Reenvia um convite de dono com validade nova."""

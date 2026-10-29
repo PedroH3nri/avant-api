@@ -64,11 +64,11 @@ Outros repositórios: avant-core, avant-worker, avant-web, avant-infra.
 | `GET /networks/{id}`, `/sync-runs` | detalhe e histórico das etapas (em páginas, `page`) | `network.view` |
 | `POST /networks/{id}/sync` | "sincronizar agora"; 1 vez a cada 10 minutos (429 com `Retry-After`) | `network.sync` |
 | `POST /networks/{id}/disconnect` | para as sincronizações; o histórico fica | `network.disconnect` |
-| `GET /api-keys?page=` | chaves da Empresa (com `api_keys.manage`) ou só as próprias, em páginas de 10 | membro |
+| `GET /api-keys?page=` | chaves da Empresa (com `api_keys.manage`) ou só as próprias, em páginas de 10, as ativas primeiro | membro |
 | `POST /api-keys` | cria uma chave; o valor `avk_...` volta só nesta resposta; só pela sessão | `api_keys.manage` |
 | `DELETE /api-keys/{id}` | revoga; a dona da chave ou quem gerencia | membro |
 | `GET /sites` | uma página (`page`) dos sites da Empresa, o mais recente primeiro (filtros `network_id`, `approval_status`, `q`, `include_archived`); quem não vê todos recebe só os atribuídos | `sites.view` |
-| `GET /sites/options` | todos os sites ativos que a pessoa vê, para seletores | `sites.view` |
+| `GET /sites/options` | todos os sites não arquivados que a pessoa vê, para seletores | `sites.view` |
 | `POST /sites` | cadastra site pelo domínio, aguardando o GAM (`awaiting_gam`); a importação junta ao site do GAM com o mesmo domínio | `sites.manage` |
 | `GET /sites/{id}` | detalhe com os ad units; `assigned_to` só para quem atribui | `sites.view` |
 | `DELETE /sites/{id}` | remove o site que ainda aguarda o GAM (o do GAM responde `site_from_gam`) | `sites.manage` |
@@ -105,24 +105,25 @@ Painel interno, em `/api/v1/internal` (Company Groone ativa e 2FA verificado na 
 
 | Rota | Faz | Permissão |
 | --- | --- | --- |
-| `GET /internal/clients`, `POST /internal/clients` | lista clientes; cadastra o cliente pendente, com contato e indicação, sem mandar e-mail | `internal.clients.view` / `.manage` |
+| `GET /internal/clients`, `POST /internal/clients` | lista clientes em páginas (`page`, `q`, `status`, o mais recente primeiro); cadastra o cliente pendente, com contato e indicação, sem mandar e-mail | `internal.clients.view` / `.manage` |
 | `POST /internal/clients/{id}/owner-invitation` | envia (ou manda de novo) o convite de dono para o e-mail do cadastro | `internal.clients.manage` |
-| `GET /internal/clients/{id}`, `/audit` | página de suporte e histórico, só leitura | `internal.clients.view` |
+| `GET /internal/clients/options` | todos os clientes (`id`, `name`, `status`), para seletores e para contar as abas por situação | `internal.clients.view` |
+| `GET /internal/clients/{id}`, `/audit` | página de suporte e histórico (em páginas numeradas), só leitura | `internal.clients.view` |
 | `PATCH /internal/clients/{id}` | nome, vagas e cadastro (contato e indicação; os fiscais só o cliente muda) | `internal.clients.manage` |
 | `GET`, `PUT`, `DELETE /internal/clients/{id}/image` | imagem do cliente (ver, trocar, tirar) | `internal.clients.view` / `.manage` |
 | `PUT /internal/clients/{id}/status` | situação `active`, `inactive` ou `banned`; as networks acompanham | `internal.clients.manage` |
 | `POST /internal/clients/{id}/owner` | troca o dono | `internal.owner.change` |
-| `GET /internal/owner-invitations`, `POST .../{id}/resend`, `DELETE .../{id}` | convites de dono | `internal.clients.view` / `.manage` |
-| `GET /internal/teams?q=&company_id=` | pessoas das equipes das Empresas cliente (sem a equipe Groone) | `internal.clients.view` |
-| `GET /internal/users?q=`, `POST /internal/users/{id}/disable`, `/enable`, `/reset-mfa` | pessoas | `internal.users.manage` |
-| `GET /internal/staff`, `POST /internal/staff/invitations` | equipe Groone | `internal.staff.manage` |
-| `GET /internal/networks/unassigned`, `POST .../{id}/assign` | MCM sem dono: a Groone escolhe a Empresa | `internal.networks.assign` |
-| `GET /internal/results?start=&end=&currency=` | o resultado de cada Empresa cliente no período, por nome | `internal.results.view` |
-| `GET /internal/goal-templates`, `POST`, `PUT /{id}`, `DELETE /{id}` | modelos de meta da equipe Groone: nome, ano e 12 valores em dólar; `is_company_goal` marca a meta da Groone (uma por ano, senão `409 company_goal_taken`) | ver: quem edita ou vê as metas; editar: `internal.commissions.manage` |
+| `GET /internal/owner-invitations`, `POST .../{id}/resend`, `DELETE .../{id}` | convites de dono (a lista em páginas) | `internal.clients.view` / `.manage` |
+| `GET /internal/teams?q=&company_id=` | pessoas das equipes das Empresas cliente (sem a equipe Groone), em páginas | `internal.clients.view` |
+| `GET /internal/users?q=`, `POST /internal/users/{id}/disable`, `/enable`, `/reset-mfa` | pessoas (a busca em páginas, a mais recente primeiro) | `internal.users.manage` |
+| `GET /internal/staff`, `POST /internal/staff/invitations` | equipe Groone (em páginas) | `internal.staff.manage` |
+| `GET /internal/networks/unassigned`, `POST .../{id}/assign` | MCM sem dono, em páginas: a Groone escolhe a Empresa | `internal.networks.assign` |
+| `GET /internal/results?start=&end=&currency=` | o resultado de cada Empresa cliente no período, em páginas, do maior resultado para o menor | `internal.results.view` |
+| `GET /internal/goal-templates`, `POST`, `PUT /{id}`, `DELETE /{id}` | modelos de meta da equipe Groone (a lista em páginas; `/options` traz todos): nome, ano e 12 valores em dólar; `is_company_goal` marca a meta da Groone (uma por ano, senão `409 company_goal_taken`) | ver: quem edita ou vê as metas; editar: `internal.commissions.manage` |
 | `GET /internal/role-goals`, `PUT /internal/roles/{id}/goal` | a meta de cada papel da equipe Groone (`goal_template_id` vazio tira), `per_member` ou `split` | ver: quem edita ou vê as metas; editar: `internal.commissions.manage` |
 | `GET /internal/goals?month=AAAA-MM` | a meta da Groone e a de cada pessoa no mês: realizado (receita da Groone dos clientes, menos a parte dela nas deduções fechadas), meta, fração, ritmo e projeção | `internal.commissions.view` |
 | `GET /internal/goals/me?month=AAAA-MM` | a meta do mês de quem pergunta | qualquer pessoa da equipe Groone |
-| `GET /internal/contracts`, `GET .../{id}` | contratos, com filtros `company_id`, `network_id` e `status` | `internal.contracts.view` |
+| `GET /internal/contracts`, `GET .../{id}` | contratos em páginas, com filtros `company_id`, `network_id` e `status` | `internal.contracts.view` |
 | `GET /internal/contracts/networks` | networks MCM com o contrato ativo e se aceitam contrato à mão | `internal.contracts.view` |
 | `POST /internal/contracts` | contrato à mão (só MCM Manage Inventory; encerra o ativo) | `internal.contracts.create` |
 | `PATCH /internal/contracts/{id}`, `POST .../{id}/end` | observação e encerramento (o revshare nunca muda) | `internal.contracts.update` |

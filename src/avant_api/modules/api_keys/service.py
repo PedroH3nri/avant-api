@@ -20,7 +20,9 @@ class ApiKeyService:
 
     def page(self, actor: Actor, page: int) -> PageOut[ApiKeyOut]:
         """Uma página das chaves: as da Empresa com ``api_keys.manage``; senão, só as próprias."""
-        found = page_api_keys(self._uows.uow(actor.company_id), actor=actor, page=page)
+        found = page_api_keys(
+            self._uows.uow(actor.company_id), actor=actor, clock=self._clock, page=page
+        )
         return page_out(found, ApiKeyOut.of)
 
     def create(self, actor: Actor, body: ApiKeyIn) -> ApiKeyCreatedOut:
