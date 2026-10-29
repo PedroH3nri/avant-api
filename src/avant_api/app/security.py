@@ -129,6 +129,15 @@ def require_session(permission: str) -> Callable[[Actor], Actor]:
     return dependency
 
 
+def require_staff_member(auth: Authenticated = Depends(get_auth)) -> Actor:
+    """Painel interno sem permissão específica: a Company Groone ativa e o 2FA desta sessão."""
+    if auth.active is None or auth.grants is None or not auth.active.company.is_internal:
+        raise StaffOnly("só a equipe Groone, com a Company Groone ativa")
+    if auth.session.mfa_verified_at is None:
+        raise MfaRequired("entre com o 2FA para usar o painel interno")
+    return Actor(user_id=auth.user.id, company_id=auth.active.company.id, grants=auth.grants)
+
+
 def require_staff(permission: str) -> Callable[[Authenticated], Actor]:
     """Painel interno: a Company Groone ativa, 2FA verificado nesta sessão e a permissão.
 
