@@ -21,7 +21,7 @@ from avant_api.modules.internal.goals.dto import (
     TeamGoalsOut,
 )
 from avant_api.modules.internal.goals.service import GoalService
-from avant_api.shared.dto import ItemsOut
+from avant_api.shared.dto import ItemsOut, PageOut
 
 router = APIRouter(prefix="/internal", tags=["internal"])
 MONTH_PATTERN = r"^\d{4}-(0[1-9]|1[0-2])$"
@@ -38,10 +38,20 @@ def _month(month: str | None, service: GoalService) -> date:
 
 @router.get("/goal-templates")
 def templates(
+    page: int = Query(default=1, ge=1),
+    actor: Actor = Depends(require_staff_member),
+    service: GoalService = Depends(goal_service),
+) -> PageOut[GoalTemplateOut]:
+    """Uma página dos modelos de meta, do ano mais novo para o mais velho."""
+    return service.template_page(actor, page)
+
+
+@router.get("/goal-templates/options")
+def template_options(
     actor: Actor = Depends(require_staff_member),
     service: GoalService = Depends(goal_service),
 ) -> ItemsOut[GoalTemplateOut]:
-    """Os modelos de meta (quem edita ou vê as metas)."""
+    """Todos os modelos de meta, para o seletor da meta do papel."""
     return ItemsOut(items=service.templates(actor))
 
 

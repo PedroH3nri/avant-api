@@ -10,7 +10,7 @@ from avant_core.internal.services import (
     end_contract,
     get_contract,
     list_contract_networks,
-    list_contracts,
+    page_contracts,
     update_contract,
 )
 from avant_core.shared.clock import Clock
@@ -22,6 +22,7 @@ from avant_api.modules.internal.contracts.dto import (
     ContractOut,
     ContractPatchIn,
 )
+from avant_api.shared.dto import PageOut, page_out
 
 
 class ContractService:
@@ -37,16 +38,18 @@ class ContractService:
         company_id: uuid.UUID | None,
         network_id: uuid.UUID | None,
         status: ContractStatus | None,
-    ) -> list[ContractOut]:
-        """Os contratos, do mais novo para o mais antigo, com filtros."""
-        views = list_contracts(
+        page: int,
+    ) -> PageOut[ContractOut]:
+        """Uma página dos contratos, do mais novo para o mais antigo, com filtros."""
+        found = page_contracts(
             self._uows.trusted_uow(),
             actor=actor,
             company_id=company_id,
             network_id=network_id,
             status=status,
+            page=page,
         )
-        return [ContractOut.of(view) for view in views]
+        return page_out(found, ContractOut.of)
 
     def networks(self, actor: Actor) -> list[ContractNetworkOut]:
         """Networks MCM ativas com o contrato em vigor e se aceitam contrato à mão."""

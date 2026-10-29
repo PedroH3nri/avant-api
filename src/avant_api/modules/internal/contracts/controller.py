@@ -15,7 +15,7 @@ from avant_api.modules.internal.contracts.dto import (
     ContractPatchIn,
 )
 from avant_api.modules.internal.contracts.service import ContractService
-from avant_api.shared.dto import ItemsOut
+from avant_api.shared.dto import ItemsOut, PageOut
 
 router = APIRouter(prefix="/internal/contracts", tags=["internal"])
 
@@ -25,11 +25,12 @@ def contracts(
     company_id: uuid.UUID | None = None,
     network_id: uuid.UUID | None = None,
     contract_status: ContractStatus | None = Query(default=None, alias="status"),
+    page: int = Query(default=1, ge=1),
     actor: Actor = Depends(require_staff("internal.contracts.view")),
     service: ContractService = Depends(contract_service),
-) -> ItemsOut[ContractOut]:
-    """Lista os contratos, do mais novo para o mais antigo, com filtros."""
-    return ItemsOut(items=service.list_all(actor, company_id, network_id, contract_status))
+) -> PageOut[ContractOut]:
+    """Uma página dos contratos, do mais novo para o mais antigo, com filtros."""
+    return service.list_all(actor, company_id, network_id, contract_status, page)
 
 
 @router.get("/networks")
