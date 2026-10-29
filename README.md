@@ -64,11 +64,11 @@ Outros repositórios: avant-core, avant-worker, avant-web, avant-infra.
 | `GET /networks/{id}`, `/sync-runs` | detalhe e histórico das etapas (em páginas, `page`) | `network.view` |
 | `POST /networks/{id}/sync` | "sincronizar agora"; 1 vez a cada 10 minutos (429 com `Retry-After`) | `network.sync` |
 | `POST /networks/{id}/disconnect` | para as sincronizações; o histórico fica | `network.disconnect` |
-| `GET /api-keys?page=` | chaves da Empresa (com `api_keys.manage`) ou só as próprias, em páginas de 10 | membro |
+| `GET /api-keys?page=` | chaves da Empresa (com `api_keys.manage`) ou só as próprias, em páginas de 10, as ativas primeiro | membro |
 | `POST /api-keys` | cria uma chave; o valor `avk_...` volta só nesta resposta; só pela sessão | `api_keys.manage` |
 | `DELETE /api-keys/{id}` | revoga; a dona da chave ou quem gerencia | membro |
 | `GET /sites` | uma página (`page`) dos sites da Empresa, o mais recente primeiro (filtros `network_id`, `approval_status`, `q`, `include_archived`); quem não vê todos recebe só os atribuídos | `sites.view` |
-| `GET /sites/options` | todos os sites ativos que a pessoa vê, para seletores | `sites.view` |
+| `GET /sites/options` | todos os sites não arquivados que a pessoa vê, para seletores | `sites.view` |
 | `POST /sites` | cadastra site pelo domínio, aguardando o GAM (`awaiting_gam`); a importação junta ao site do GAM com o mesmo domínio | `sites.manage` |
 | `GET /sites/{id}` | detalhe com os ad units; `assigned_to` só para quem atribui | `sites.view` |
 | `DELETE /sites/{id}` | remove o site que ainda aguarda o GAM (o do GAM responde `site_from_gam`) | `sites.manage` |
@@ -107,7 +107,7 @@ Painel interno, em `/api/v1/internal` (Company Groone ativa e 2FA verificado na 
 | --- | --- | --- |
 | `GET /internal/clients`, `POST /internal/clients` | lista clientes em páginas (`page`, `q`, `status`, o mais recente primeiro); cadastra o cliente pendente, com contato e indicação, sem mandar e-mail | `internal.clients.view` / `.manage` |
 | `POST /internal/clients/{id}/owner-invitation` | envia (ou manda de novo) o convite de dono para o e-mail do cadastro | `internal.clients.manage` |
-| `GET /internal/clients/options` | todos os clientes (`id`, `name`), para seletores | `internal.clients.view` |
+| `GET /internal/clients/options` | todos os clientes (`id`, `name`, `status`), para seletores e para contar as abas por situação | `internal.clients.view` |
 | `GET /internal/clients/{id}`, `/audit` | página de suporte e histórico (em páginas numeradas), só leitura | `internal.clients.view` |
 | `PATCH /internal/clients/{id}` | nome, vagas e cadastro (contato e indicação; os fiscais só o cliente muda) | `internal.clients.manage` |
 | `GET`, `PUT`, `DELETE /internal/clients/{id}/image` | imagem do cliente (ver, trocar, tirar) | `internal.clients.view` / `.manage` |
