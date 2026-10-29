@@ -43,6 +43,7 @@ Outros repositórios: avant-core, avant-worker, avant-web, avant-infra.
 | `PUT /company/image`, `DELETE /company/image` | troca (corpo = arquivo PNG, JPEG ou WebP até 2 MB) ou tira a imagem | `company.edit` |
 | `GET /company/fiscal`, `PUT /company/fiscal` | dados fiscais de pagamento; só o cliente grava, todos juntos | `company.edit` |
 | `GET /members?page=` | equipe em páginas de 10 (`items`, `total`, `page`, `pages`, `page_size`), mais recente primeiro; filtros `status`, `role`, `q` no banco | `team.view` |
+| `GET /members/options` | a equipe inteira, sem paginar, para seletores e telas que juntam pessoas (grupos, donos de relatório) | `team.view` |
 | `GET /members/{id}` | detalhe com permissões diretas | `team.view` |
 | `PATCH /members/{id}` | troca papel, suspende ou reativa | `team.manage` |
 | `DELETE /members/{id}` | remove e libera a vaga | `team.manage` |

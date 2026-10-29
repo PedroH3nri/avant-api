@@ -10,7 +10,7 @@ from avant_api.app.security import get_session_actor, require
 from avant_api.modules.members.dependencies import member_service
 from avant_api.modules.members.dto import MemberDetailOut, MemberPatchIn, MemberPermissionsIn
 from avant_api.modules.members.service import MemberService
-from avant_api.shared.dto import MemberOut, PageOut
+from avant_api.shared.dto import ItemsOut, MemberOut, PageOut
 
 router = APIRouter(prefix="/members", tags=["team"])
 
@@ -26,6 +26,16 @@ def index(
 ) -> PageOut[MemberOut]:
     """Uma página de 10 da equipe, mais recente primeiro; busca e filtros no banco."""
     return service.page(actor, status=member_status, role_id=role, query=query, page=page)
+
+
+@router.get("/options")
+def options(
+    actor: Actor = Depends(require("team.view")),
+    service: MemberService = Depends(member_service),
+) -> ItemsOut[MemberOut]:
+    """A equipe inteira, sem paginar, para seletores e telas que juntam pessoas (grupos, donos
+    de relatório); a equipe cabe no limite de vagas."""
+    return ItemsOut(items=service.options(actor))
 
 
 @router.post("/me/leave", status_code=status.HTTP_204_NO_CONTENT)
