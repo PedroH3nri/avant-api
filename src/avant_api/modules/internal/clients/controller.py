@@ -16,6 +16,7 @@ from avant_api.modules.internal.clients.dto import (
     ClientDetailOut,
     ClientIn,
     ClientMemberOut,
+    ClientOptionOut,
     ClientOut,
     ClientPatchIn,
     ClientStatusIn,
@@ -23,7 +24,7 @@ from avant_api.modules.internal.clients.dto import (
     OwnerInvitationOut,
 )
 from avant_api.modules.internal.clients.service import ClientService
-from avant_api.shared.dto import AuditOut, ItemsOut
+from avant_api.shared.dto import AuditOut, ItemsOut, PageOut
 from avant_api.shared.http import image_response, image_upload
 
 router = APIRouter(prefix="/internal", tags=["internal"])
@@ -33,11 +34,21 @@ router = APIRouter(prefix="/internal", tags=["internal"])
 def clients(
     query: str | None = Query(alias="q", default=None, max_length=120),
     company_status: CompanyStatus | None = Query(default=None, alias="status"),
+    page: int = Query(default=1, ge=1),
     actor: Actor = Depends(require_staff("internal.clients.view")),
     service: ClientService = Depends(client_service),
-) -> ItemsOut[ClientOut]:
-    """Lista as Empresas de cliente, com busca e filtro de status."""
-    return ItemsOut(items=service.list_all(actor, query, company_status))
+) -> PageOut[ClientOut]:
+    """Uma página das Empresas de cliente, a mais recente primeiro, com busca e status."""
+    return service.page(actor, query, company_status, page)
+
+
+@router.get("/clients/options")
+def client_options(
+    actor: Actor = Depends(require_staff("internal.clients.view")),
+    service: ClientService = Depends(client_service),
+) -> ItemsOut[ClientOptionOut]:
+    """Todas as Empresas de cliente, pelo nome, para seletores."""
+    return ItemsOut(items=service.options(actor))
 
 
 @router.post("/clients", status_code=status.HTTP_201_CREATED)
@@ -64,11 +75,12 @@ def invite_owner(
 def client_teams(
     query: str | None = Query(alias="q", default=None, max_length=120),
     company_id: uuid.UUID | None = None,
+    page: int = Query(default=1, ge=1),
     actor: Actor = Depends(require_staff("internal.clients.view")),
     service: ClientService = Depends(client_service),
-) -> ItemsOut[ClientMemberOut]:
-    """Lista as pessoas das equipes das Empresas cliente, sem a equipe Groone."""
-    return ItemsOut(items=service.teams(actor, query, company_id))
+) -> PageOut[ClientMemberOut]:
+    """Uma página das pessoas das equipes das Empresas cliente, sem a equipe Groone."""
+    return service.teams(actor, query, company_id, page)
 
 
 @router.get("/clients/{company_id}")
@@ -84,13 +96,12 @@ def client(
 @router.get("/clients/{company_id}/audit")
 def audit(
     company_id: uuid.UUID,
-    limit: int = Query(default=50, ge=1, le=200),
-    cursor: str | None = Query(default=None, max_length=200),
+    page: int = Query(default=1, ge=1),
     actor: Actor = Depends(require_staff("internal.clients.view")),
     service: ClientService = Depends(client_service),
-) -> ItemsOut[AuditOut]:
-    """Lista a auditoria de uma Empresa cliente."""
-    return service.audit(actor, company_id, limit, cursor)
+) -> PageOut[AuditOut]:
+    """Uma página numerada da auditoria de uma Empresa cliente, a mais nova primeiro."""
+    return service.audit(actor, company_id, page)
 
 
 @router.patch("/clients/{company_id}")
@@ -161,10 +172,11 @@ def new_owner(
 @router.get("/owner-invitations")
 def owner_invitations(
     actor: Actor = Depends(require_staff("internal.clients.view")),
+    page: int = Query(default=1, ge=1),
     service: ClientService = Depends(client_service),
-) -> ItemsOut[OwnerInvitationOut]:
-    """Lista os convites de dono pendentes e vencidos."""
-    return ItemsOut(items=service.owner_invitations(actor))
+) -> PageOut[OwnerInvitationOut]:
+    """Uma página dos convites de dono pendentes e vencidos."""
+    return service.owner_invitations(actor, page)
 
 
 @router.post("/owner-invitations/{invitation_id}/resend")

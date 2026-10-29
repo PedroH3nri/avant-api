@@ -105,15 +105,16 @@ Painel interno, em `/api/v1/internal` (Company Groone ativa e 2FA verificado na 
 
 | Rota | Faz | Permissão |
 | --- | --- | --- |
-| `GET /internal/clients`, `POST /internal/clients` | lista clientes; cadastra o cliente pendente, com contato e indicação, sem mandar e-mail | `internal.clients.view` / `.manage` |
+| `GET /internal/clients`, `POST /internal/clients` | lista clientes em páginas (`page`, `q`, `status`, o mais recente primeiro); cadastra o cliente pendente, com contato e indicação, sem mandar e-mail | `internal.clients.view` / `.manage` |
 | `POST /internal/clients/{id}/owner-invitation` | envia (ou manda de novo) o convite de dono para o e-mail do cadastro | `internal.clients.manage` |
-| `GET /internal/clients/{id}`, `/audit` | página de suporte e histórico, só leitura | `internal.clients.view` |
+| `GET /internal/clients/options` | todos os clientes (`id`, `name`), para seletores | `internal.clients.view` |
+| `GET /internal/clients/{id}`, `/audit` | página de suporte e histórico (em páginas numeradas), só leitura | `internal.clients.view` |
 | `PATCH /internal/clients/{id}` | nome, vagas e cadastro (contato e indicação; os fiscais só o cliente muda) | `internal.clients.manage` |
 | `GET`, `PUT`, `DELETE /internal/clients/{id}/image` | imagem do cliente (ver, trocar, tirar) | `internal.clients.view` / `.manage` |
 | `PUT /internal/clients/{id}/status` | situação `active`, `inactive` ou `banned`; as networks acompanham | `internal.clients.manage` |
 | `POST /internal/clients/{id}/owner` | troca o dono | `internal.owner.change` |
-| `GET /internal/owner-invitations`, `POST .../{id}/resend`, `DELETE .../{id}` | convites de dono | `internal.clients.view` / `.manage` |
-| `GET /internal/teams?q=&company_id=` | pessoas das equipes das Empresas cliente (sem a equipe Groone) | `internal.clients.view` |
+| `GET /internal/owner-invitations`, `POST .../{id}/resend`, `DELETE .../{id}` | convites de dono (a lista em páginas) | `internal.clients.view` / `.manage` |
+| `GET /internal/teams?q=&company_id=` | pessoas das equipes das Empresas cliente (sem a equipe Groone), em páginas | `internal.clients.view` |
 | `GET /internal/users?q=`, `POST /internal/users/{id}/disable`, `/enable`, `/reset-mfa` | pessoas | `internal.users.manage` |
 | `GET /internal/staff`, `POST /internal/staff/invitations` | equipe Groone | `internal.staff.manage` |
 | `GET /internal/networks/unassigned`, `POST .../{id}/assign` | MCM sem dono: a Groone escolhe a Empresa | `internal.networks.assign` |
