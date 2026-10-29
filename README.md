@@ -113,6 +113,10 @@ Painel interno, em `/api/v1/internal` (Company Groone ativa e 2FA verificado na 
 | `GET /internal/staff`, `POST /internal/staff/invitations` | equipe Groone | `internal.staff.manage` |
 | `GET /internal/networks/unassigned`, `POST .../{id}/assign` | MCM sem dono: a Groone escolhe a Empresa | `internal.networks.assign` |
 | `GET /internal/results?start=&end=&currency=` | o resultado de cada Empresa cliente no período, por nome | `internal.results.view` |
+| `GET /internal/goal-templates`, `POST`, `PUT /{id}`, `DELETE /{id}` | modelos de meta da equipe Groone: nome, ano e 12 valores em dólar; `is_company_goal` marca a meta da Groone (uma por ano, senão `409 company_goal_taken`) | ver: quem edita ou vê as metas; editar: `internal.commissions.manage` |
+| `GET /internal/role-goals`, `PUT /internal/roles/{id}/goal` | a meta de cada papel da equipe Groone (`goal_template_id` vazio tira), `per_member` ou `split` | ver: quem edita ou vê as metas; editar: `internal.commissions.manage` |
+| `GET /internal/goals?month=AAAA-MM` | a meta da Groone e a de cada pessoa no mês: realizado (receita da Groone dos clientes, menos a parte dela nas deduções fechadas), meta, fração, ritmo e projeção | `internal.commissions.view` |
+| `GET /internal/goals/me?month=AAAA-MM` | a meta do mês de quem pergunta | qualquer pessoa da equipe Groone |
 | `GET /internal/contracts`, `GET .../{id}` | contratos, com filtros `company_id`, `network_id` e `status` | `internal.contracts.view` |
 | `GET /internal/contracts/networks` | networks MCM com o contrato ativo e se aceitam contrato à mão | `internal.contracts.view` |
 | `POST /internal/contracts` | contrato à mão (só MCM Manage Inventory; encerra o ativo) | `internal.contracts.create` |
