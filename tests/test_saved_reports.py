@@ -354,3 +354,24 @@ def test_run_and_export_share_the_query_rate_limit(
     exported = client.get(f"/api/v1/reports/{report['id']}/export")
     assert statuses == [200] * 10
     assert exported.status_code == 429 and exported.json()["error"]["code"] == "rate_limited"
+
+
+def test_chart_options_keep_metric_styles(
+    client: TestClient, engine: Engine, mailer: CapturingMailer
+) -> None:
+    _onboard_owner(client, engine, mailer)
+    styles = {
+        "metrics": {
+            "revenue": {"color": "magenta", "scale": {"mode": "red_green", "from": 1, "to": 10}}
+        }
+    }
+    created = client.post(
+        "/api/v1/reports", json=_report(chart_options=styles), headers=_csrf(client)
+    )
+    assert created.status_code == 201, created.text
+    assert client.get(f"/api/v1/reports/{created.json()['id']}").json()["chart_options"] == styles
+    pink = {"metrics": {"revenue": {"color": "pink"}}}
+    refused = client.post(
+        "/api/v1/reports", json=_report(chart_options=pink), headers=_csrf(client)
+    )
+    assert refused.status_code == 422 and refused.json()["error"]["code"] == "invalid_input"
