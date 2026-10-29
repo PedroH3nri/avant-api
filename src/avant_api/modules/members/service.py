@@ -8,6 +8,7 @@ from avant_core.company.services import (
     DirectPermission,
     get_member,
     leave_company,
+    list_members,
     page_members,
     remove_member,
     set_member_permissions,
@@ -52,6 +53,11 @@ class MemberService:
             pages=found.pages,
             page_size=found.page_size,
         )
+
+    def options(self, actor: Actor) -> list[MemberOut]:
+        """A equipe inteira (sem os removidos), para seletores."""
+        items = list_members(self._uows.uow(actor.company_id), actor=actor)
+        return [MemberOut.of(member) for member in items]
 
     def leave(self, actor: Actor) -> None:
         """Tira quem está agindo da Empresa ativa."""

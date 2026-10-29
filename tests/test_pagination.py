@@ -47,3 +47,19 @@ def test_role_options_are_light(
     items = options.json()["items"]
     assert items and set(items[0]) == {"id", "name"}
     assert any(item["id"] == str(FINANCE) for item in items)
+
+
+def test_member_options_bring_the_whole_team(
+    client: TestClient, engine: Engine, mailer: CapturingMailer
+) -> None:
+    me = _onboard_owner(client, engine, mailer)
+    company_id = uuid.UUID(me["active_company_id"])
+    with SqlAlchemyUnitOfWork(engine, bypass_rls=True) as uow:
+        for index in range(11):
+            user = User(f"q{index}@acai.com", f"Quem {index:02d}")
+            uow.users.add(user)
+            uow.memberships.add(Membership(company_id, user.id, FINANCE, datetime.now(UTC)))
+        uow.commit()
+    options = client.get("/api/v1/members/options")
+    assert options.status_code == 200, options.text
+    assert len(options.json()["items"]) == 12
