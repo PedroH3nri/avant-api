@@ -45,7 +45,7 @@ def test_role_options_are_light(
     options = client.get("/api/v1/roles/options")
     assert options.status_code == 200, options.text
     items = options.json()["items"]
-    assert items and set(items[0]) == {"id", "name"}
+    assert items and set(items[0]) == {"id", "name", "is_system"}
     assert any(item["id"] == str(FINANCE) for item in items)
 
 
