@@ -14,6 +14,8 @@ from avant_core.gam.inventory.services import (
     list_ad_units,
     list_sites,
     member_sites,
+    page_sites,
+    page_unlinked_ad_units,
     remove_site,
     set_member_sites,
     site_members,
@@ -29,6 +31,7 @@ from avant_api.modules.sites.dto import (
     SiteMemberOut,
     SiteOut,
 )
+from avant_api.shared.dto import PageOut, page_out
 
 
 class SiteService:
@@ -38,24 +41,38 @@ class SiteService:
         self._uows = uows
         self._clock = clock
 
-    def list_all(
+    def page(
         self,
         actor: Actor,
         network_id: uuid.UUID | None,
         approval_status: str | None,
         query: str | None,
         include_archived: bool,
-    ) -> list[SiteListOut]:
-        """Os sites que quem age enxerga, com filtros."""
-        views = list_sites(
+        page: int,
+    ) -> PageOut[SiteListOut]:
+        """Uma página dos sites que quem age enxerga, o mais recente primeiro, com filtros."""
+        found = page_sites(
             self._uows.uow(actor.company_id),
             actor=actor,
             network_id=network_id,
             approval_status=approval_status,
             query=query,
             include_archived=include_archived,
+            page=page,
         )
+        return page_out(found, SiteListOut.of_view)
+
+    def list_all(self, actor: Actor) -> list[SiteListOut]:
+        """Todos os sites ativos que quem age enxerga, para seletores."""
+        views = list_sites(self._uows.uow(actor.company_id), actor=actor)
         return [SiteListOut.of_view(view) for view in views]
+
+    def unlinked(self, actor: Actor, network_id: uuid.UUID | None, page: int) -> PageOut[AdUnitOut]:
+        """Uma página dos ad units sem site, o mais recente primeiro."""
+        found = page_unlinked_ad_units(
+            self._uows.uow(actor.company_id), actor=actor, network_id=network_id, page=page
+        )
+        return page_out(found, AdUnitOut.of)
 
     def create(self, actor: Actor, domain: str) -> SiteListOut:
         """Site pelo domínio, aguardando o GAM."""

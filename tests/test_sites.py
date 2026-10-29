@@ -45,11 +45,14 @@ def test_sites_and_assignment(client: TestClient, engine: Engine, mailer: Captur
     )
 
     sites = client.get("/api/v1/sites").json()["items"]
-    assert [(s["domain"], s["ad_units"]) for s in sites] == [("acai.com.br", 2), ("blog.com", 0)]
+    assert sorted((s["domain"], s["ad_units"]) for s in sites) == [
+        ("acai.com.br", 2),
+        ("blog.com", 0),
+    ]
     assert [
         s["domain"] for s in client.get("/api/v1/sites?approval_status=draft").json()["items"]
     ] == ["blog.com"]
-    unlinked = client.get("/api/v1/ad-units?unlinked=true").json()["items"]
+    unlinked = client.get("/api/v1/ad-units/unlinked").json()["items"]
     assert [u["name"] for u in unlinked] == ["solto"]
 
     # A Ana não vê nada até ter um site atribuído, e não atribui.

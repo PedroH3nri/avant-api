@@ -13,7 +13,8 @@ from avant_core.gam.networks.services import (
     disconnect_network,
     get_network,
     list_networks,
-    list_sync_runs,
+    page_networks,
+    page_sync_runs,
     request_sync,
 )
 from avant_core.shared.clock import Clock
@@ -21,6 +22,7 @@ from avant_core.shared.clock import Clock
 from avant_api.app.ports import UnitOfWorkFactory
 from avant_api.app.tasks import SYNC_NETWORK, TaskQueue
 from avant_api.modules.networks.dto import NetworkDetailOut, NetworkIn, SyncRunOut
+from avant_api.shared.dto import PageOut, page_out
 
 
 def enqueue_sync(tasks: TaskQueue, network: Network) -> None:
@@ -39,8 +41,13 @@ class NetworkService:
         self._tasks = tasks
         self.service_account = service_account
 
+    def page(self, actor: Actor, page: int) -> PageOut[NetworkDetailOut]:
+        """Uma página das networks da Empresa ativa, a mais recente primeiro."""
+        found = page_networks(self._uows.uow(actor.company_id), actor=actor, page=page)
+        return page_out(found, NetworkDetailOut.of_view)
+
     def list_all(self, actor: Actor) -> list[NetworkDetailOut]:
-        """As networks da Empresa ativa."""
+        """Todas as networks da Empresa ativa, para seletores."""
         views = list_networks(self._uows.uow(actor.company_id), actor=actor)
         return [NetworkDetailOut.of_view(view) for view in views]
 
@@ -71,12 +78,12 @@ class NetworkService:
         enqueue_sync(self._tasks, network)
         return self.show(actor, network.id)
 
-    def sync_runs(self, actor: Actor, network_id: uuid.UUID, limit: int) -> list[SyncRunOut]:
-        """As sincronizações recentes de uma network."""
-        runs = list_sync_runs(
-            self._uows.uow(actor.company_id), actor=actor, network_id=network_id, limit=limit
+    def sync_runs(self, actor: Actor, network_id: uuid.UUID, page: int) -> PageOut[SyncRunOut]:
+        """Uma página das sincronizações de uma network, a mais recente primeiro."""
+        found = page_sync_runs(
+            self._uows.uow(actor.company_id), actor=actor, network_id=network_id, page=page
         )
-        return [SyncRunOut.of(run) for run in runs]
+        return page_out(found, SyncRunOut.of)
 
     def disconnect(self, actor: Actor, network_id: uuid.UUID) -> NetworkDetailOut:
         """Desconecta uma network da Empresa."""
