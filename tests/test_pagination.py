@@ -255,3 +255,18 @@ def test_internal_lists_come_in_pages(
         assert found.status_code == 200, (path, found.text)
         assert {"total", "page", "pages"} <= set(found.json()), path
     assert staff.get("/api/v1/internal/staff").json()["total"] == 1
+
+
+def test_option_lists_keep_the_permissions(
+    client: TestClient, engine: Engine, mailer: CapturingMailer
+) -> None:
+    from tests.test_team import _member_client
+
+    _onboard_owner(client, engine, mailer)
+    ana = _member_client(client, mailer, "ana@acai.com")  # Financeiro
+    for path in ("/api/v1/roles/options", "/api/v1/members/options", "/api/v1/groups/options"):
+        denied = ana.get(path)
+        assert denied.status_code == 403, path
+        assert denied.json()["error"]["code"] == "permission_denied", path
+    for path in ("/api/v1/internal/clients/options", "/api/v1/internal/goal-templates/options"):
+        assert client.get(path).status_code == 403, path
