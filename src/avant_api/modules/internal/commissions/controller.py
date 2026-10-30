@@ -1,6 +1,6 @@
 """Comissão da equipe Groone: /api/v1/internal/roles/{id}/commission-rules e /commissions.
 
-Regras, data de início, emissão e desconto pedem ``internal.commissions.manage``; a comissão
+Regras, data de início e desconto pedem ``internal.commissions.manage``; a comissão
 da equipe pede ``internal.commissions.view``; cada pessoa da equipe sempre vê a própria.
 """
 
@@ -19,7 +19,6 @@ from avant_api.modules.internal.commissions.dto import (
     CommissionRuleOut,
     CommissionSettingsIn,
     CommissionSettingsOut,
-    IssuedOut,
     MonthIn,
     MyCommissionsOut,
     PersonMonthOut,
@@ -129,17 +128,6 @@ def person(
 ) -> ItemsOut[WindowMonthOut]:
     """Os prazos de uma pessoa com o que geraram no mês (a própria pessoa vê sem permissão)."""
     return ItemsOut(items=service.person(actor, user_id, _month(month, service)))
-
-
-@router.post("/commissions/people/{user_id}/issue")
-def issue(
-    user_id: uuid.UUID,
-    body: MonthIn,
-    actor: Actor = Depends(require_staff(MANAGE)),
-    service: CommissionService = Depends(commission_service),
-) -> IssuedOut:
-    """Marca o mês fechado da pessoa como emitido (422 se ainda não fechou)."""
-    return service.issue(actor, user_id, body.first_day())
 
 
 @router.post("/commissions/people/{user_id}/adjustments", status_code=status.HTTP_201_CREATED)

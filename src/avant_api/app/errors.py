@@ -121,6 +121,13 @@ STATUS: dict[str, int] = {
     "query_too_heavy": 422,
     "contract_not_manual": 409,
     "contract_ended": 409,
+    "invoice_exists": 409,
+    "commission_not_validated": 409,
+    "invoice_not_draft": 409,
+    "invoice_not_issued": 409,
+    "item_locked": 409,
+    "payee_details_missing": 409,
+    "invoice_service_taken": 409,
 }
 
 

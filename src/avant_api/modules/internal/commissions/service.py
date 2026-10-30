@@ -13,7 +13,6 @@ from avant_core.commissions.services import (
     add_adjustment,
     commission_start,
     delete_rule,
-    issue_month,
     list_rules,
     my_commissions,
     person_commissions,
@@ -29,7 +28,6 @@ from avant_api.modules.internal.commissions.dto import (
     CommissionRuleIn,
     CommissionRuleOut,
     CommissionSettingsOut,
-    IssuedOut,
     MyCommissionsOut,
     PersonMonthOut,
     WindowMonthOut,
@@ -37,7 +35,7 @@ from avant_api.modules.internal.commissions.dto import (
 
 
 class CommissionService:
-    """Regras no papel, data de início, consultas, emissão e desconto."""
+    """Regras no papel, data de início, consultas e desconto."""
 
     def __init__(self, uows: UnitOfWorkFactory, clock: Clock) -> None:
         self._uows = uows
@@ -101,13 +99,6 @@ class CommissionService:
             self._uows.trusted_uow(), actor=actor, user_id=user_id, month=month
         )
         return [WindowMonthOut.of(item) for item in found]
-
-    def issue(self, actor: Actor, user_id: uuid.UUID, month: date) -> IssuedOut:
-        """Marca o mês fechado de uma pessoa como emitido."""
-        days = issue_month(
-            self._uows.trusted_uow(), actor=actor, user_id=user_id, month=month, clock=self._clock
-        )
-        return IssuedOut(days=days)
 
     def adjust(self, actor: Actor, user_id: uuid.UUID, body: AdjustmentIn) -> None:
         """Lança um desconto na comissão do mês de uma pessoa."""
