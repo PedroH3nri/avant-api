@@ -350,7 +350,7 @@ def test_client_edit_without_the_manager_keeps_it(client: TestClient, engine: En
     )
 
 
-def test_manager_windows_show_the_roles_of_open_windows(client: TestClient, engine: Engine) -> None:
+def test_manager_change_preview(client: TestClient, engine: Engine) -> None:
     staff = _staff(client, engine)
     me = staff.get("/api/v1/auth/me").json()["user"]["id"]
     role = _admin_role(staff)
@@ -378,6 +378,13 @@ def test_manager_windows_show_the_roles_of_open_windows(client: TestClient, engi
         headers=_csrf(staff),
     )
     assert created.status_code == 201, created.text
-    found = staff.get(f"/api/v1/internal/clients/{created.json()['id']}/manager-windows")
-    assert found.status_code == 200, found.text
-    assert found.json() == {"role_ids": [role["id"]]}
+    company_id = created.json()["id"]
+    same = staff.get(f"/api/v1/internal/clients/{company_id}/manager-change?user_id={me}")
+    assert same.status_code == 200, same.text
+    assert same.json() == {"continues": 1, "stops": 0, "arrives": 0}
+    nobody = staff.get(
+        f"/api/v1/internal/clients/{company_id}/manager-change?user_id={uuid.uuid4()}"
+    )
+    assert nobody.json() == {"continues": 0, "stops": 1, "arrives": 0}
+    removed = staff.get(f"/api/v1/internal/clients/{company_id}/manager-change")
+    assert removed.json() == {"continues": 0, "stops": 1, "arrives": 0}

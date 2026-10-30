@@ -142,6 +142,9 @@ class ClientOptionOut(BaseModel):
     status: CompanyStatus
 
 
-class ManagerWindowsOut(BaseModel):
-    # Um papel por grupo de prazos abertos do responsável de hoje no cliente.
-    role_ids: list[uuid.UUID]
+class ManagerChangeOut(BaseModel):
+    # Prazos do responsável de hoje que seguem com a pessoa nova e os que param na troca.
+    continues: int
+    stops: int
+    # Prazos sem pessoa que passam para a pessoa nova.
+    arrives: int

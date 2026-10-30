@@ -1,17 +1,17 @@
 # Graph Report - avant-api  (2026-10-30)
 
 ## Corpus Check
-- 207 files · ~63,555 words
+- 207 files · ~63,607 words
 - Verdict: corpus is large enough that graph structure adds value.
 - Unclassified: 8 file(s) not represented in the graph (top: (none) 6, .rdb 1, .lock 1)
 
 ## Summary
-- 2654 nodes · 6952 edges · 154 communities (88 shown, 66 thin omitted)
+- 2654 nodes · 6951 edges · 154 communities (88 shown, 66 thin omitted)
 - Extraction: 84% EXTRACTED · 16% INFERRED · 0% AMBIGUOUS · INFERRED: 1142 edges (avg confidence: 0.92)
 - Token cost: 0 input · 0 output
 
 ## Graph Freshness
-- Built from commit: `6324662f`
+- Built from commit: `ff5f8e5d`
 - Run `git rev-parse HEAD` and compare to check if the graph is stale.
 - Run `graphify update .` after code changes (no API cost).
 
@@ -517,7 +517,7 @@ Nodes (4): index(), audit_service(), AuditService, AuditOut
 _Questions this graph is uniquely positioned to answer:_
 
 - **Why does `UnitOfWorkFactory` connect `UnitOfWorkFactory` to `contracts/controller.py`, `roles/controller.py`, `.uow`, `.trusted_uow`, `.__init__`, `GoalService`, `ClientService`, `clients/controller.py`, `.uow`, `audit/service.py`, `api_keys/controller.py`, `InvitationOut`, `.__init__`, `custom_metrics/controller.py`, `.__init__`, `costs/controller.py`, `NetworkService`, `.__init__`, `mfa/controller.py`, `.uow`, `company/controller.py`, `PageOut`, `networks/service.py`, `datetime`, `currencies/controller.py`, `members/controller.py`, `results`, `AccountService`, `CommissionService`, `goals/service.py`, `ResultService`, `mcm/controller.py`, `Limiter`, `AuthService`, `people/controller.py`, `TaskQueue`, `GoogleService`, `auth/controller.py`, `profile/controller.py`, `reports/service.py`?**
-  _High betweenness centrality (0.124) - this node is a cross-community bridge._
+  _High betweenness centrality (0.125) - this node is a cross-community bridge._
 - **Are the 78 inferred relationships involving `CapturingMailer` (e.g. with `test_change_password_and_sessions()` and `test_forgot_and_reset_password()`) actually correct?**
   _`CapturingMailer` has 78 INFERRED edges - model-reasoned connections that need verification._
 - **What connects `avant-api` to the rest of the system?**
@@ -525,7 +525,7 @@ _Questions this graph is uniquely positioned to answer:_
 - **Should `_csrf` be split into smaller, more focused modules?**
   _Cohesion score 0.13940256045519203 - nodes in this community are weakly interconnected._
 - **Why does `PageOut` connect `PageOut` to `contracts/controller.py`, `roles/controller.py`, `.uow`, `Actor`, `.trusted_uow`, `reports/service.py`, `GoalService`, `ClientService`, `clients/controller.py`, `.uow`, `networks/controller.py`, `audit/service.py`, `api_keys/controller.py`, `InvitationOut`, `costs/controller.py`, `goals/controller.py`, `NetworkService`, `PageOut`, `networks/service.py`, `datetime`, `shared/dto.py`, `members/controller.py`, `results`, `GoalTemplateOut`, `goals/service.py`, `mcm/controller.py`, `people/controller.py`, `reports/service.py`?**
-  _High betweenness centrality (0.087) - this node is a cross-community bridge._
+  _High betweenness centrality (0.088) - this node is a cross-community bridge._
 - **Are the 38 inferred relationships involving `PageOut` (e.g. with `index()` and `ApiKeyService`) actually correct?**
   _`PageOut` has 38 INFERRED edges - model-reasoned connections that need verification._
 - **Should `contracts/controller.py` be split into smaller, more focused modules?**
