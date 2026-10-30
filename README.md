@@ -109,7 +109,7 @@ Painel interno, em `/api/v1/internal` (Company Groone ativa e 2FA verificado na 
 | `POST /internal/clients/{id}/owner-invitation` | envia (ou manda de novo) o convite de dono para o e-mail do cadastro | `internal.clients.manage` |
 | `GET /internal/clients/options` | todos os clientes (`id`, `name`, `status`), para seletores e para contar as abas por situação | `internal.clients.view` |
 | `GET /internal/clients/{id}`, `/audit` | página de suporte e histórico (em páginas numeradas), só leitura | `internal.clients.view` |
-| `GET /internal/clients/{id}/manager-windows` | o papel dos prazos de comissão abertos do responsável de hoje, para o aviso da troca de responsável | `internal.clients.view` |
+| `GET /internal/clients/{id}/manager-change?user_id=` | o que trocar o responsável para essa pessoa (sem `user_id`: tirar o responsável) faria: prazos que seguem, que param e os sem pessoa que chegam para ela; não muda nada | `internal.clients.view` |
 | `PATCH /internal/clients/{id}` | nome, vagas e cadastro (contato e indicação; os fiscais só o cliente muda); cadastro sem `account_manager_id` mantém o responsável, e trocar um responsável que já existia pede `internal.commissions.manage` | `internal.clients.manage` |
 | `GET`, `PUT`, `DELETE /internal/clients/{id}/image` | imagem do cliente (ver, trocar, tirar) | `internal.clients.view` / `.manage` |
 | `PUT /internal/clients/{id}/status` | situação `active`, `inactive` ou `banned`; as networks acompanham | `internal.clients.manage` |
@@ -118,7 +118,7 @@ Painel interno, em `/api/v1/internal` (Company Groone ativa e 2FA verificado na 
 | `GET /internal/teams?q=&company_id=` | pessoas das equipes das Empresas cliente (sem a equipe Groone), em páginas | `internal.clients.view` |
 | `GET /internal/users?q=`, `POST /internal/users/{id}/disable`, `/enable`, `/reset-mfa` | pessoas (a busca em páginas, a mais recente primeiro) | `internal.users.manage` |
 | `GET /internal/staff`, `POST /internal/staff/invitations` | equipe Groone (em páginas); o convite só com papel cujas permissões quem convida tem | `internal.staff.manage` |
-| `GET /internal/staff/options` | a equipe Groone inteira (sem os removidos), para os seletores, como o responsável do cliente | equipe Groone |
+| `GET /internal/staff/options` | a equipe Groone inteira (sem os removidos), para os seletores, como o responsável do cliente | `internal.clients.view`, `internal.commissions.view` ou `.manage` |
 | `GET /internal/networks/unassigned`, `POST .../{id}/assign` | MCM sem dono, em páginas: a Groone escolhe a Empresa | `internal.networks.assign` |
 | `GET /internal/results?start=&end=&currency=` | o resultado de cada Empresa cliente no período, em páginas, do maior resultado para o menor | `internal.results.view` |
 | `GET /internal/goal-templates`, `POST`, `PUT /{id}`, `DELETE /{id}` | modelos de meta da equipe Groone (a lista em páginas; `/options` traz todos): nome, ano e 12 valores em dólar; `is_company_goal` marca a meta da Groone (uma por ano, senão `409 company_goal_taken`) | ver: quem edita ou vê as metas; editar: `internal.commissions.manage` |
