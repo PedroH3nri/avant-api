@@ -2,17 +2,23 @@
 desconto, emissão e permissões."""
 
 import uuid
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime
+from decimal import Decimal
 
+from avant_core.access.models import Role
+from avant_core.commissions.enums import CommissionEvent, CommissionStatus
+from avant_core.commissions.models import CommissionWindow, DailyCommission
 from avant_core.commissions.services import calculate_day, close_month
+from avant_core.company.models import Company
 from avant_core.db.uow import SqlAlchemyUnitOfWork
 from avant_core.shared.clock import SystemClock
 from fastapi.testclient import TestClient
 from sqlalchemy import Engine
 
 from tests.conftest import CapturingMailer
-from tests.test_api import _csrf, _onboard_owner
+from tests.test_api import PASSWORD, _csrf, _onboard_owner
 from tests.test_internal import _staff
+from tests.test_mfa import _enable
 
 
 def _admin_role(staff: TestClient) -> dict:  # type: ignore[type-arg]
@@ -166,3 +172,168 @@ def test_groone_role_with_internal_permissions(client: TestClient, engine: Engin
         "internal.clients.view",
         "internal.commissions.view",
     }
+
+
+def _support(client: TestClient, staff: TestClient, mailer: CapturingMailer) -> TestClient:
+    """Uma pessoa da equipe Groone com o papel de suporte (sem as permissões da comissão)."""
+    roles = staff.get("/api/v1/roles").json()["items"]
+    support_role = next(role for role in roles if role["key"] == "groone_support")
+    invited = staff.post(
+        "/api/v1/internal/staff/invitations",
+        json={"email": "suporte@groone.com", "role_id": support_role["id"]},
+        headers=_csrf(staff),
+    )
+    assert invited.status_code == 201, invited.text
+    support = TestClient(client.app)
+    accepted = support.post(
+        f"/api/v1/auth/invitations/{mailer.sent[-1].token}/accept",
+        json={"name": "Suporte", "password": PASSWORD},
+    )
+    assert accepted.status_code == 200, accepted.text
+    _enable(support)
+    return support
+
+
+def test_who_sees_and_changes_commissions(
+    client: TestClient, engine: Engine, mailer: CapturingMailer
+) -> None:
+    staff = _staff(client, engine)
+    support = _support(client, staff, mailer)
+    me = support.get("/api/v1/auth/me").json()["user"]["id"]
+    admin = staff.get("/api/v1/auth/me").json()["user"]["id"]
+    month = datetime.now(UTC).strftime("%Y-%m")
+    assert support.get(f"/api/v1/internal/commissions?month={month}").status_code == 403
+    other = support.get(f"/api/v1/internal/commissions/people/{admin}?month={month}")
+    assert other.status_code == 403
+    own = support.get(f"/api/v1/internal/commissions/people/{me}?month={month}")
+    assert own.status_code == 200
+    assert support.get(f"/api/v1/internal/commissions/me?month={month}").status_code == 200
+    people = support.get("/api/v1/internal/staff/options").json()["items"]
+    assert {person["user"]["id"] for person in people} == {me, admin}
+    assert all(set(person) >= {"id", "user", "role", "status"} for person in people)
+    refused = support.put(
+        "/api/v1/internal/commissions/settings",
+        json={"starts_on": "2026-11-01"},
+        headers=_csrf(support),
+    )
+    assert refused.status_code == 403
+    no_csrf = staff.put("/api/v1/internal/commissions/settings", json={"starts_on": "2026-11-01"})
+    assert no_csrf.status_code == 403 and no_csrf.json()["error"]["code"] == "csrf_failed"
+
+
+def test_client_owner_cannot_touch_commissions(
+    client: TestClient, engine: Engine, mailer: CapturingMailer
+) -> None:
+    _onboard_owner(client, engine, mailer)
+    user_id = client.get("/api/v1/auth/me").json()["user"]["id"]
+    for method, url, body in (
+        ("put", "/api/v1/internal/commissions/settings", {"starts_on": "2026-11-01"}),
+        (
+            "post",
+            f"/api/v1/internal/commissions/people/{user_id}/issue",
+            {"month": "2026-10"},
+        ),
+        (
+            "post",
+            f"/api/v1/internal/commissions/people/{user_id}/adjustments",
+            {"month": "2026-10", "amount": "1.00", "reason": "x"},
+        ),
+        ("get", "/api/v1/internal/staff/options", None),
+    ):
+        found = (
+            getattr(client, method)(url, json=body, headers=_csrf(client))
+            if body
+            else (client.get(url))
+        )
+        assert found.status_code == 403, (url, found.text)
+
+
+def test_commission_input_is_checked(client: TestClient, engine: Engine) -> None:
+    staff = _staff(client, engine)
+    user_id = staff.get("/api/v1/auth/me").json()["user"]["id"]
+    role = _admin_role(staff)
+    rules = f"/api/v1/internal/roles/{role['id']}/commission-rules"
+    base = {"event": "client_created", "percentage": "5", "start_offset_days": 0}
+    for wrong in ({"percentage": "100.01"}, {"percentage": "1.234"}, {"percentage": "0"}):
+        found = staff.post(rules, json={**base, **wrong}, headers=_csrf(staff))
+        assert found.status_code == 422, wrong
+    adjustments = f"/api/v1/internal/commissions/people/{user_id}/adjustments"
+    for amount in ("0", "-5", "1.234"):
+        found = staff.post(
+            adjustments,
+            json={"month": "2026-10", "amount": amount, "reason": "x"},
+            headers=_csrf(staff),
+        )
+        assert found.status_code == 422, amount
+    assert staff.get("/api/v1/internal/commissions?month=0000-01").status_code == 422
+
+
+def test_start_date_is_locked_after_the_first_closing(client: TestClient, engine: Engine) -> None:
+    staff = _staff(client, engine)
+    url = "/api/v1/internal/commissions/settings"
+    person = uuid.UUID(staff.get("/api/v1/auth/me").json()["user"]["id"])
+    assert staff.put(url, json={"starts_on": "2026-10-01"}, headers=_csrf(staff)).status_code == 200
+    with SqlAlchemyUnitOfWork(engine, bypass_rls=True) as uow:
+        groone = uow.companies.internal()
+        assert groone is not None
+        role = Role(key="vendas", name={"pt": "Vendas"}, company_id=groone.id)
+        uow.roles.add(role)
+        client_company = Company(name="Alfa", owner_user_id=None, seat_limit=2, slug="alfa-trava")
+        uow.companies.add(client_company)
+        window = CommissionWindow(
+            CommissionEvent.CLIENT_CREATED,
+            client_company.id,
+            date(2026, 10, 1),
+            datetime.now(UTC),
+            role_id=role.id,
+            user_id=person,
+            starts_on=date(2026, 10, 1),
+        )
+        uow.commission_windows.add(window)
+        uow.daily_commissions.add(
+            DailyCommission(
+                window.id,
+                date(2026, 10, 2),
+                person,
+                Decimal("5"),
+                0,
+                0,
+                CommissionStatus.VALIDATED,
+                datetime.now(UTC),
+            )
+        )
+        uow.commit()
+    locked = staff.put(url, json={"starts_on": "2026-11-01"}, headers=_csrf(staff))
+    assert locked.status_code == 409
+    assert locked.json()["error"]["code"] == "commission_start_locked"
+
+
+def test_client_edit_without_the_manager_keeps_it(client: TestClient, engine: Engine) -> None:
+    staff = _staff(client, engine)
+    me = staff.get("/api/v1/auth/me").json()["user"]["id"]
+    profile = {"first_name": "Dono", "last_name": "Beta", "email": "dono@beta.com"}
+    created = staff.post(
+        "/api/v1/internal/clients",
+        json={"name": "Beta", "seat_limit": 2, "profile": {**profile, "account_manager_id": me}},
+        headers=_csrf(staff),
+    )
+    assert created.status_code == 201, created.text
+    company_id = created.json()["id"]
+    edited = staff.patch(
+        f"/api/v1/internal/clients/{company_id}",
+        json={"profile": {**profile, "notes": "Sem mudar o responsável"}},
+        headers=_csrf(staff),
+    )
+    assert edited.status_code == 200, edited.text
+    detail = staff.get(f"/api/v1/internal/clients/{company_id}").json()
+    assert detail["profile"]["account_manager_id"] == me
+    cleared = staff.patch(
+        f"/api/v1/internal/clients/{company_id}",
+        json={"profile": {**profile, "account_manager_id": None}},
+        headers=_csrf(staff),
+    )
+    assert cleared.status_code == 200, cleared.text
+    assert (
+        staff.get(f"/api/v1/internal/clients/{company_id}").json()["profile"]["account_manager_id"]
+        is None
+    )

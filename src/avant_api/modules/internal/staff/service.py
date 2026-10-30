@@ -1,7 +1,7 @@
 """Service da equipe Groone no painel interno."""
 
 from avant_core.access.models import Actor
-from avant_core.internal.services import invite_staff, page_staff
+from avant_core.internal.services import invite_staff, page_staff, staff_options
 from avant_core.ports import Mailer
 from avant_core.shared.clock import Clock
 
@@ -22,6 +22,10 @@ class StaffService:
         """Uma página da equipe Groone, a mais recente primeiro."""
         found = page_staff(self._uows.trusted_uow(), actor=actor, page=page)
         return page_out(found, MemberOut.of)
+
+    def options(self, actor: Actor) -> list[MemberOut]:
+        """A equipe Groone inteira (sem os removidos), para os seletores."""
+        return [MemberOut.of(view) for view in staff_options(self._uows.trusted_uow(), actor=actor)]
 
     def invite(self, actor: Actor, body: StaffInviteIn) -> InvitationOut:
         """Convida alguém para a equipe Groone com um papel interno."""

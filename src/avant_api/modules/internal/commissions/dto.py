@@ -23,7 +23,7 @@ from avant_api.shared.dto import UserOut
 
 MICROS = Decimal(1_000_000)
 CENT = Decimal("0.01")
-MONTH_PATTERN = r"^\d{4}-(0[1-9]|1[0-2])$"
+MONTH_PATTERN = r"^20\d{2}-(0[1-9]|1[0-2])$"
 
 
 def dollars(micros: int) -> Decimal:
