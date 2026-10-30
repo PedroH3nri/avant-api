@@ -1,5 +1,5 @@
-"""PDF da invoice, em inglês como no Genius: De GROONE, LLC para o funcionário, as linhas e
-o total. Fonte DejaVu Sans no pacote (licença em fonts/LICENSE), para o travessão e os acentos dos nomes."""
+"""PDF da invoice, em inglês como no Genius: De GROONE, LLC para o funcionário, as linhas e o total.
+Fonte DejaVu Sans no pacote (licença em fonts/LICENSE), para o travessão e os acentos dos nomes."""
 
 from decimal import Decimal
 from pathlib import Path
