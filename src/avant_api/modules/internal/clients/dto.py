@@ -140,3 +140,8 @@ class ClientOptionOut(BaseModel):
     id: uuid.UUID
     name: str
     status: CompanyStatus
+
+
+class ManagerWindowsOut(BaseModel):
+    # Um papel por grupo de prazos abertos do responsável de hoje no cliente.
+    role_ids: list[uuid.UUID]
