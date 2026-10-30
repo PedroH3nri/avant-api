@@ -5,10 +5,9 @@ Usa ``trusted_uow()`` (sem RLS) porque a Groone enxerga todas as Empresas; o cor
 """
 
 import uuid
-from dataclasses import replace
 
 from avant_core.access.models import Actor
-from avant_core.commissions.services import open_window_roles
+from avant_core.commissions.services import manager_change_preview
 from avant_core.company.enums import CompanyStatus
 from avant_core.company.models import CompanyImage, Invitation
 from avant_core.internal.services import cancel_owner_invitation as cancel_owner_invite
@@ -40,7 +39,7 @@ from avant_api.modules.internal.clients.dto import (
     ClientOptionOut,
     ClientOut,
     ClientPatchIn,
-    ManagerWindowsOut,
+    ManagerChangeOut,
     OwnerInvitationOut,
 )
 from avant_api.shared.dto import (
@@ -155,11 +154,9 @@ class ClientService:
     def update(self, actor: Actor, company_id: uuid.UUID, body: ClientPatchIn) -> ClientOut:
         """Muda o nome, o limite de vagas ou o cadastro (sem os dados fiscais); cadastro sem o
         responsável Groone mantém o de hoje."""
-        data = body.profile.to_data() if body.profile else None
-        if body.profile is not None and "account_manager_id" not in body.profile.model_fields_set:
-            current = get_client(self._uows.trusted_uow(), actor=actor, company_id=company_id)
-            kept = current.profile.account_manager_id if current.profile else None
-            data = replace(body.profile.to_data(), account_manager_id=kept)
+        keep = (
+            body.profile is not None and "account_manager_id" not in body.profile.model_fields_set
+        )
         view = update_client(
             self._uows.trusted_uow(),
             actor=actor,
@@ -167,17 +164,23 @@ class ClientService:
             clock=self._clock,
             name=body.name,
             seat_limit=body.seat_limit,
-            data=data,
+            data=body.profile.to_data() if body.profile else None,
+            keep_manager=keep,
         )
         return ClientOut.of(view)
 
-    def manager_windows(self, actor: Actor, company_id: uuid.UUID) -> ManagerWindowsOut:
-        """O papel dos prazos abertos do responsável; trusted_uow porque os prazos têm RLS por
-        Empresa e quem pede está na Company Groone."""
-        roles = open_window_roles(
-            self._uows.trusted_uow(), actor=actor, company_id=company_id, clock=self._clock
+    def manager_change(
+        self, actor: Actor, company_id: uuid.UUID, user_id: uuid.UUID | None
+    ) -> ManagerChangeOut:
+        """O que a troca de responsável faria; trusted_uow porque os prazos têm RLS por Empresa."""
+        found = manager_change_preview(
+            self._uows.trusted_uow(),
+            actor=actor,
+            company_id=company_id,
+            new_user_id=user_id,
+            clock=self._clock,
         )
-        return ManagerWindowsOut(role_ids=roles)
+        return ManagerChangeOut(continues=found.continues, stops=found.stops, arrives=found.arrives)
 
     def image(self, actor: Actor, company_id: uuid.UUID) -> CompanyImage:
         """Imagem de uma Empresa cliente."""

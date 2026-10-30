@@ -20,7 +20,7 @@ from avant_api.modules.internal.clients.dto import (
     ClientOut,
     ClientPatchIn,
     ClientStatusIn,
-    ManagerWindowsOut,
+    ManagerChangeOut,
     OwnerChangeIn,
     OwnerInvitationOut,
 )
@@ -94,14 +94,15 @@ def client(
     return service.show(actor, company_id)
 
 
-@router.get("/clients/{company_id}/manager-windows")
-def manager_windows(
+@router.get("/clients/{company_id}/manager-change")
+def manager_change(
     company_id: uuid.UUID,
+    user_id: uuid.UUID | None = None,
     actor: Actor = Depends(require_staff("internal.clients.view")),
     service: ClientService = Depends(client_service),
-) -> ManagerWindowsOut:
-    """O papel dos prazos de comissão abertos do responsável de hoje, para o aviso da troca."""
-    return service.manager_windows(actor, company_id)
+) -> ManagerChangeOut:
+    """O que trocar o responsável para ``user_id`` (vazio: tirar) faria com os prazos."""
+    return service.manager_change(actor, company_id, user_id)
 
 
 @router.get("/clients/{company_id}/audit")
