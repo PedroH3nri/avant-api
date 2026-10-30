@@ -2,7 +2,7 @@
 desconto, emissão e permissões."""
 
 import uuid
-from datetime import UTC, date, datetime
+from datetime import UTC, date, datetime, timedelta
 from decimal import Decimal
 
 from avant_core.access.models import Role
@@ -61,6 +61,17 @@ def test_rules_on_the_role(client: TestClient, engine: Engine) -> None:
     deleted = staff.delete(f"/api/v1/internal/commission-rules/{rule['id']}", headers=_csrf(staff))
     assert deleted.status_code == 204
     assert staff.get(url).json()["items"] == []
+
+
+class NextMonthClock:
+    """Relógio no começo do mês seguinte, para fechar o mês de hoje no teste."""
+
+    def __init__(self, today: date) -> None:
+        self.today = today
+
+    def now(self) -> datetime:
+        start = self.today.replace(day=28) + timedelta(days=4)
+        return datetime(start.year, start.month, 2, tzinfo=UTC)
 
 
 def test_start_my_commission_team_discount_and_issue(
@@ -137,7 +148,7 @@ def test_start_my_commission_team_discount_and_issue(
     )
     assert discount.status_code == 201, discount.text
     with SqlAlchemyUnitOfWork(engine, bypass_rls=True) as uow:
-        close_month(uow, month=today.replace(day=1), clock=SystemClock())
+        close_month(uow, month=today.replace(day=1), clock=NextMonthClock(today))
         uow.commit()
     issued = staff.post(
         f"/api/v1/internal/commissions/people/{user_id}/issue",
@@ -337,3 +348,36 @@ def test_client_edit_without_the_manager_keeps_it(client: TestClient, engine: En
         staff.get(f"/api/v1/internal/clients/{company_id}").json()["profile"]["account_manager_id"]
         is None
     )
+
+
+def test_manager_windows_show_the_roles_of_open_windows(client: TestClient, engine: Engine) -> None:
+    staff = _staff(client, engine)
+    me = staff.get("/api/v1/auth/me").json()["user"]["id"]
+    role = _admin_role(staff)
+    staff.post(
+        f"/api/v1/internal/roles/{role['id']}/commission-rules",
+        json={"event": "client_created", "percentage": "5", "start_offset_days": 0},
+        headers=_csrf(staff),
+    )
+    with SqlAlchemyUnitOfWork(engine, bypass_rls=True) as uow:
+        groone = uow.companies.internal()
+        assert groone is not None
+        membership = uow.memberships.get_for(groone.id, uuid.UUID(me))
+        assert membership is not None
+        membership.role_id = uuid.UUID(role["id"])
+        uow.commit()
+    profile = {
+        "first_name": "Dono",
+        "last_name": "Gama",
+        "email": "dono@gama.com",
+        "account_manager_id": me,
+    }
+    created = staff.post(
+        "/api/v1/internal/clients",
+        json={"name": "Gama", "seat_limit": 2, "profile": profile},
+        headers=_csrf(staff),
+    )
+    assert created.status_code == 201, created.text
+    found = staff.get(f"/api/v1/internal/clients/{created.json()['id']}/manager-windows")
+    assert found.status_code == 200, found.text
+    assert found.json() == {"role_ids": [role["id"]]}

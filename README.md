@@ -109,6 +109,7 @@ Painel interno, em `/api/v1/internal` (Company Groone ativa e 2FA verificado na 
 | `POST /internal/clients/{id}/owner-invitation` | envia (ou manda de novo) o convite de dono para o e-mail do cadastro | `internal.clients.manage` |
 | `GET /internal/clients/options` | todos os clientes (`id`, `name`, `status`), para seletores e para contar as abas por situação | `internal.clients.view` |
 | `GET /internal/clients/{id}`, `/audit` | página de suporte e histórico (em páginas numeradas), só leitura | `internal.clients.view` |
+| `GET /internal/clients/{id}/manager-windows` | o papel dos prazos de comissão abertos do responsável de hoje, para o aviso da troca de responsável | `internal.clients.view` |
 | `PATCH /internal/clients/{id}` | nome, vagas e cadastro (contato e indicação; os fiscais só o cliente muda); cadastro sem `account_manager_id` mantém o responsável, e trocar um responsável que já existia pede `internal.commissions.manage` | `internal.clients.manage` |
 | `GET`, `PUT`, `DELETE /internal/clients/{id}/image` | imagem do cliente (ver, trocar, tirar) | `internal.clients.view` / `.manage` |
 | `PUT /internal/clients/{id}/status` | situação `active`, `inactive` ou `banned`; as networks acompanham | `internal.clients.manage` |
