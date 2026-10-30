@@ -3,11 +3,11 @@
 from avant_core.access.models import Actor
 from fastapi import APIRouter, Depends, Query, status
 
-from avant_api.app.security import require_staff
+from avant_api.app.security import require_staff, require_staff_member
 from avant_api.modules.internal.staff.dependencies import staff_service
 from avant_api.modules.internal.staff.dto import StaffInviteIn
 from avant_api.modules.internal.staff.service import StaffService
-from avant_api.shared.dto import InvitationOut, MemberOut, PageOut
+from avant_api.shared.dto import InvitationOut, ItemsOut, MemberOut, PageOut
 
 router = APIRouter(prefix="/internal/staff", tags=["internal"])
 
@@ -20,6 +20,15 @@ def staff(
 ) -> PageOut[MemberOut]:
     """Uma página da equipe Groone, a mais recente primeiro."""
     return service.list_all(actor, page)
+
+
+@router.get("/options")
+def options(
+    actor: Actor = Depends(require_staff_member),
+    service: StaffService = Depends(staff_service),
+) -> ItemsOut[MemberOut]:
+    """A equipe Groone inteira (sem os removidos), para os seletores; basta ser da equipe."""
+    return ItemsOut(items=service.options(actor))
 
 
 @router.post("/invitations", status_code=status.HTTP_201_CREATED)
