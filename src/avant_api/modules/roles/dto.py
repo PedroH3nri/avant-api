@@ -2,10 +2,13 @@
 
 import uuid
 
+from avant_core.access.catalog import CATALOG
 from avant_core.access.enums import SiteScope
 from avant_core.access.models import PermissionDef, Role
 from avant_core.company.services import RoleView
 from pydantic import BaseModel, Field
+
+MAX_PERMISSIONS = len(CATALOG)
 
 
 class PermissionOut(BaseModel):
@@ -53,11 +56,11 @@ class RoleOut(BaseModel):
 
 class RoleIn(BaseModel):
     name: str = Field(min_length=1, max_length=60)
-    permissions: list[str] = Field(default_factory=list, max_length=32)
+    permissions: list[str] = Field(default_factory=list, max_length=MAX_PERMISSIONS)
     site_scope: SiteScope = SiteScope.ASSIGNED
 
 
 class RolePatchIn(BaseModel):
     name: str | None = Field(default=None, min_length=1, max_length=60)
-    permissions: list[str] | None = Field(default=None, max_length=32)
+    permissions: list[str] | None = Field(default=None, max_length=MAX_PERMISSIONS)
     site_scope: SiteScope | None = None

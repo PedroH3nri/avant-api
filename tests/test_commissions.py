@@ -191,6 +191,31 @@ def test_groone_role_with_internal_permissions(client: TestClient, engine: Engin
     }
 
 
+def test_groone_role_with_the_whole_catalog(client: TestClient, engine: Engine) -> None:
+    staff = _staff(client, engine)
+    keys = sorted(item["key"] for item in staff.get("/api/v1/permissions").json()["items"])
+    assert len(keys) > 32
+    created = staff.post(
+        "/api/v1/roles",
+        json={"name": "Tudo", "permissions": keys, "site_scope": "all"},
+        headers=_csrf(staff),
+    )
+    assert created.status_code == 201, created.text
+    assert sorted(created.json()["permissions"]) == keys
+    updated = staff.patch(
+        f"/api/v1/roles/{created.json()['id']}",
+        json={"permissions": keys[:-1]},
+        headers=_csrf(staff),
+    )
+    assert updated.status_code == 200, updated.text
+    too_many = staff.post(
+        "/api/v1/roles",
+        json={"name": "Demais", "permissions": [*keys, "extra.permission"]},
+        headers=_csrf(staff),
+    )
+    assert too_many.status_code == 422
+
+
 def _support(client: TestClient, staff: TestClient, mailer: CapturingMailer) -> TestClient:
     """Uma pessoa da equipe Groone com o papel de suporte (sem as permissões da comissão)."""
     roles = staff.get("/api/v1/roles").json()["items"]
