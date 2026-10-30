@@ -97,10 +97,6 @@ class AdjustmentIn(MonthIn):
     reason: str = Field(min_length=1, max_length=500)
 
 
-class IssuedOut(BaseModel):
-    days: int
-
-
 class CommissionMonthOut(BaseModel):
     month: date
     base: Decimal

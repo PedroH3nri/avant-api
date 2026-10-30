@@ -1,5 +1,5 @@
 """Comissão da equipe Groone contra o Postgres: regras no papel, data de início, consultas,
-desconto, emissão e permissões."""
+desconto, criação da invoice e permissões."""
 
 import uuid
 from datetime import UTC, date, datetime, timedelta
@@ -135,12 +135,9 @@ def test_start_my_commission_team_discount_and_issue(
         "items"
     ]
     assert detail[0]["target_name"] == "Alfa"
-    early = staff.post(
-        f"/api/v1/internal/commissions/people/{user_id}/issue",
-        json={"month": month},
-        headers=_csrf(staff),
-    )
-    assert early.status_code == 422
+    early = staff.post("/api/v1/internal/invoices", json={"month": month}, headers=_csrf(staff))
+    assert early.status_code == 409
+    assert early.json()["error"]["code"] == "commission_not_validated"
     discount = staff.post(
         f"/api/v1/internal/commissions/people/{user_id}/adjustments",
         json={"month": month, "amount": "12.50", "reason": "Network banida"},
@@ -150,12 +147,9 @@ def test_start_my_commission_team_discount_and_issue(
     with SqlAlchemyUnitOfWork(engine, bypass_rls=True) as uow:
         close_month(uow, month=today.replace(day=1), clock=NextMonthClock(today))
         uow.commit()
-    issued = staff.post(
-        f"/api/v1/internal/commissions/people/{user_id}/issue",
-        json={"month": month},
-        headers=_csrf(staff),
-    )
-    assert issued.status_code == 200 and issued.json()["days"] == 1
+    invoice = staff.post("/api/v1/internal/invoices", json={"month": month}, headers=_csrf(staff))
+    assert invoice.status_code == 201, invoice.text
+    assert invoice.json()["items"][0]["kind"] == "commission"
     team = staff.get(f"/api/v1/internal/commissions?month={month}").json()["items"]
     assert team[0]["month"]["status"] == "issued" and team[0]["month"]["adjustments"] == "-12.50"
     late = staff.post(
@@ -270,11 +264,7 @@ def test_client_owner_cannot_touch_commissions(
     user_id = client.get("/api/v1/auth/me").json()["user"]["id"]
     for method, url, body in (
         ("put", "/api/v1/internal/commissions/settings", {"starts_on": "2026-11-01"}),
-        (
-            "post",
-            f"/api/v1/internal/commissions/people/{user_id}/issue",
-            {"month": "2026-10"},
-        ),
+        ("post", "/api/v1/internal/invoices", {"month": "2026-10"}),
         (
             "post",
             f"/api/v1/internal/commissions/people/{user_id}/adjustments",

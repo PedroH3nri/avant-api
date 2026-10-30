@@ -68,7 +68,7 @@ Cada repositório tem um `CLAUDE.md` com as regras dele e um README. Leia os doi
 | M3 Piloto | 31/12 | Um cliente real da rede Groone (ainda não escolhido) |
 | M4 Métricas do GAM | a definir | Models e sincronização das métricas, motor de consulta, primeira tela de desempenho |
 | M5 Personalização e relatórios | a definir | Personalização no estilo HubSpot: dashboards, construtor de relatórios, páginas de relatório no menu, métricas personalizadas (fórmulas), metas, alertas, envios agendados, propriedades personalizadas, visões salvas, tema e marca. Épico: avant-web#22 |
-| M6 Grupos e comissão | a definir | Grupos de funcionários na Empresa (um por pessoa), comissão e meta herdadas do grupo, cálculo da comissão, projetos de comissão do mês, imagem da Empresa. Decisão: `docs/decisoes/08-grupos-e-imagem-da-empresa.md` |
+| M6 Grupos e comissão | em andamento | Grupos de funcionários na Empresa (um por pessoa), imagem da Empresa, metas da equipe Groone e a comissão da equipe Groone (regras no papel por evento, prazos, cálculo diário, fechamento no dia 15; core v0.43.0). Decisões: `docs/decisoes/08-grupos-e-imagem-da-empresa.md`, `docs/decisoes/09-comissao-da-equipe-groone.md` |
 | Pós-MVP | sem data | O que sobrar depois do piloto |
 
 Issues abertas em 23/10 (a lista viva está no GitHub):

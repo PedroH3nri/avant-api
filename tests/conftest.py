@@ -91,6 +91,13 @@ def client(engine: Engine, mailer: CapturingMailer) -> Iterator[TestClient]:
         yield c
     owner = create_engine(OWNER_URL or "")
     with owner.begin() as conn:
+        # As invoices emitidas não se apagam (trigger): desliga só para limpar o banco do teste.
+        conn.execute(text("ALTER TABLE invoices DISABLE TRIGGER invoices_immutable"))
+        conn.execute(text("ALTER TABLE invoice_items DISABLE TRIGGER invoice_items_immutable"))
+        for table in ("invoices", "invoice_services", "payee_details"):
+            conn.execute(text(f"DELETE FROM {table}"))
+        conn.execute(text("ALTER TABLE invoices ENABLE TRIGGER invoices_immutable"))
+        conn.execute(text("ALTER TABLE invoice_items ENABLE TRIGGER invoice_items_immutable"))
         for table in (
             "daily_commissions",
             "commission_deductions",
