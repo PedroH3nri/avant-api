@@ -13,6 +13,7 @@ from celery import Celery
 log = logging.getLogger("avant.api.tasks")
 
 SYNC_NETWORK = "avant.gam.sync_network"
+REFRESH_REPORT_PREVIEW = "avant.default.refresh_report_preview"
 
 
 class TaskQueue(Protocol):

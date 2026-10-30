@@ -298,6 +298,31 @@ class SavedReportIn(BaseModel):
         )
 
 
+class PreviewPointOut(BaseModel):
+    """Um ponto da miniatura: o rótulo (data, site, país...) e o valor como texto."""
+
+    label: str | None
+    value: str | None
+
+
+class ReportPreviewOut(BaseModel):
+    """A miniatura guardada do gráfico: a primeira métrica no eixo, já na moeda de quem vê.
+    Sem dimensão, ``points`` vem vazio e valem o total e o anterior."""
+
+    metric: str
+    money: bool
+    dimension: str | None
+    points: list[PreviewPointOut]
+    total: str | None
+    previous_total: str | None
+    currency: str
+
+    @classmethod
+    def of(cls, preview: dict[str, Any] | None) -> "ReportPreviewOut | None":
+        """A miniatura do avant-core, ou ``None`` quando não há (ou a pessoa não pode ver)."""
+        return None if preview is None else cls.model_validate(preview)
+
+
 class SavedReportOut(BaseModel):
     id: uuid.UUID
     name: str
@@ -313,6 +338,10 @@ class SavedReportOut(BaseModel):
     updated_at: datetime
     # A pessoa pode editar e apagar (é a dona ou tem reports.manage).
     editable: bool
+    # A miniatura do gráfico (só na lista e nos fixados; null para quem não vê todos os sites).
+    preview: ReportPreviewOut | None = None
+    # A pessoa fixou o relatório no topo da lista.
+    pinned: bool = False
 
     @classmethod
     def of(
