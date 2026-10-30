@@ -76,6 +76,7 @@ STATUS: dict[str, int] = {
     "client_contact_taken": 409,
     "client_not_pending": 409,
     "commission_rule_taken": 409,
+    "commission_start_locked": 409,
     "client_without_owner": 409,
     "not_found": 404,
     "seat_limit_reached": 409,
