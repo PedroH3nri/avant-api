@@ -2,13 +2,15 @@
 
 O motor confere tudo contra o catálogo e soma no banco com RLS, só nos sites que a pessoa
 enxerga. As consultas têm um limite de taxa próprio, por pessoa e Empresa, e o mesmo vale
-para rodar e exportar um relatório salvo.
+para rodar e exportar um relatório salvo. Criar, editar e duplicar pedem ao worker a miniatura
+do relatório; a lista só lê a que está guardada.
 """
 
 import time
 import uuid
 from collections.abc import Iterator
 from contextlib import contextmanager
+from typing import Any
 
 from avant_core.access.models import Actor
 from avant_core.identity.enums import Locale
@@ -25,6 +27,7 @@ from avant_core.metrics.services.query_rules import MAX_DAYS, MAX_LIMIT
 from avant_core.reports.enums import ReportScope
 from avant_core.reports.models.saved_report import SavedReport
 from avant_core.reports.services import (
+    PinnedReports,
     create_from_template,
     create_report,
     delete_report,
@@ -32,7 +35,10 @@ from avant_core.reports.services import (
     get_report,
     list_templates,
     page_reports,
+    pin_report,
+    pinned_reports,
     run_report,
+    unpin_report,
     update_report,
 )
 from avant_core.shared.clock import Clock
@@ -41,6 +47,7 @@ from sqlalchemy.exc import OperationalError
 from avant_api.app.errors import QueryTooHeavy, RateLimited
 from avant_api.app.limits import REPORTS, Bucket
 from avant_api.app.ports import UnitOfWorkFactory
+from avant_api.app.tasks import REFRESH_REPORT_PREVIEW, TaskQueue
 from avant_api.modules.reports.dto import (
     CustomCatalogMetricOut,
     DimensionOut,
@@ -49,6 +56,7 @@ from avant_api.modules.reports.dto import (
     MetricOut,
     ReportCountsOut,
     ReportPageOut,
+    ReportPreviewOut,
     ReportQueryIn,
     ReportResultOut,
     ReportTemplateOut,
@@ -63,10 +71,13 @@ QUERY_CANCELED = "57014"
 class ReportService:
     """Catálogo de métricas, consultas avulsas e relatórios salvos, com limite de taxa."""
 
-    def __init__(self, uows: UnitOfWorkFactory, clock: Clock, bucket: Bucket) -> None:
+    def __init__(
+        self, uows: UnitOfWorkFactory, clock: Clock, bucket: Bucket, tasks: TaskQueue
+    ) -> None:
         self._uows = uows
         self._clock = clock
         self._bucket = bucket
+        self._tasks = tasks
 
     def catalog(self, actor: Actor) -> MetricCatalogOut:
         """Métricas e dimensões que um cliente pode pedir, nos três idiomas, mais as
@@ -98,12 +109,16 @@ class ReportService:
     def page_saved(
         self, actor: Actor, scope: ReportScope | None, query: str | None, page: int
     ) -> ReportPageOut:
-        """Uma página dos relatórios salvos que a pessoa vê, com a aba, a busca e as contagens."""
+        """Uma página dos relatórios salvos que a pessoa vê, sem os fixados, com a aba, a busca,
+        as contagens e as miniaturas."""
         found = page_reports(
             self._uows.uow(actor.company_id), actor=actor, scope=scope, query=query, page=page
         )
         return ReportPageOut(
-            items=[self._out(actor, report) for report in found.page.items],
+            items=[
+                self._out(actor, report, preview=found.previews.get(report.id))
+                for report in found.page.items
+            ],
             total=found.page.total,
             page=found.page.page,
             pages=found.page.pages,
@@ -112,6 +127,24 @@ class ReportService:
                 all=found.counts.all, mine=found.counts.mine, shared=found.counts.shared
             ),
         )
+
+    def pinned(self, actor: Actor) -> list[SavedReportOut]:
+        """Os relatórios que a pessoa fixou, na ordem em que fixou, com as miniaturas."""
+        found: PinnedReports = pinned_reports(self._uows.uow(actor.company_id), actor=actor)
+        return [
+            self._out(actor, report, preview=found.previews.get(report.id), pinned=True)
+            for report in found.items
+        ]
+
+    def pin(self, actor: Actor, report_id: uuid.UUID) -> None:
+        """Fixa no topo da lista da pessoa um relatório que ela vê."""
+        pin_report(
+            self._uows.uow(actor.company_id), actor=actor, report_id=report_id, clock=self._clock
+        )
+
+    def unpin(self, actor: Actor, report_id: uuid.UUID) -> None:
+        """Solta um relatório fixado da pessoa."""
+        unpin_report(self._uows.uow(actor.company_id), actor=actor, report_id=report_id)
 
     def get_saved(self, actor: Actor, report_id: uuid.UUID) -> SavedReportOut:
         """Um relatório salvo que a pessoa vê."""
@@ -123,7 +156,7 @@ class ReportService:
         report = create_report(
             self._uows.uow(actor.company_id), actor=actor, data=body.input(), clock=self._clock
         )
-        return self._out(actor, report)
+        return self._refreshed(actor, report)
 
     def update_saved(
         self, actor: Actor, report_id: uuid.UUID, body: SavedReportIn
@@ -136,7 +169,7 @@ class ReportService:
             data=body.input(),
             clock=self._clock,
         )
-        return self._out(actor, report)
+        return self._refreshed(actor, report)
 
     def delete_saved(self, actor: Actor, report_id: uuid.UUID) -> None:
         """Apaga um relatório que a pessoa pode editar."""
@@ -149,7 +182,7 @@ class ReportService:
         report = duplicate_report(
             self._uows.uow(actor.company_id), actor=actor, report_id=report_id, clock=self._clock
         )
-        return self._out(actor, report)
+        return self._refreshed(actor, report)
 
     def templates(self) -> list[ReportTemplateOut]:
         """Os modelos prontos da Groone."""
@@ -160,7 +193,7 @@ class ReportService:
         report = create_from_template(
             self._uows.uow(actor.company_id), actor=actor, key=key, clock=self._clock
         )
-        return self._out(actor, report)
+        return self._refreshed(actor, report)
 
     def run_saved(self, actor: Actor, report_id: uuid.UUID) -> ReportResultOut:
         """Roda um relatório salvo na moeda de quem roda, só nos sites que ela enxerga."""
@@ -214,10 +247,24 @@ class ReportService:
         custom = list_custom_metrics(self._uows.uow(actor.company_id), actor=actor)
         return {CUSTOM_PREFIX + metric.key: metric.name for metric in custom}
 
-    def _out(self, actor: Actor, report: SavedReport) -> SavedReportOut:
-        """O relatório com a consulta lida e se a pessoa pode editá-lo."""
+    def _refreshed(self, actor: Actor, report: SavedReport) -> SavedReportOut:
+        """Pede ao worker a miniatura do relatório que acabou de ser gravado e devolve ele."""
+        self._tasks.send(REFRESH_REPORT_PREVIEW, str(report.id))
+        return self._out(actor, report)
+
+    def _out(
+        self,
+        actor: Actor,
+        report: SavedReport,
+        *,
+        preview: dict[str, Any] | None = None,
+        pinned: bool = False,
+    ) -> SavedReportOut:
+        """O relatório com a consulta lida, se a pessoa pode editá-lo, a miniatura e se está
+        fixado."""
         editable = report.owner_user_id == actor.user_id or actor.grants.can("reports.manage")
-        return SavedReportOut.of(report, decode_query(report.query), editable)
+        out = SavedReportOut.of(report, decode_query(report.query), editable)
+        return out.model_copy(update={"preview": ReportPreviewOut.of(preview), "pinned": pinned})
 
 
 @contextmanager
