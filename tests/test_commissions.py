@@ -158,6 +158,12 @@ def test_start_my_commission_team_discount_and_issue(
     assert issued.status_code == 200 and issued.json()["days"] == 1
     team = staff.get(f"/api/v1/internal/commissions?month={month}").json()["items"]
     assert team[0]["month"]["status"] == "issued" and team[0]["month"]["adjustments"] == "-12.50"
+    late = staff.post(
+        f"/api/v1/internal/commissions/people/{user_id}/adjustments",
+        json={"month": month, "amount": "1.00", "reason": "Depois de emitido"},
+        headers=_csrf(staff),
+    )
+    assert late.status_code == 422
 
     owner = TestClient(client.app)
     _onboard_owner(owner, engine, mailer)
@@ -382,9 +388,54 @@ def test_manager_change_preview(client: TestClient, engine: Engine) -> None:
     same = staff.get(f"/api/v1/internal/clients/{company_id}/manager-change?user_id={me}")
     assert same.status_code == 200, same.text
     assert same.json() == {"continues": 1, "stops": 0, "arrives": 0}
-    nobody = staff.get(
-        f"/api/v1/internal/clients/{company_id}/manager-change?user_id={uuid.uuid4()}"
-    )
-    assert nobody.json() == {"continues": 0, "stops": 1, "arrives": 0}
     removed = staff.get(f"/api/v1/internal/clients/{company_id}/manager-change")
     assert removed.json() == {"continues": 0, "stops": 1, "arrives": 0}
+
+
+def test_staff_without_the_permissions_and_sessions_without_2fa_are_refused(
+    client: TestClient, engine: Engine, mailer: CapturingMailer
+) -> None:
+    staff = _staff(client, engine)
+    role = staff.post(
+        "/api/v1/roles",
+        json={"name": "Sem acesso", "permissions": [], "site_scope": "all"},
+        headers=_csrf(staff),
+    )
+    assert role.status_code == 201, role.text
+    invited = staff.post(
+        "/api/v1/internal/staff/invitations",
+        json={"email": "sem@groone.com", "role_id": role.json()["id"]},
+        headers=_csrf(staff),
+    )
+    assert invited.status_code == 201, invited.text
+    plain = TestClient(client.app)
+    accepted = plain.post(
+        f"/api/v1/auth/invitations/{mailer.sent[-1].token}/accept",
+        json={"name": "Sem", "password": PASSWORD},
+    )
+    assert accepted.status_code == 200, accepted.text
+    no_2fa = plain.get("/api/v1/internal/commissions/me?month=2026-10")
+    assert no_2fa.status_code == 403 and no_2fa.json()["error"]["code"] == "mfa_required"
+    _enable(plain)
+    assert plain.get("/api/v1/internal/staff/options").status_code == 403
+    me = staff.get("/api/v1/auth/me").json()["user"]["id"]
+    created = staff.post(
+        "/api/v1/internal/clients",
+        json={
+            "name": "Delta",
+            "seat_limit": 2,
+            "profile": {"first_name": "Dono", "last_name": "Delta", "email": "dono@delta.com"},
+        },
+        headers=_csrf(staff),
+    )
+    assert created.status_code == 201, created.text
+    company_id = created.json()["id"]
+    preview = f"/api/v1/internal/clients/{company_id}/manager-change?user_id={me}"
+    assert plain.get(preview).status_code == 403
+    assert staff.get(preview).status_code == 200
+    unknown = staff.get(f"/api/v1/internal/clients/{uuid.uuid4()}/manager-change?user_id={me}")
+    assert unknown.status_code == 404
+    outsider = staff.get(
+        f"/api/v1/internal/clients/{company_id}/manager-change?user_id={uuid.uuid4()}"
+    )
+    assert outsider.status_code == 404
