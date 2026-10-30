@@ -4,11 +4,11 @@ import uuid
 
 from avant_core.access.models import Actor
 from avant_core.company.services import (
-    client_permissions,
     create_role,
     delete_role,
     list_roles,
     page_roles,
+    role_permissions,
     update_role,
 )
 from avant_core.shared.clock import Clock
@@ -26,8 +26,9 @@ class RoleService:
         self._clock = clock
 
     def permissions(self, actor: Actor) -> list[PermissionOut]:
-        """As permissões que um papel de cliente pode ter."""
-        return [PermissionOut.of(permission) for permission in client_permissions(actor=actor)]
+        """As permissões que um papel da Empresa ativa pode ter; na Groone, também as internas."""
+        found = role_permissions(self._uows.uow(actor.company_id), actor=actor)
+        return [PermissionOut.of(permission) for permission in found]
 
     def page(self, actor: Actor, page: int) -> PageOut[RoleOut]:
         """Uma página dos papéis da Empresa ativa."""
