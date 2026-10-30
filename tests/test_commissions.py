@@ -146,3 +146,23 @@ def test_start_my_commission_team_discount_and_issue(
     _onboard_owner(owner, engine, mailer)
     assert owner.get("/api/v1/internal/commissions").status_code == 403
     assert owner.get("/api/v1/internal/commissions/me").status_code == 403
+
+
+def test_groone_role_with_internal_permissions(client: TestClient, engine: Engine) -> None:
+    staff = _staff(client, engine)
+    keys = {item["key"] for item in staff.get("/api/v1/permissions").json()["items"]}
+    assert {"internal.clients.view", "internal.commissions.manage"} <= keys
+    created = staff.post(
+        "/api/v1/roles",
+        json={
+            "name": "Comercial",
+            "permissions": ["internal.clients.view", "internal.commissions.view"],
+            "site_scope": "all",
+        },
+        headers=_csrf(staff),
+    )
+    assert created.status_code == 201, created.text
+    assert set(created.json()["permissions"]) == {
+        "internal.clients.view",
+        "internal.commissions.view",
+    }
