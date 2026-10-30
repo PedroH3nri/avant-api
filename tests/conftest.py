@@ -92,6 +92,12 @@ def client(engine: Engine, mailer: CapturingMailer) -> Iterator[TestClient]:
     owner = create_engine(OWNER_URL or "")
     with owner.begin() as conn:
         for table in (
+            "daily_commissions",
+            "commission_deductions",
+            "commission_adjustments",
+            "commission_windows",
+            "commission_rules",
+            "commission_settings",
             "costs",
             "metrics.mcm_earnings",
             "metrics.exchange_rates",
