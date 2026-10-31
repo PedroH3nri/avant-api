@@ -1,7 +1,7 @@
 """Métricas e relatórios: /api/v1/metrics/catalog, /api/v1/reports/query e os relatórios
 salvos em /api/v1/reports.
 
-Ver, rodar e exportar pedem ``reports.view`` (e que a pessoa veja o relatório: privado,
+Ver, fixar, rodar e exportar pedem ``reports.view`` (e que a pessoa veja o relatório: privado,
 Empresa ou papéis); criar, duplicar e partir de um modelo pedem ``reports.manage``. Editar e
 apagar são do dono ou de quem tem ``reports.manage``, conferido no avant-core.
 """
@@ -79,8 +79,8 @@ def index(
     actor: Actor = Depends(require("reports.view")),
     service: ReportService = Depends(report_service),
 ) -> ReportPageOut:
-    """Uma página dos relatórios salvos que a pessoa vê, o mais recente primeiro; ``scope``
-    separa os da pessoa (``mine``) dos compartilhados (``shared``) e a busca olha o nome."""
+    """Os relatórios que a pessoa vê, o mais recente primeiro, sem os fixados e com miniatura;
+    ``scope`` separa os dela (``mine``) dos compartilhados (``shared``), ``q`` busca no nome."""
     return service.page_saved(actor, scope, query, page)
 
 
@@ -111,6 +111,35 @@ def create_from_template(
 ) -> SavedReportOut:
     """Cria um relatório privado a partir de um modelo, com o nome no idioma da pessoa."""
     return service.create_from_template(actor, key)
+
+
+@router.get("/reports/pinned")
+def pinned(
+    actor: Actor = Depends(require("reports.view")),
+    service: ReportService = Depends(report_service),
+) -> ItemsOut[SavedReportOut]:
+    """Os relatórios que a pessoa fixou no topo da lista, com as miniaturas."""
+    return ItemsOut(items=service.pinned(actor))
+
+
+@router.put("/reports/{report_id}/pin", status_code=status.HTTP_204_NO_CONTENT)
+def pin(
+    report_id: uuid.UUID,
+    actor: Actor = Depends(require("reports.view")),
+    service: ReportService = Depends(report_service),
+) -> None:
+    """Fixa no topo da lista da pessoa um relatório que ela vê (até 12)."""
+    service.pin(actor, report_id)
+
+
+@router.delete("/reports/{report_id}/pin", status_code=status.HTTP_204_NO_CONTENT)
+def unpin(
+    report_id: uuid.UUID,
+    actor: Actor = Depends(require("reports.view")),
+    service: ReportService = Depends(report_service),
+) -> None:
+    """Solta um relatório fixado da pessoa."""
+    service.unpin(actor, report_id)
 
 
 @router.get("/reports/{report_id}")

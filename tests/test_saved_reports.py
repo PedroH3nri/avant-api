@@ -375,3 +375,41 @@ def test_chart_options_keep_metric_styles(
         "/api/v1/reports", json=_report(chart_options=pink), headers=_csrf(client)
     )
     assert refused.status_code == 422 and refused.json()["error"]["code"] == "invalid_input"
+
+
+def test_pinned_reports_and_preview_refresh(
+    client: TestClient, engine: Engine, mailer: CapturingMailer
+) -> None:
+    from avant_api.app.tasks import REFRESH_REPORT_PREVIEW, RecordingQueue
+
+    me = _onboard_owner(client, engine, mailer)
+    queue = client.app.state.services.tasks  # type: ignore[attr-defined]
+    assert isinstance(queue, RecordingQueue)
+    queue.sent.clear()
+    first = client.post("/api/v1/reports", json=_report(), headers=_csrf(client)).json()
+    second = client.post(
+        "/api/v1/reports", json=_report(name="Outro"), headers=_csrf(client)
+    ).json()
+    assert queue.sent == [
+        (REFRESH_REPORT_PREVIEW, (first["id"],)),
+        (REFRESH_REPORT_PREVIEW, (second["id"],)),
+    ]
+    assert first["preview"] is None and first["pinned"] is False
+
+    pinned = client.put(f"/api/v1/reports/{second['id']}/pin", headers=_csrf(client))
+    assert pinned.status_code == 204, pinned.text
+    assert [item["id"] for item in client.get("/api/v1/reports/pinned").json()["items"]] == [
+        second["id"]
+    ]
+    assert client.get("/api/v1/reports/pinned").json()["items"][0]["pinned"] is True
+    listed = client.get("/api/v1/reports").json()
+    assert [item["id"] for item in listed["items"]] == [first["id"]]
+    assert listed["counts"]["all"] == 2
+    assert (
+        client.put(f"/api/v1/reports/{uuid.uuid4()}/pin", headers=_csrf(client)).status_code == 404
+    )
+
+    unpinned = client.delete(f"/api/v1/reports/{second['id']}/pin", headers=_csrf(client))
+    assert unpinned.status_code == 204
+    assert client.get("/api/v1/reports/pinned").json()["items"] == []
+    assert me["active_company_id"]
