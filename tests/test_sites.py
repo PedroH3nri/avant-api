@@ -135,3 +135,96 @@ def test_manual_site(client: TestClient, engine: Engine, mailer: CapturingMailer
     assert ana.delete(f"/api/v1/sites/{site['id']}", headers=_csrf(ana)).status_code == 403
     assert client.delete(f"/api/v1/sites/{site['id']}", headers=_csrf(client)).status_code == 204
     assert client.get(f"/api/v1/sites/{site['id']}").status_code == 404
+
+
+def test_site_category_and_responsible(
+    client: TestClient, engine: Engine, mailer: CapturingMailer
+) -> None:
+    """Categoria e responsável do site, sozinho e em lote, e quem não pode mudar."""
+    me = _onboard_owner(client, engine, mailer)
+    ids = _inventory(engine, uuid.UUID(me["active_company_id"]))
+    ana = _member_client(client, mailer, "ana@acai.com")
+    members = client.get("/api/v1/members").json()["items"]
+    ana_user = next(member["user"]["id"] for member in members if member["user"]["name"] == "Ana")
+
+    response = client.patch(
+        f"/api/v1/sites/{ids['acai']}",
+        json={"category": "food", "responsible_user_id": ana_user},
+        headers=_csrf(client),
+    )
+    assert response.status_code == 200
+    assert (response.json()["category"], response.json()["responsible_user_id"]) == (
+        "food",
+        ana_user,
+    )
+    response = client.patch(
+        "/api/v1/sites",
+        json={"site_ids": [str(ids["acai"]), str(ids["blog"])], "category": "news"},
+        headers=_csrf(client),
+    )
+    assert response.status_code == 200
+    found = {site["domain"]: site for site in response.json()["items"]}
+    assert found["acai.com.br"]["category"] == "news"
+    assert found["acai.com.br"]["responsible_user_id"] == ana_user
+    assert found["blog.com"]["responsible_user_id"] is None
+    cleared = client.patch(
+        f"/api/v1/sites/{ids['acai']}", json={"category": None}, headers=_csrf(client)
+    )
+    assert cleared.json()["category"] is None
+    assert cleared.json()["responsible_user_id"] == ana_user
+
+    assert (
+        client.patch(
+            f"/api/v1/sites/{ids['acai']}", json={"category": "cars"}, headers=_csrf(client)
+        ).status_code
+        == 422
+    )
+    assert (
+        client.patch(
+            f"/api/v1/sites/{ids['acai']}",
+            json={"responsible_user_id": str(uuid.uuid4())},
+            headers=_csrf(client),
+        ).status_code
+        == 422
+    )
+    assert (
+        client.patch(f"/api/v1/sites/{ids['acai']}", json={}, headers=_csrf(client)).status_code
+        == 422
+    )
+    assert (
+        ana.patch(
+            f"/api/v1/sites/{ids['acai']}", json={"category": "news"}, headers=_csrf(ana)
+        ).status_code
+        == 403
+    )
+    assert (
+        ana.patch(
+            "/api/v1/sites",
+            json={"site_ids": [str(ids["acai"])], "category": "news"},
+            headers=_csrf(ana),
+        ).status_code
+        == 403
+    )
+
+    def domains(query: str) -> list[str]:
+        """Os domínios da lista de sites com o filtro da query string."""
+        return sorted(
+            site["domain"] for site in client.get(f"/api/v1/sites?{query}").json()["items"]
+        )
+
+    assert domains("category=news") == ["blog.com"]
+    assert domains("category=none") == ["acai.com.br"]
+    assert domains(f"responsible_user_id={ana_user}") == ["acai.com.br"]
+    assert domains("responsible_user_id=none") == ["blog.com"]
+    assert client.get("/api/v1/sites?category=cars").status_code == 422
+
+    catalog = client.get("/api/v1/metrics/catalog").json()
+    assert {"site_category", "site_responsible"} <= {item["key"] for item in catalog["dimensions"]}
+    assert catalog["site_categories"][0] == {
+        "key": "news",
+        "label": {"pt": "Notícias", "en": "News", "es": "Noticias"},
+    }
+
+    ana_member = next(member["id"] for member in members if member["user"]["name"] == "Ana")
+    assert client.delete(f"/api/v1/members/{ana_member}", headers=_csrf(client)).status_code == 204
+    assert client.get(f"/api/v1/sites/{ids['acai']}").json()["responsible_user_id"] is None
