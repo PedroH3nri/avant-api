@@ -118,6 +118,31 @@ def require(permission: str) -> Callable[[Actor], Actor]:
     return dependency
 
 
+def require_report(permission: str) -> Callable[..., Actor]:
+    """Como ``require``; na Company Groone, onde os relatórios leem todos os clientes, só pela
+    sessão com 2FA verificado, nunca por chave de API."""
+
+    def dependency(request: Request, services: Services = Depends(get_services)) -> Actor:
+        """Exige a permissão e, na Company Groone, a sessão com 2FA."""
+        token = bearer_token(request)
+        if token is not None:
+            actor = api_key_actor(request, services, token)
+            with services.trusted_uow() as uow:
+                company = uow.companies.get(actor.company_id)
+            if company is not None and company.is_internal:
+                raise StaffOnly("os relatórios da Groone não abrem por chave de API")
+        else:
+            auth = get_auth(get_session_auth(optional_auth(request, services)))
+            actor = get_session_actor(auth)
+            internal = auth.active is not None and auth.active.company.is_internal
+            if internal and auth.session.mfa_verified_at is None:
+                raise MfaRequired("entre com o 2FA para ver os relatórios da Groone")
+        actor.grants.require(permission)
+        return actor
+
+    return dependency
+
+
 def require_session(permission: str) -> Callable[[Actor], Actor]:
     """Como ``require``, mas recusa chave de API (criar chave, por exemplo)."""
 
