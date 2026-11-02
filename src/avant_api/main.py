@@ -33,6 +33,7 @@ from avant_api.modules.profile.controller import router as profile
 from avant_api.modules.reports.controller import router as reports
 from avant_api.modules.results.controller import router as results
 from avant_api.modules.roles.controller import router as roles
+from avant_api.modules.schedules.controller import router as schedules
 from avant_api.modules.sites.controller import router as sites
 from avant_api.shared.dto import API_PATH
 
@@ -72,6 +73,7 @@ def create_app(services: Services | None = None) -> FastAPI:
         reports,
         dashboards,
         alerts,
+        schedules,
         custom_metrics,
         currencies,
         costs,
