@@ -9,7 +9,7 @@ import uuid
 from avant_core.access.models import Actor
 from avant_core.commissions.services import manager_change_preview
 from avant_core.company.enums import CompanyStatus
-from avant_core.company.models import CompanyImage, Invitation
+from avant_core.company.models import ClientFilter, CompanyImage, Invitation
 from avant_core.internal.services import cancel_owner_invitation as cancel_owner_invite
 from avant_core.internal.services import (
     change_owner,
@@ -75,13 +75,9 @@ class ClientService:
         self._mailer = mailer
         self._images = images
 
-    def page(
-        self, actor: Actor, query: str | None, status: CompanyStatus | None, page: int
-    ) -> PageOut[ClientOut]:
-        """Uma página das Empresas de cliente, a mais recente primeiro, com busca e status."""
-        found = page_clients(
-            self._uows.trusted_uow(), actor=actor, query=query, status=status, page=page
-        )
+    def page(self, actor: Actor, filters: ClientFilter, page: int) -> PageOut[ClientOut]:
+        """Uma página das Empresas de cliente com os filtros e a ordem dados."""
+        found = page_clients(self._uows.trusted_uow(), actor=actor, filters=filters, page=page)
         return page_out(found, ClientOut.of)
 
     def options(self, actor: Actor) -> list[ClientOptionOut]:
