@@ -75,12 +75,6 @@ class DashboardPageOut(PageOut[DashboardOut]):
     chosen_id: uuid.UUID | None
 
 
-class HomeDashboardOut(BaseModel):
-    """O dashboard que abre para a pessoa, ou nenhum."""
-
-    dashboard: DashboardOut | None
-
-
 class DashboardChoiceIn(BaseModel):
     """O dashboard escolhido; vazio tira a escolha."""
 
@@ -96,6 +90,13 @@ class DashboardTemplateOut(BaseModel):
     def of(cls, template: DashboardTemplate) -> "DashboardTemplateOut":
         """Monta o modelo pronto com o nome nos três idiomas."""
         return cls(key=template.key, name=LabelOut(**template.name), definition=template.definition)
+
+
+class HomeDashboardOut(BaseModel):
+    """O dashboard que abre para a pessoa; sem nenhum, o modelo que a tela inicial mostra."""
+
+    dashboard: DashboardOut | None
+    template: DashboardTemplateOut | None = None
 
 
 class WidgetRunIn(BaseModel):
