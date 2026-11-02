@@ -18,6 +18,7 @@ from avant_api.modules.company.controller import router as company
 from avant_api.modules.costs.controller import router as costs
 from avant_api.modules.currencies.controller import router as currencies
 from avant_api.modules.custom_metrics.controller import router as custom_metrics
+from avant_api.modules.dashboards.controller import router as dashboards
 from avant_api.modules.events.controller import router as events
 from avant_api.modules.google.controller import router as google
 from avant_api.modules.groups.controller import router as groups
@@ -68,6 +69,7 @@ def create_app(services: Services | None = None) -> FastAPI:
         networks,
         sites,
         reports,
+        dashboards,
         custom_metrics,
         currencies,
         costs,
