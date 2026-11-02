@@ -10,7 +10,7 @@ lê a que está guardada.
 
 import time
 import uuid
-from collections.abc import Iterator
+from collections.abc import Callable, Iterator
 from contextlib import contextmanager
 from typing import Any
 
@@ -216,27 +216,26 @@ class ReportService:
             return to_xlsx(result, definition, locale, self._names(actor))
         return to_csv(result, definition, locale, self._names(actor)).encode()
 
-    def _run(self, actor: Actor, definition: QueryDefinition) -> QueryResult:
-        """Aplica o limite de taxa e roda o motor de consulta na Empresa ativa."""
+    def run_guarded(self, actor: Actor, call: Callable[[UnitOfWork], QueryResult]) -> QueryResult:
+        """Roda uma consulta do motor com o limite de taxa, o tempo máximo do Postgres e o Unit
+        of Work certo para a Empresa ativa (também usado pelos widgets dos dashboards)."""
         self._take_slot(actor)
         with _statement_timeout():
-            return run_query(
-                self._query_uow(actor),
-                actor=actor,
-                definition=definition,
-                clock=self._clock,
-            )
+            return call(self._query_uow(actor))
+
+    def _run(self, actor: Actor, definition: QueryDefinition) -> QueryResult:
+        """Roda o motor de consulta na Empresa ativa, com o limite de taxa."""
+        return self.run_guarded(
+            actor,
+            lambda uow: run_query(uow, actor=actor, definition=definition, clock=self._clock),
+        )
 
     def _run_saved(self, actor: Actor, report_id: uuid.UUID) -> QueryResult:
-        """Aplica o limite de taxa e roda o relatório salvo."""
-        self._take_slot(actor)
-        with _statement_timeout():
-            return run_report(
-                self._query_uow(actor),
-                actor=actor,
-                report_id=report_id,
-                clock=self._clock,
-            )
+        """Roda o relatório salvo, com o limite de taxa."""
+        return self.run_guarded(
+            actor,
+            lambda uow: run_report(uow, actor=actor, report_id=report_id, clock=self._clock),
+        )
 
     def _groone(self, actor: Actor) -> bool:
         """Diz se a Empresa ativa é a Company Groone."""
