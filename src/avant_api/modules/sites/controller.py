@@ -6,9 +6,11 @@ e se atribui sites.
 """
 
 import uuid
+from typing import Literal
 
 from avant_core.access.models import Actor
-from avant_core.gam.inventory.enums import InventoryStatus
+from avant_core.gam.inventory.enums import InventoryStatus, SiteCategory
+from avant_core.gam.inventory.models import SiteFilter
 from fastapi import APIRouter, Depends, Query, status
 
 from avant_api.app.security import require
@@ -22,6 +24,8 @@ from avant_api.modules.sites.dto import (
     SiteListOut,
     SiteMemberOut,
     SiteOut,
+    SitePatchIn,
+    SitesPatchIn,
 )
 from avant_api.modules.sites.service import SiteService
 from avant_api.shared.dto import ItemsOut, PageOut
@@ -36,11 +40,17 @@ def index(
     query: str | None = Query(alias="q", default=None, max_length=200),
     include_archived: bool = False,
     page: int = Query(default=1, ge=1),
+    category: SiteCategory | Literal["none"] | None = None,
+    responsible_user_id: uuid.UUID | Literal["none"] | None = None,
     actor: Actor = Depends(require("sites.view")),
     service: SiteService = Depends(site_service),
 ) -> PageOut[SiteListOut]:
-    """Uma página dos sites que quem age enxerga, o mais recente primeiro, com filtros."""
-    return service.page(actor, network_id, approval_status, query, include_archived, page)
+    """Uma página dos sites que quem age enxerga, o mais recente primeiro, com filtros; em
+    categoria e responsável, ``none`` traz os sites sem."""
+    site_filter = SiteFilter(category=category, responsible_user_id=responsible_user_id)
+    return service.page(
+        actor, network_id, approval_status, query, include_archived, page, site_filter
+    )
 
 
 @router.get("/sites/options")
@@ -60,6 +70,28 @@ def create(
 ) -> SiteListOut:
     """Site pelo domínio, aguardando o GAM; a importação o junta ao site do mesmo domínio."""
     return service.create(actor, body.domain)
+
+
+@router.patch("/sites")
+def classify_many(
+    body: SitesPatchIn,
+    actor: Actor = Depends(require("sites.manage")),
+    service: SiteService = Depends(site_service),
+) -> ItemsOut[SiteOut]:
+    """Muda a categoria e/ou o responsável de vários sites de uma vez (até 1000)."""
+    return ItemsOut(items=service.classify(actor, body.site_ids, body))
+
+
+@router.patch("/sites/{site_id}")
+def classify(
+    site_id: uuid.UUID,
+    body: SitePatchIn,
+    actor: Actor = Depends(require("sites.manage")),
+    service: SiteService = Depends(site_service),
+) -> SiteOut:
+    """Muda a categoria e/ou o responsável do site; só o campo enviado muda."""
+    (site,) = service.classify(actor, [site_id], body)
+    return site
 
 
 @router.delete("/sites/{site_id}", status_code=status.HTTP_204_NO_CONTENT)

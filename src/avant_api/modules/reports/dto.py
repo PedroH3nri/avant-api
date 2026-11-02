@@ -6,6 +6,7 @@ from decimal import Decimal
 from typing import Annotated, Any, Literal
 
 from avant_core.access.enums.visibility import Visibility
+from avant_core.gam.inventory.enums import SiteCategory
 from avant_core.metrics.enums import (
     FilterOperator,
     MetricFormat,
@@ -114,11 +115,18 @@ class CustomCatalogMetricOut(BaseModel):
         )
 
 
+class SiteCategoryOut(BaseModel):
+    key: SiteCategory
+    label: LabelOut
+
+
 class MetricCatalogOut(BaseModel):
     metrics: list[MetricOut]
     # As métricas personalizadas da Empresa ativa.
     custom_metrics: list[CustomCatalogMetricOut]
     dimensions: list[DimensionOut]
+    # Os valores da dimensão site_category, na ordem da lista da Groone.
+    site_categories: list[SiteCategoryOut]
     operators: list[FilterOperator]
     periods: list[RelativePeriod]
     max_days: int

@@ -16,7 +16,12 @@ from typing import Any
 
 from avant_core.access.models import Actor
 from avant_core.identity.enums import Locale
-from avant_core.metrics.catalog import CUSTOM_PREFIX, visible_dimensions, visible_metrics
+from avant_core.metrics.catalog import (
+    CUSTOM_PREFIX,
+    SITE_CATEGORY_LABELS,
+    visible_dimensions,
+    visible_metrics,
+)
 from avant_core.metrics.enums import FilterOperator, RelativePeriod
 from avant_core.metrics.models import QueryDefinition, QueryResult
 from avant_core.metrics.services import (
@@ -55,6 +60,7 @@ from avant_api.modules.reports.dto import (
     CustomCatalogMetricOut,
     DimensionOut,
     ExportFormat,
+    LabelOut,
     MetricCatalogOut,
     MetricOut,
     ReportCountsOut,
@@ -65,6 +71,7 @@ from avant_api.modules.reports.dto import (
     ReportTemplateOut,
     SavedReportIn,
     SavedReportOut,
+    SiteCategoryOut,
 )
 from avant_api.modules.reports.export import to_csv, to_xlsx
 
@@ -96,6 +103,10 @@ class ReportService:
             ],
             dimensions=[
                 DimensionOut.of(dimension) for dimension in visible_dimensions(internal=internal)
+            ],
+            site_categories=[
+                SiteCategoryOut(key=key, label=LabelOut.of(label))
+                for key, label in SITE_CATEGORY_LABELS.items()
             ],
             operators=list(FilterOperator),
             periods=list(RelativePeriod),
