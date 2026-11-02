@@ -3,8 +3,8 @@
 import uuid
 from datetime import datetime
 
-from avant_core.gam.inventory.enums import InventoryStatus
-from avant_core.gam.inventory.models import AdUnit, Site
+from avant_core.gam.inventory.enums import InventoryStatus, SiteCategory
+from avant_core.gam.inventory.models import AdUnit, Site, SiteChanges
 from avant_core.gam.inventory.services import SiteDetail, SiteMember, SiteView
 from pydantic import BaseModel, Field
 
@@ -25,6 +25,10 @@ class SiteOut(BaseModel):
     synced_at: datetime | None
     # Cadastrado à mão, o GAM ainda não trouxe.
     awaiting_gam: bool
+    # Vazio: sem categoria.
+    category: SiteCategory | None
+    # Usuário (membro da Empresa) responsável; vazio: sem responsável.
+    responsible_user_id: uuid.UUID | None
 
     @classmethod
     def of(cls, site: Site) -> "SiteOut":
@@ -37,7 +41,30 @@ class SiteOut(BaseModel):
             status=site.status,
             synced_at=site.synced_at,
             awaiting_gam=site.awaiting_gam,
+            category=site.category,
+            responsible_user_id=site.responsible_user_id,
         )
+
+
+class SitePatchIn(BaseModel):
+    """Só muda o campo que vier no corpo; ``null`` limpa (sem categoria, sem responsável)."""
+
+    category: SiteCategory | None = None
+    responsible_user_id: uuid.UUID | None = None
+
+    def changes(self) -> SiteChanges:
+        """O que muda, pelos campos que vieram no corpo."""
+        sent = self.model_fields_set
+        return SiteChanges(
+            change_category="category" in sent,
+            category=self.category,
+            change_responsible="responsible_user_id" in sent,
+            responsible_user_id=self.responsible_user_id,
+        )
+
+
+class SitesPatchIn(SitePatchIn):
+    site_ids: list[uuid.UUID] = Field(min_length=1, max_length=1000)
 
 
 class SiteListOut(SiteOut):

@@ -7,8 +7,10 @@ import uuid
 
 from avant_core.access.models import Actor
 from avant_core.gam.inventory.enums import InventoryStatus
+from avant_core.gam.inventory.models import SiteFilter
 from avant_core.gam.inventory.services import (
     add_site,
+    classify_sites,
     get_site,
     link_ad_unit,
     list_ad_units,
@@ -30,6 +32,7 @@ from avant_api.modules.sites.dto import (
     SiteListOut,
     SiteMemberOut,
     SiteOut,
+    SitePatchIn,
 )
 from avant_api.shared.dto import PageOut, page_out
 
@@ -49,6 +52,7 @@ class SiteService:
         query: str | None,
         include_archived: bool,
         page: int,
+        site_filter: SiteFilter | None = None,
     ) -> PageOut[SiteListOut]:
         """Uma página dos sites que quem age enxerga, o mais recente primeiro, com filtros."""
         found = page_sites(
@@ -59,6 +63,7 @@ class SiteService:
             query=query,
             include_archived=include_archived,
             page=page,
+            site_filter=site_filter,
         )
         return page_out(found, SiteListOut.of_view)
 
@@ -80,6 +85,17 @@ class SiteService:
             self._uows.uow(actor.company_id), actor=actor, domain=domain, clock=self._clock
         )
         return SiteListOut(**SiteOut.of(site).model_dump(), ad_units=0)
+
+    def classify(self, actor: Actor, site_ids: list[uuid.UUID], body: SitePatchIn) -> list[SiteOut]:
+        """Muda a categoria e/ou o responsável de um site ou de um lote."""
+        found = classify_sites(
+            self._uows.uow(actor.company_id),
+            actor=actor,
+            site_ids=site_ids,
+            changes=body.changes(),
+            clock=self._clock,
+        )
+        return [SiteOut.of(site) for site in found]
 
     def delete(self, actor: Actor, site_id: uuid.UUID) -> None:
         """Apaga um site que ainda aguarda o GAM."""
