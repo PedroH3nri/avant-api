@@ -80,7 +80,21 @@ def test_dashboards_of_a_client(
     groone_only = client.post("/api/v1/dashboards/templates/groone_overview", headers=_csrf(client))
     assert groone_only.status_code == 404
 
-    assert client.get("/api/v1/dashboards/home").json() == {"dashboard": None}
+    empty_home = client.get("/api/v1/dashboards/home").json()
+    assert empty_home["dashboard"] is None and empty_home["template"]["key"] == "overview"
+    widgets = {item["id"]: item["type"] for item in empty_home["template"]["definition"]["widgets"]}
+    assert widgets["account"] == "account"
+    from_home = client.post(
+        "/api/v1/dashboards/templates/overview/widgets/revenue/run", json={}, headers=_csrf(client)
+    )
+    assert from_home.status_code == 200, from_home.text
+    assert set(from_home.json()["totals"]) == {"revenue"}
+    other = client.post(
+        "/api/v1/dashboards/templates/groone_overview/widgets/revenue_groone/run",
+        json={},
+        headers=_csrf(client),
+    )
+    assert other.status_code == 404
     choice = {"dashboard_id": dashboard["id"]}
     marked = client.put("/api/v1/dashboards/default", json=choice, headers=_csrf(client))
     assert marked.status_code == 204, marked.text
@@ -132,7 +146,7 @@ def test_members_see_shared_dashboards_but_need_manage_to_edit(
     assert ana.get("/api/v1/dashboards/home").json()["dashboard"]["id"] == shared_id
     removed = client.delete(f"/api/v1/dashboards/{shared_id}", headers=_csrf(client))
     assert removed.status_code == 204
-    assert ana.get("/api/v1/dashboards/home").json() == {"dashboard": None}
+    assert ana.get("/api/v1/dashboards/home").json()["dashboard"] is None
 
 
 def test_groone_dashboards_sum_every_client(

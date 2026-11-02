@@ -17,8 +17,10 @@ from avant_core.dashboards.services import (
     duplicate_dashboard,
     get_dashboard,
     home_dashboard,
+    home_template,
     list_dashboard_templates,
     page_dashboards,
+    run_template_widget,
     run_widget,
     set_company_default,
     update_dashboard,
@@ -71,9 +73,15 @@ class DashboardService:
         return self._out(actor, found)
 
     def home(self, actor: Actor) -> HomeDashboardOut:
-        """O dashboard que abre para a pessoa: o escolhido, senão o padrão da Empresa."""
+        """O dashboard que abre para a pessoa (o escolhido, senão o padrão da Empresa); sem
+        nenhum, o primeiro modelo da Empresa."""
         found = home_dashboard(self._uows.uow(actor.company_id), actor=actor)
-        return HomeDashboardOut(dashboard=self._out(actor, found) if found else None)
+        if found is not None:
+            return HomeDashboardOut(dashboard=self._out(actor, found))
+        template = home_template(self._uows.uow(actor.company_id), actor=actor)
+        return HomeDashboardOut(
+            dashboard=None, template=DashboardTemplateOut.of(template) if template else None
+        )
 
     def choose(self, actor: Actor, dashboard_id: uuid.UUID | None) -> None:
         """Guarda o dashboard que a pessoa quer abrir, ou volta para o padrão."""
@@ -152,6 +160,23 @@ class DashboardService:
                 uow,
                 actor=actor,
                 dashboard_id=dashboard_id,
+                widget_id=widget_id,
+                clock=self._clock,
+                filters=body.filters,
+            ),
+        )
+        return ReportResultOut.of(result)
+
+    def run_template(
+        self, actor: Actor, key: str, widget_id: str, body: WidgetRunIn
+    ) -> ReportResultOut:
+        """Roda um widget de um modelo pronto, para a tela inicial de quem não tem dashboard."""
+        result = self._reports.run_guarded(
+            actor,
+            lambda uow: run_template_widget(
+                uow,
+                actor=actor,
+                key=key,
                 widget_id=widget_id,
                 clock=self._clock,
                 filters=body.filters,

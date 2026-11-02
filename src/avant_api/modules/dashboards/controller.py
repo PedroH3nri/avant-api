@@ -98,6 +98,18 @@ def create_from_template(
     return service.create_from_template(actor, key)
 
 
+@router.post("/templates/{key}/widgets/{widget_id}/run")
+def run_template(
+    body: WidgetRunIn,
+    key: str = Path(max_length=40),
+    widget_id: str = Path(max_length=40),
+    actor: Actor = Depends(require_report("reports.view")),
+    service: DashboardService = Depends(dashboard_service),
+) -> ReportResultOut:
+    """Roda um widget de um modelo pronto, para a tela inicial de quem ainda não tem dashboard."""
+    return service.run_template(actor, key, widget_id, body)
+
+
 @router.get("/{dashboard_id}")
 def show(
     dashboard_id: uuid.UUID,
