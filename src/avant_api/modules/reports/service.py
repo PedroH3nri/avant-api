@@ -227,9 +227,9 @@ class ReportService:
             return to_xlsx(result, definition, locale, self._names(actor))
         return to_csv(result, definition, locale, self._names(actor)).encode()
 
-    def run_guarded(self, actor: Actor, call: Callable[[UnitOfWork], QueryResult]) -> QueryResult:
+    def run_guarded[T](self, actor: Actor, call: Callable[[UnitOfWork], T]) -> T:
         """Roda uma consulta do motor com o limite de taxa, o tempo máximo do Postgres e o Unit
-        of Work certo para a Empresa ativa (também usado pelos widgets dos dashboards)."""
+        of Work certo para a Empresa ativa (também usado pelos dashboards e pelos alertas)."""
         self._take_slot(actor)
         with _statement_timeout():
             return call(self._query_uow(actor))

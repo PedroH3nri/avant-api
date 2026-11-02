@@ -12,6 +12,7 @@ from dataclasses import dataclass, field
 import pytest
 from alembic import command
 from alembic.config import Config
+from avant_core.alerts.models import AlertMail
 from avant_core.company.enums import InvitationKind
 from avant_core.identity.security.crypto import FernetSecretBox
 from avant_core.identity.security.passwords import Argon2PasswordHasher
@@ -42,6 +43,7 @@ class CapturingMailer:
     sent: list[Sent] = field(default_factory=list)
     resets: list[tuple[str, str]] = field(default_factory=list)  # (para, token)
     notices: list[tuple[str, Notice]] = field(default_factory=list)
+    alerts: list[tuple[str, AlertMail]] = field(default_factory=list)
 
     def send_invitation(
         self, *, to: str, token: str, kind: InvitationKind, company_name: str | None, locale: str
@@ -55,6 +57,9 @@ class CapturingMailer:
         self, *, to: str, notice: Notice, locale: str, params: dict[str, str] | None = None
     ) -> None:
         self.notices.append((to, notice))
+
+    def send_metric_alert(self, *, to: str, locale: str, alert: AlertMail) -> None:
+        self.alerts.append((to, alert))
 
 
 @pytest.fixture(scope="session")

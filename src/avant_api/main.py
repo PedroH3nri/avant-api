@@ -11,6 +11,7 @@ from avant_api.app.logs import configure_logging
 from avant_api.app.middleware import observe
 from avant_api.app.settings import Settings
 from avant_api.modules.account.controller import router as account
+from avant_api.modules.alerts.controller import router as alerts
 from avant_api.modules.api_keys.controller import router as api_keys
 from avant_api.modules.audit.controller import router as audit
 from avant_api.modules.auth.controller import router as auth
@@ -70,6 +71,7 @@ def create_app(services: Services | None = None) -> FastAPI:
         sites,
         reports,
         dashboards,
+        alerts,
         custom_metrics,
         currencies,
         costs,
