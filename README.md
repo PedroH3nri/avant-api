@@ -105,11 +105,12 @@ Painel interno, em `/api/v1/internal` (Company Groone ativa e 2FA verificado na 
 
 | Rota | Faz | Permissão |
 | --- | --- | --- |
-| `GET /internal/clients`, `POST /internal/clients` | lista clientes em páginas (`page`, `q`, `status`, o mais recente primeiro); cadastra o cliente pendente, com contato e indicação, sem mandar e-mail | `internal.clients.view` / `.manage` |
+| `GET /internal/clients`, `POST /internal/clients` | lista clientes em páginas (`page`, `q`, `status`, `manager` repetível, `sort` = `created_at` ou `name`, `direction` = `asc` ou `desc`; padrão o mais recente primeiro); cadastra o cliente pendente, com contato e indicação, sem mandar e-mail | `internal.clients.view` / `.manage` |
 | `POST /internal/clients/{id}/owner-invitation` | envia (ou manda de novo) o convite de dono para o e-mail do cadastro | `internal.clients.manage` |
 | `GET /internal/clients/options` | todos os clientes (`id`, `name`, `status`), para seletores e para contar as abas por situação | `internal.clients.view` |
 | `GET /internal/clients/{id}`, `/audit` | página de suporte e histórico (em páginas numeradas), só leitura | `internal.clients.view` |
 | `GET /internal/clients/{id}/manager-change?user_id=` | o que trocar o responsável para essa pessoa (sem `user_id`: tirar o responsável) faria: prazos que seguem, que param e os sem pessoa que chegam para ela; não muda nada | `internal.clients.view` |
+| `GET /internal/views?screen=`, `POST /internal/views`, `PUT`/`DELETE /internal/views/{id}`, `GET /internal/views/catalog/{screen}` | visões salvas das tabelas internas (`clients`, `contracts`, `client_results`, `commissions`, `invoices`): colunas, filtros e ordem, privadas, da Empresa ou de papéis; só o dono edita. O catálogo diz o que cada tela aceita | equipe Groone; a permissão de ver a tela |
 | `PATCH /internal/clients/{id}` | nome, vagas e cadastro (contato e indicação; os fiscais só o cliente muda); cadastro sem `account_manager_id` mantém o responsável, e trocar um responsável que já existia pede `internal.commissions.manage` | `internal.clients.manage` |
 | `GET`, `PUT`, `DELETE /internal/clients/{id}/image` | imagem do cliente (ver, trocar, tirar) | `internal.clients.view` / `.manage` |
 | `PUT /internal/clients/{id}/status` | situação `active`, `inactive` ou `banned`; as networks acompanham | `internal.clients.manage` |

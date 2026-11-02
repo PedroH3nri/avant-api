@@ -5,9 +5,11 @@ verificado na sessão e a permissão) e, no core, ``ensure_staff`` em cada caso 
 """
 
 import uuid
+from typing import Literal
 
 from avant_core.access.models import Actor
-from avant_core.company.enums import CompanyStatus
+from avant_core.company.enums import ClientSort, CompanyStatus
+from avant_core.company.models import ClientFilter
 from fastapi import APIRouter, Depends, Query, Request, Response, status
 
 from avant_api.app.security import require_staff
@@ -35,12 +37,23 @@ router = APIRouter(prefix="/internal", tags=["internal"])
 def clients(
     query: str | None = Query(alias="q", default=None, max_length=120),
     company_status: CompanyStatus | None = Query(default=None, alias="status"),
+    managers: list[uuid.UUID] = Query(default=[], alias="manager", max_length=50),
+    sort: ClientSort = ClientSort.CREATED_AT,
+    direction: Literal["asc", "desc"] = "desc",
     page: int = Query(default=1, ge=1),
     actor: Actor = Depends(require_staff("internal.clients.view")),
     service: ClientService = Depends(client_service),
 ) -> PageOut[ClientOut]:
-    """Uma página das Empresas de cliente, a mais recente primeiro, com busca e status."""
-    return service.page(actor, query, company_status, page)
+    """Uma página das Empresas de cliente com busca, status, responsáveis (``manager`` pode
+    repetir) e ordem por data de cadastro ou nome; o padrão é a mais recente primeiro."""
+    filters = ClientFilter(
+        query=query,
+        status=company_status,
+        account_manager_ids=tuple(managers),
+        sort=sort,
+        descending=direction == "desc",
+    )
+    return service.page(actor, filters, page)
 
 
 @router.get("/clients/options")
