@@ -311,3 +311,31 @@ def test_display_currency_and_query_in_another_currency(
     assert result.json()["totals"]["revenue"] == "180"
     in_dollars = client.post("/api/v1/reports/query", json=_day(), headers=_csrf(client)).json()
     assert in_dollars["currency"] == "USD" and in_dollars["totals"]["revenue"] == "36"
+
+
+def test_groone_reports_sum_every_client(
+    client: TestClient, engine: Engine, mailer: CapturingMailer
+) -> None:
+    from tests.test_internal import _staff
+
+    me = _onboard_owner(client, engine, mailer)
+    company_id = me["active_company_id"]
+    _metrics(engine, uuid.UUID(company_id))
+    by_client = _day(["client"], metrics=["revenue_gross", "revenue_groone"])
+    refused = client.post("/api/v1/reports/query", json=by_client, headers=_csrf(client))
+    assert refused.status_code == 422, refused.text
+    client_catalog = {
+        item["key"] for item in client.get("/api/v1/metrics/catalog").json()["dimensions"]
+    }
+    assert "client" not in client_catalog and "account_manager" not in client_catalog
+
+    staff = _staff(client, engine)
+    catalog = staff.get("/api/v1/metrics/catalog").json()
+    assert {"client", "account_manager"} <= {item["key"] for item in catalog["dimensions"]}
+    assert "revenue_gross" in {item["key"] for item in catalog["metrics"]}
+    response = staff.post("/api/v1/reports/query", json=by_client, headers=_csrf(staff))
+    assert response.status_code == 200, response.text
+    result = response.json()
+    assert [row["dimensions"]["client"] for row in result["rows"]] == [company_id]
+    assert result["totals"] == {"revenue_gross": "45", "revenue_groone": "9"}
+    assert company_id in result["labels"]["client"]

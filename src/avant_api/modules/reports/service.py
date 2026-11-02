@@ -1,9 +1,11 @@
 """Service dos relatórios: consultas avulsas e relatórios salvos, pelo motor do avant-core.
 
 O motor confere tudo contra o catálogo e soma no banco com RLS, só nos sites que a pessoa
-enxerga. As consultas têm um limite de taxa próprio, por pessoa e Empresa, e o mesmo vale
-para rodar e exportar um relatório salvo. Criar, editar e duplicar pedem ao worker a miniatura
-do relatório; a lista só lê a que está guardada.
+enxerga. Na Company Groone ele soma as Empresas cliente, então a consulta roda num Unit of Work
+sem RLS (``trusted_uow``) e o avant-core recorta os clientes que a pessoa vê. As consultas têm
+um limite de taxa próprio, por pessoa e Empresa, e o mesmo vale para rodar e exportar um
+relatório salvo. Criar, editar e duplicar pedem ao worker a miniatura do relatório; a lista só
+lê a que está guardada.
 """
 
 import time
@@ -14,7 +16,7 @@ from typing import Any
 
 from avant_core.access.models import Actor
 from avant_core.identity.enums import Locale
-from avant_core.metrics.catalog import CUSTOM_PREFIX, DIMENSIONS, visible_metrics
+from avant_core.metrics.catalog import CUSTOM_PREFIX, visible_dimensions, visible_metrics
 from avant_core.metrics.enums import FilterOperator, RelativePeriod
 from avant_core.metrics.models import QueryDefinition, QueryResult
 from avant_core.metrics.services import (
@@ -24,6 +26,7 @@ from avant_core.metrics.services import (
     run_query,
 )
 from avant_core.metrics.services.query_rules import MAX_DAYS, MAX_LIMIT
+from avant_core.ports import UnitOfWork
 from avant_core.reports.enums import ReportScope
 from avant_core.reports.models.saved_report import SavedReport
 from avant_core.reports.services import (
@@ -80,17 +83,20 @@ class ReportService:
         self._tasks = tasks
 
     def catalog(self, actor: Actor) -> MetricCatalogOut:
-        """Métricas e dimensões que um cliente pode pedir, nos três idiomas, mais as
-        personalizadas da Empresa ativa."""
+        """Métricas e dimensões que a pessoa pode pedir, nos três idiomas, mais as
+        personalizadas da Empresa ativa; na Company Groone, também as internas."""
         custom = list_custom_metrics(self._uows.uow(actor.company_id), actor=actor)
         rules = CustomMetricSet(custom)
+        internal = self._groone(actor)
         return MetricCatalogOut(
-            metrics=[MetricOut.of(metric) for metric in visible_metrics(internal=False)],
+            metrics=[MetricOut.of(metric) for metric in visible_metrics(internal=internal)],
             custom_metrics=[
                 CustomCatalogMetricOut.of(metric, rules.sources(f"custom.{metric.key}"))
                 for metric in custom
             ],
-            dimensions=[DimensionOut.of(dimension) for dimension in DIMENSIONS],
+            dimensions=[
+                DimensionOut.of(dimension) for dimension in visible_dimensions(internal=internal)
+            ],
             operators=list(FilterOperator),
             periods=list(RelativePeriod),
             max_days=MAX_DAYS,
@@ -215,7 +221,7 @@ class ReportService:
         self._take_slot(actor)
         with _statement_timeout():
             return run_query(
-                self._uows.uow(actor.company_id),
+                self._query_uow(actor),
                 actor=actor,
                 definition=definition,
                 clock=self._clock,
@@ -226,11 +232,22 @@ class ReportService:
         self._take_slot(actor)
         with _statement_timeout():
             return run_report(
-                self._uows.uow(actor.company_id),
+                self._query_uow(actor),
                 actor=actor,
                 report_id=report_id,
                 clock=self._clock,
             )
+
+    def _groone(self, actor: Actor) -> bool:
+        """Diz se a Empresa ativa é a Company Groone."""
+        with self._uows.uow(actor.company_id) as uow:
+            company = uow.companies.get(actor.company_id)
+            return company is not None and company.is_internal
+
+    def _query_uow(self, actor: Actor) -> UnitOfWork:
+        """O Unit of Work da consulta: sem RLS na Company Groone (o avant-core recorta os
+        clientes que a pessoa vê), com o RLS da Empresa ativa nas outras."""
+        return self._uows.trusted_uow() if self._groone(actor) else self._uows.uow(actor.company_id)
 
     def _take_slot(self, actor: Actor) -> None:
         """Gasta uma consulta do limite da pessoa na Empresa; sem saldo, ``rate_limited``."""
