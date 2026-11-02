@@ -17,6 +17,7 @@ from avant_core.company.enums import InvitationKind
 from avant_core.identity.security.crypto import FernetSecretBox
 from avant_core.identity.security.passwords import Argon2PasswordHasher
 from avant_core.ports import Notice
+from avant_core.schedules.models import ScheduledReportMail
 from avant_core.shared.clock import SystemClock
 from cryptography.fernet import Fernet
 from fastapi.testclient import TestClient
@@ -44,6 +45,7 @@ class CapturingMailer:
     resets: list[tuple[str, str]] = field(default_factory=list)  # (para, token)
     notices: list[tuple[str, Notice]] = field(default_factory=list)
     alerts: list[tuple[str, AlertMail]] = field(default_factory=list)
+    reports: list[tuple[str, ScheduledReportMail]] = field(default_factory=list)
 
     def send_invitation(
         self, *, to: str, token: str, kind: InvitationKind, company_name: str | None, locale: str
@@ -60,6 +62,9 @@ class CapturingMailer:
 
     def send_metric_alert(self, *, to: str, locale: str, alert: AlertMail) -> None:
         self.alerts.append((to, alert))
+
+    def send_scheduled_report(self, *, to: str, locale: str, report: ScheduledReportMail) -> None:
+        self.reports.append((to, report))
 
 
 @pytest.fixture(scope="session")
