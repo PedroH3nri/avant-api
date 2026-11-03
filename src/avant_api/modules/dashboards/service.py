@@ -74,7 +74,7 @@ class DashboardService:
 
     def home(self, actor: Actor) -> HomeDashboardOut:
         """O dashboard que abre para a pessoa (o escolhido, senão o padrão da Empresa); sem
-        nenhum, o primeiro modelo da Empresa."""
+        nenhum, o modelo de início do público dela."""
         found = home_dashboard(self._uows.uow(actor.company_id), actor=actor)
         if found is not None:
             return HomeDashboardOut(dashboard=self._out(actor, found))
@@ -139,14 +139,17 @@ class DashboardService:
         return self._out(actor, copy)
 
     def templates(self, actor: Actor) -> list[DashboardTemplateOut]:
-        """Os modelos prontos da Empresa ativa (os da Groone só na Groone)."""
+        """Os modelos prontos que a pessoa vê, pelo público da Empresa e pelo papel."""
         found = list_dashboard_templates(self._uows.uow(actor.company_id), actor=actor)
         return [DashboardTemplateOut.of(template) for template in found]
 
-    def create_from_template(self, actor: Actor, key: str) -> DashboardOut:
+    def create_from_template(self, actor: Actor, template_id: uuid.UUID) -> DashboardOut:
         """Cria um dashboard privado a partir de um modelo, no idioma da pessoa."""
         created = create_from_template(
-            self._uows.uow(actor.company_id), actor=actor, key=key, clock=self._clock
+            self._uows.uow(actor.company_id),
+            actor=actor,
+            template_id=template_id,
+            clock=self._clock,
         )
         return self._out(actor, created)
 
@@ -168,7 +171,7 @@ class DashboardService:
         return ReportResultOut.of(result)
 
     def run_template(
-        self, actor: Actor, key: str, widget_id: str, body: WidgetRunIn
+        self, actor: Actor, template_id: uuid.UUID, widget_id: str, body: WidgetRunIn
     ) -> ReportResultOut:
         """Roda um widget de um modelo pronto, para a tela inicial de quem não tem dashboard."""
         result = self._reports.run_guarded(
@@ -176,7 +179,7 @@ class DashboardService:
             lambda uow: run_template_widget(
                 uow,
                 actor=actor,
-                key=key,
+                template_id=template_id,
                 widget_id=widget_id,
                 clock=self._clock,
                 filters=body.filters,

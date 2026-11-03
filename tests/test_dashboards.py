@@ -48,6 +48,11 @@ def _form(*widgets: dict[str, Any], **changes: Any) -> dict[str, Any]:
     return body
 
 
+def _template(key: str) -> str:
+    """O id do modelo pronto que a migration semeou com a chave."""
+    return str(uuid.uuid5(uuid.NAMESPACE_URL, f"avant:dashboard_template:{key}"))
+
+
 def _run(client: TestClient, dashboard_id: str, widget_id: str = "kpi", **body: Any) -> Any:
     """Roda o widget e devolve a resposta."""
     return client.post(
@@ -74,23 +79,29 @@ def test_dashboards_of_a_client(
 
     templates = client.get("/api/v1/dashboards/templates").json()["items"]
     assert {item["key"] for item in templates} == {"overview", "by_site", "inventory_quality"}
-    from_template = client.post("/api/v1/dashboards/templates/overview", headers=_csrf(client))
+    from_template = client.post(
+        f"/api/v1/dashboards/templates/{_template('overview')}", headers=_csrf(client)
+    )
     assert from_template.status_code == 201, from_template.text
     assert from_template.json()["visibility"] == "private"
-    groone_only = client.post("/api/v1/dashboards/templates/groone_overview", headers=_csrf(client))
+    groone_only = client.post(
+        f"/api/v1/dashboards/templates/{_template('groone_overview')}", headers=_csrf(client)
+    )
     assert groone_only.status_code == 404
 
     empty_home = client.get("/api/v1/dashboards/home").json()
-    assert empty_home["dashboard"] is None and empty_home["template"]["key"] == "overview"
+    assert empty_home["dashboard"] is None and empty_home["template"]["id"] == _template("overview")
     widgets = {item["id"]: item["type"] for item in empty_home["template"]["definition"]["widgets"]}
     assert widgets["account"] == "account"
     from_home = client.post(
-        "/api/v1/dashboards/templates/overview/widgets/revenue/run", json={}, headers=_csrf(client)
+        f"/api/v1/dashboards/templates/{_template('overview')}/widgets/revenue/run",
+        json={},
+        headers=_csrf(client),
     )
     assert from_home.status_code == 200, from_home.text
     assert set(from_home.json()["totals"]) == {"revenue"}
     other = client.post(
-        "/api/v1/dashboards/templates/groone_overview/widgets/revenue_groone/run",
+        f"/api/v1/dashboards/templates/{_template('groone_overview')}/widgets/revenue_groone/run",
         json={},
         headers=_csrf(client),
     )
@@ -165,7 +176,9 @@ def test_groone_dashboards_sum_every_client(
         "groone_by_manager",
         "groone_by_client",
     }
-    created = staff.post("/api/v1/dashboards/templates/groone_overview", headers=_csrf(staff))
+    created = staff.post(
+        f"/api/v1/dashboards/templates/{_template('groone_overview')}", headers=_csrf(staff)
+    )
     assert created.status_code == 201, created.text
     widgets = {item["id"]: item for item in created.json()["definition"]["widgets"]}
     assert widgets["goal"]["goal_scope"] == "team"

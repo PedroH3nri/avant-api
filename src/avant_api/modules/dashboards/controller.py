@@ -84,30 +84,31 @@ def templates(
     actor: Actor = Depends(require_report("reports.view")),
     service: DashboardService = Depends(dashboard_service),
 ) -> ItemsOut[DashboardTemplateOut]:
-    """Os modelos prontos da Empresa ativa, com o nome nos três idiomas."""
+    """Os modelos prontos que a pessoa vê (pelo público e pelo papel), com o nome nos três
+    idiomas; o de início primeiro."""
     return ItemsOut(items=service.templates(actor))
 
 
-@router.post("/templates/{key}", status_code=status.HTTP_201_CREATED)
+@router.post("/templates/{template_id}", status_code=status.HTTP_201_CREATED)
 def create_from_template(
-    key: str,
+    template_id: uuid.UUID,
     actor: Actor = Depends(require_report("dashboards.manage")),
     service: DashboardService = Depends(dashboard_service),
 ) -> DashboardOut:
     """Cria um dashboard privado a partir de um modelo, com o nome no idioma da pessoa."""
-    return service.create_from_template(actor, key)
+    return service.create_from_template(actor, template_id)
 
 
-@router.post("/templates/{key}/widgets/{widget_id}/run")
+@router.post("/templates/{template_id}/widgets/{widget_id}/run")
 def run_template(
+    template_id: uuid.UUID,
     body: WidgetRunIn,
-    key: str = Path(max_length=40),
     widget_id: str = Path(max_length=40),
     actor: Actor = Depends(require_report("reports.view")),
     service: DashboardService = Depends(dashboard_service),
 ) -> ReportResultOut:
     """Roda um widget de um modelo pronto, para a tela inicial de quem ainda não tem dashboard."""
-    return service.run_template(actor, key, widget_id, body)
+    return service.run_template(actor, template_id, widget_id, body)
 
 
 @router.get("/{dashboard_id}")

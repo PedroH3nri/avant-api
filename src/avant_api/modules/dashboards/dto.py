@@ -82,14 +82,20 @@ class DashboardChoiceIn(BaseModel):
 
 
 class DashboardTemplateOut(BaseModel):
-    key: str
+    id: uuid.UUID
+    key: str | None
     name: LabelOut
     definition: dict[str, Any]
 
     @classmethod
     def of(cls, template: DashboardTemplate) -> "DashboardTemplateOut":
         """Monta o modelo pronto com o nome nos três idiomas."""
-        return cls(key=template.key, name=LabelOut(**template.name), definition=template.definition)
+        return cls(
+            id=template.id,
+            key=template.key,
+            name=LabelOut(**template.name),
+            definition=template.definition,
+        )
 
 
 class HomeDashboardOut(BaseModel):
