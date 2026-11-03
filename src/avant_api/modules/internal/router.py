@@ -2,6 +2,8 @@
 
 from fastapi import APIRouter
 
+from avant_api.modules.internal.checklist_items.controller import router as checklist_items
+from avant_api.modules.internal.checklists.controller import router as checklists
 from avant_api.modules.internal.client_documents.controller import router as client_documents
 from avant_api.modules.internal.client_notes.controller import router as client_notes
 from avant_api.modules.internal.clients.controller import router as clients
@@ -35,5 +37,7 @@ for child in (
     dashboard_templates,
     inventory,
     tasks,
+    checklists,
+    checklist_items,
 ):
     router.include_router(child)

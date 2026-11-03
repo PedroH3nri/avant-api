@@ -96,6 +96,7 @@ STATUS: dict[str, int] = {
     "image_too_large": 413,
     "invalid_document": 422,
     "document_too_large": 413,
+    "checklist_not_checkable": 409,
     "documents_not_required": 409,
     "document_not_reviewable": 409,
     "document_already_approved": 409,
