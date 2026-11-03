@@ -127,6 +127,13 @@ Painel interno, em `/api/v1/internal` (Company Groone ativa e 2FA verificado na 
 | `GET`, `POST /internal/tasks` | tarefas de suporte (páginas de 10, mudada por último primeiro; filtros `scope` (`mine` ou `all`), `status` repetível, `priority`, `assignee`, `client`, `q`) e nova tarefa (o responsável recebe e-mail) | `internal.tasks.view`; `scope=all` pede `internal.tasks.all` |
 | `GET`, `PATCH /internal/tasks/{id}` | tarefa com a linha do tempo; muda situação, prioridade, responsável (`assignee_id: null` tira) ou `data`; quem criou, o responsável ou quem tem `internal.tasks.all` | `internal.tasks.view` |
 | `POST /internal/tasks/{id}/comments` | comenta; e-mail para quem criou e para o responsável, menos quem escreveu | `internal.tasks.view` |
+| `GET /internal/checklists/months`, `GET /internal/checklists/summary?month=` | meses com checklist de domínio (o atual sempre aparece) e o resumo do mês: sites, feitos e a última conferência | `internal.checklists.view` |
+| `GET /internal/checklists?month=` | checklists do mês (páginas de 10, maior faturamento do mês anterior primeiro; filtros `q` e `state` `all`, `pending` ou `done`) | `internal.checklists.view` |
+| `GET /internal/checklists/{id}` | checklist do site com os itens ativos (automático, prova e "ok" marcado), as observações e o idioma do cliente | `internal.checklists.view` |
+| `PUT /internal/checklists/{id}/items/{item_id}` | marca o item como ok (`{"ok": true}`) ou tira a marcação; só no mês atual (`checklist_not_checkable`) | `internal.checklists.check` |
+| `POST /internal/checklists/{id}/check` | pede ao worker uma conferência nova (202); só no mês atual | `internal.checklists.check` |
+| `POST /internal/checklists/{id}/notes`, `PATCH`, `DELETE .../notes/{note_id}` | observações (entram no relatório do cliente, no idioma dele); editar e apagar a de outra pessoa pede `internal.checklists.manage` | `internal.checklists.check` |
+| `GET`, `POST /internal/checklist-items`, `PUT /internal/checklist-items/{id}`, `POST .../{id}/move` | itens do checklist (uma lista para todos os sites): nome, tipo de conferência, palavras do tipo link, ativo e ordem (`step` -1 ou 1) | ver: `internal.checklists.view`; mudar: `internal.checklists.manage` |
 | `GET /internal/owner-invitations`, `POST .../{id}/resend`, `DELETE .../{id}` | convites de dono (a lista em páginas) | `internal.clients.view` / `.manage` |
 | `GET /internal/teams?q=&company_id=` | pessoas das equipes das Empresas cliente (sem a equipe Groone), em páginas | `internal.clients.view` |
 | `GET /internal/users?q=`, `POST /internal/users/{id}/disable`, `/enable`, `/reset-mfa` | pessoas (a busca em páginas, a mais recente primeiro) | `internal.users.manage` |
