@@ -2,6 +2,8 @@
 
 from fastapi import APIRouter
 
+from avant_api.modules.internal.client_documents.controller import router as client_documents
+from avant_api.modules.internal.client_notes.controller import router as client_notes
 from avant_api.modules.internal.clients.controller import router as clients
 from avant_api.modules.internal.commissions.controller import router as commissions
 from avant_api.modules.internal.contracts.controller import router as contracts
@@ -18,6 +20,8 @@ from avant_api.modules.internal.views.controller import router as views
 router = APIRouter()
 for child in (
     clients,
+    client_documents,
+    client_notes,
     people,
     staff,
     mcm,
