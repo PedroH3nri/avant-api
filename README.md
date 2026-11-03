@@ -41,6 +41,9 @@ Outros repositórios: avant-core, avant-worker, avant-web, avant-infra.
 | `PATCH /company` | nome, cor e preferências | `company.edit` |
 | `GET /company/image` | imagem da Empresa ativa em WebP 256x256, com `ETag` e cache pela URL `?v=` | membro |
 | `PUT /company/image`, `DELETE /company/image` | troca (corpo = arquivo PNG, JPEG ou WebP até 2 MB) ou tira a imagem | `company.edit` |
+| `GET /company/documents` | identidade e comprovante de residência enviados e `required` (a Empresa tem network Manage Inventory) | `company.edit` |
+| `PUT /company/documents/{identity\|address}?name=` | envia ou troca o documento (corpo = arquivo JPG, PNG ou PDF até 5 MB); volta para em análise, aprovado não se troca | `company.edit` |
+| `GET /company/documents/{kind}/file` | baixa o arquivo (sem cache; vai para o histórico) | `company.edit` |
 | `GET /company/fiscal`, `PUT /company/fiscal` | dados fiscais de pagamento; só o cliente grava, todos juntos | `company.edit` |
 | `GET /members?page=` | equipe em páginas de 10 (`items`, `total`, `page`, `pages`, `page_size`), mais recente primeiro; filtros `status`, `role`, `q` no banco | `team.view` |
 | `GET /members/options` | a equipe inteira, sem paginar, para seletores e telas que juntam pessoas (grupos, donos de relatório) | `team.view` |
@@ -117,6 +120,10 @@ Painel interno, em `/api/v1/internal` (Company Groone ativa e 2FA verificado na 
 | `GET`, `PUT`, `DELETE /internal/clients/{id}/image` | imagem do cliente (ver, trocar, tirar) | `internal.clients.view` / `.manage` |
 | `PUT /internal/clients/{id}/status` | situação `active`, `inactive` ou `banned`; as networks acompanham | `internal.clients.manage` |
 | `POST /internal/clients/{id}/owner` | troca o dono | `internal.owner.change` |
+| `GET /internal/clients/{id}/documents`, `/documents/{kind}/file` | documentos do cliente e download (vai para o histórico do cliente) | `internal.clients.documents` |
+| `POST /internal/clients/{id}/documents/{kind}/approve`, `/reject` | aprova o documento em análise ou recusa com `reason`; quem enviou recebe e-mail | `internal.clients.documents` |
+| `GET`, `POST /internal/clients/{id}/notes` | observações do cliente (páginas de 10, mais nova primeiro, com autor, quem editou e `editable`) e nova observação | `internal.clients.notes` |
+| `PATCH`, `DELETE /internal/clients/{id}/notes/{note_id}` | edita (guarda quem e quando) ou apaga; o autor ou quem tem `internal.clients.notes.manage` | `internal.clients.notes` |
 | `GET /internal/owner-invitations`, `POST .../{id}/resend`, `DELETE .../{id}` | convites de dono (a lista em páginas) | `internal.clients.view` / `.manage` |
 | `GET /internal/teams?q=&company_id=` | pessoas das equipes das Empresas cliente (sem a equipe Groone), em páginas | `internal.clients.view` |
 | `GET /internal/users?q=`, `POST /internal/users/{id}/disable`, `/enable`, `/reset-mfa` | pessoas (a busca em páginas, a mais recente primeiro) | `internal.users.manage` |
