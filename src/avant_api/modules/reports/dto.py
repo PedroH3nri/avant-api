@@ -62,6 +62,8 @@ class MetricOut(BaseModel):
     format: MetricFormat
     # Fontes onde a métrica existe: as visitas (page_views) têm a sua.
     sources: list[MetricSource]
+    # Só da equipe Groone: fica fora dos modelos prontos dos clientes.
+    internal_only: bool
 
     @classmethod
     def of(cls, metric: Metric) -> "MetricOut":
@@ -72,6 +74,7 @@ class MetricOut(BaseModel):
             kind=metric.kind,
             format=metric.format,
             sources=sorted(metric.sources),
+            internal_only=metric.internal_only,
         )
 
 
