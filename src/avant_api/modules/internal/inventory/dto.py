@@ -1,7 +1,10 @@
 """Formatos das networks e dos sites dos clientes no painel interno."""
 
+import uuid
+
 from avant_core.company.models import Company
 from avant_core.internal.services import ClientNetworkView, ClientSiteView
+from pydantic import BaseModel
 
 from avant_api.modules.networks.dto import NetworkOut
 from avant_api.modules.sites.dto import SiteOut
@@ -40,6 +43,13 @@ class ClientNetworkOut(NetworkOut):
         )
 
 
+class ClientSiteChecklistOut(BaseModel):
+    id: uuid.UUID
+    done: int
+    total: int
+    complete: bool
+
+
 class ClientSiteOut(SiteOut):
     client: ClientRefOut
     # Nome da network; vazio enquanto o site aguarda o GAM.
@@ -48,6 +58,8 @@ class ClientSiteOut(SiteOut):
     ad_units: int
     # Vazio sem receita nos últimos 60 dias.
     revenue_status: RevenueStatusOut | None
+    # Checklist do mês atual; vazio sem faturamento no mês anterior ou sem a permissão.
+    checklist: ClientSiteChecklistOut | None = None
 
     @classmethod
     def of_view(cls, view: ClientSiteView) -> "ClientSiteOut":

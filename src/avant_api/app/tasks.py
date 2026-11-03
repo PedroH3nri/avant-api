@@ -14,6 +14,7 @@ log = logging.getLogger("avant.api.tasks")
 
 SYNC_NETWORK = "avant.gam.sync_network"
 REFRESH_REPORT_PREVIEW = "avant.default.refresh_report_preview"
+CHECK_CHECKLIST = "avant.default.check_checklist"
 
 
 class TaskQueue(Protocol):

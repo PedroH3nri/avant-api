@@ -134,6 +134,7 @@ def client(engine: Engine, mailer: CapturingMailer) -> Iterator[TestClient]:
             "password_resets",
         ):
             conn.execute(text(f"DELETE FROM {table}"))
+        conn.execute(text("DELETE FROM checklist_items WHERE kind = 'manual'"))
         conn.execute(text("DELETE FROM audit_logs"))
         conn.execute(text("DELETE FROM roles WHERE company_id IS NOT NULL"))
         conn.execute(text("DELETE FROM companies"))
