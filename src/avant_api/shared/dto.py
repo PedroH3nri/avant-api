@@ -3,6 +3,7 @@
 import uuid
 from collections.abc import Callable
 from datetime import datetime
+from decimal import Decimal
 
 from avant_core.audit.enums import ActorKind
 from avant_core.audit.models import AuditEntry
@@ -12,11 +13,40 @@ from avant_core.company.models.fiscal_data import FISCAL_FIELDS
 from avant_core.company.services import MemberView
 from avant_core.identity.enums import Locale
 from avant_core.identity.models import User
+from avant_core.revenue_status.enums import RevenueTrend
+from avant_core.revenue_status.models import RevenueStatus
 from avant_core.shared.models import Page
 from pydantic import BaseModel
 
 # Prefixo das rotas, para montar as URLs que o painel usa direto (como a da imagem).
 API_PATH = "/api/v1"
+
+
+MICROS_PER_DOLLAR = Decimal(1_000_000)
+
+
+class RevenueStatusOut(BaseModel):
+    """O status de faturamento: tendência, média por dia dos últimos 30 dias e variação contra
+    os 30 anteriores (vazia sem receita antes), em dólares."""
+
+    trend: RevenueTrend
+    per_day: Decimal
+    change_percent: int | None
+    recent: Decimal
+    previous: Decimal
+
+    @classmethod
+    def of(cls, status: RevenueStatus | None) -> "RevenueStatusOut | None":
+        """Monta o status; sem receita nas duas janelas, vazio."""
+        if status is None:
+            return None
+        return cls(
+            trend=status.trend,
+            per_day=Decimal(status.per_day_micros) / MICROS_PER_DOLLAR,
+            change_percent=status.change_percent,
+            recent=Decimal(status.recent_micros) / MICROS_PER_DOLLAR,
+            previous=Decimal(status.previous_micros) / MICROS_PER_DOLLAR,
+        )
 
 
 def image_url(path: str, version: str | None) -> str | None:

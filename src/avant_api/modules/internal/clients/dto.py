@@ -16,6 +16,7 @@ from avant_api.shared.dto import (
     FiscalDataOut,
     InvitationOut,
     MemberOut,
+    RevenueStatusOut,
     UserOut,
     image_url,
 )
@@ -75,6 +76,8 @@ class ClientOut(BaseModel):
     profile: ClientProfileOut | None
     # Vazio sem imagem: o painel mostra a inicial do nome.
     image_url: str | None
+    # Só na lista; vazio sem receita nos últimos 60 dias.
+    revenue_status: RevenueStatusOut | None = None
 
     @classmethod
     def of(cls, summary: ClientSummary) -> "ClientOut":

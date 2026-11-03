@@ -29,6 +29,7 @@ from avant_core.internal.services import (
     update_client,
 )
 from avant_core.ports import ImageProcessor, Mailer
+from avant_core.revenue_status.services import client_revenue_statuses
 from avant_core.shared.clock import Clock
 
 from avant_api.app.ports import UnitOfWorkFactory
@@ -48,6 +49,7 @@ from avant_api.shared.dto import (
     InvitationOut,
     MemberOut,
     PageOut,
+    RevenueStatusOut,
     page_out,
 )
 
@@ -78,7 +80,16 @@ class ClientService:
     def page(self, actor: Actor, filters: ClientFilter, page: int) -> PageOut[ClientOut]:
         """Uma página das Empresas de cliente com os filtros e a ordem dados."""
         found = page_clients(self._uows.trusted_uow(), actor=actor, filters=filters, page=page)
-        return page_out(found, ClientOut.of)
+        statuses = client_revenue_statuses(
+            self._uows.trusted_uow(),
+            actor=actor,
+            company_ids=[summary.company.id for summary in found.items],
+            clock=self._clock,
+        )
+        out = page_out(found, ClientOut.of)
+        for item in out.items:
+            item.revenue_status = RevenueStatusOut.of(statuses.get(item.id))
+        return out
 
     def options(self, actor: Actor) -> list[ClientOptionOut]:
         """Todas as Empresas de cliente, pelo nome, para seletores."""
