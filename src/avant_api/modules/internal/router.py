@@ -5,6 +5,7 @@ from fastapi import APIRouter
 from avant_api.modules.internal.clients.controller import router as clients
 from avant_api.modules.internal.commissions.controller import router as commissions
 from avant_api.modules.internal.contracts.controller import router as contracts
+from avant_api.modules.internal.dashboard_templates.controller import router as dashboard_templates
 from avant_api.modules.internal.goals.controller import router as goals
 from avant_api.modules.internal.invoices.controller import router as invoices
 from avant_api.modules.internal.mcm.controller import router as mcm
@@ -25,5 +26,6 @@ for child in (
     commissions,
     invoices,
     views,
+    dashboard_templates,
 ):
     router.include_router(child)
