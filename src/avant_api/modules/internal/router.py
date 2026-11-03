@@ -15,6 +15,7 @@ from avant_api.modules.internal.mcm.controller import router as mcm
 from avant_api.modules.internal.people.controller import router as people
 from avant_api.modules.internal.results.controller import router as results
 from avant_api.modules.internal.staff.controller import router as staff
+from avant_api.modules.internal.tasks.controller import router as tasks
 from avant_api.modules.internal.views.controller import router as views
 
 router = APIRouter()
@@ -33,5 +34,6 @@ for child in (
     views,
     dashboard_templates,
     inventory,
+    tasks,
 ):
     router.include_router(child)

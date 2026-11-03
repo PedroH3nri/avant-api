@@ -124,6 +124,9 @@ Painel interno, em `/api/v1/internal` (Company Groone ativa e 2FA verificado na 
 | `POST /internal/clients/{id}/documents/{kind}/approve`, `/reject` | aprova o documento em análise ou recusa com `reason`; quem enviou recebe e-mail | `internal.clients.documents` |
 | `GET`, `POST /internal/clients/{id}/notes` | observações do cliente (páginas de 10, mais nova primeiro, com autor, quem editou e `editable`) e nova observação | `internal.clients.notes` |
 | `PATCH`, `DELETE /internal/clients/{id}/notes/{note_id}` | edita (guarda quem e quando) ou apaga; o autor ou quem tem `internal.clients.notes.manage` | `internal.clients.notes` |
+| `GET`, `POST /internal/tasks` | tarefas de suporte (páginas de 10, mudada por último primeiro; filtros `scope` (`mine` ou `all`), `status` repetível, `priority`, `assignee`, `client`, `q`) e nova tarefa (o responsável recebe e-mail) | `internal.tasks.view`; `scope=all` pede `internal.tasks.all` |
+| `GET`, `PATCH /internal/tasks/{id}` | tarefa com a linha do tempo; muda situação, prioridade, responsável (`assignee_id: null` tira) ou `data`; quem criou, o responsável ou quem tem `internal.tasks.all` | `internal.tasks.view` |
+| `POST /internal/tasks/{id}/comments` | comenta; e-mail para quem criou e para o responsável, menos quem escreveu | `internal.tasks.view` |
 | `GET /internal/owner-invitations`, `POST .../{id}/resend`, `DELETE .../{id}` | convites de dono (a lista em páginas) | `internal.clients.view` / `.manage` |
 | `GET /internal/teams?q=&company_id=` | pessoas das equipes das Empresas cliente (sem a equipe Groone), em páginas | `internal.clients.view` |
 | `GET /internal/users?q=`, `POST /internal/users/{id}/disable`, `/enable`, `/reset-mfa` | pessoas (a busca em páginas, a mais recente primeiro) | `internal.users.manage` |
