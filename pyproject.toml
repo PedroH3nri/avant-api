@@ -21,7 +21,7 @@ dependencies = [
 
 [tool.uv.sources]
 # Sempre por tag: atualizar o avant-core é uma mudança explícita neste repositório.
-avant-core = { git = "https://github.com/PedroH3nri/avant-core", tag = "v0.58.0" }
+avant-core = { git = "https://github.com/PedroH3nri/avant-core", rev = "27f01a49a193a611ba6ced47c0084689e65eb66d" }
 
 [dependency-groups]
 dev = [
