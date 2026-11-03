@@ -33,7 +33,7 @@ def test_saved_views_crud_and_catalog(client: TestClient, engine: Engine) -> Non
     assert [item["id"] for item in listed] == [view_id]
     invoices = staff.get("/api/v1/internal/views", params={"screen": "invoices"})
     assert invoices.json()["items"] == []
-    wrong = {**body, "definition": {"columns": ["revenue"]}}
+    wrong = {**body, "definition": {"columns": ["revshare"]}}
     bad = staff.post("/api/v1/internal/views", json=wrong, headers=_csrf(staff))
     assert bad.status_code == 422 and bad.json()["error"]["code"] == "invalid_input"
     changed = staff.put(

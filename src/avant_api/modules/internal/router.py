@@ -7,6 +7,7 @@ from avant_api.modules.internal.commissions.controller import router as commissi
 from avant_api.modules.internal.contracts.controller import router as contracts
 from avant_api.modules.internal.dashboard_templates.controller import router as dashboard_templates
 from avant_api.modules.internal.goals.controller import router as goals
+from avant_api.modules.internal.inventory.controller import router as inventory
 from avant_api.modules.internal.invoices.controller import router as invoices
 from avant_api.modules.internal.mcm.controller import router as mcm
 from avant_api.modules.internal.people.controller import router as people
@@ -27,5 +28,6 @@ for child in (
     invoices,
     views,
     dashboard_templates,
+    inventory,
 ):
     router.include_router(child)
