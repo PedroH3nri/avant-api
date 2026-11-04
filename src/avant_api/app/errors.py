@@ -62,6 +62,7 @@ class GoogleFailed(DomainError):
 STATUS: dict[str, int] = {
     "not_authenticated": 401,
     "mfa_attempts_exceeded": 401,
+    "mfa_locked": 429,
     "mfa_required": 403,
     "mfa_already_enabled": 409,
     "mfa_not_enabled": 409,

@@ -33,7 +33,9 @@ def verify(
     user_agent, ip = client_info(request)
     result = service.verify(token, body.code, user_agent, ip)
     cookies.open(response, result)
-    return MeOut.of(login_service.authenticate(result.token))
+    auth = login_service.authenticate(result.token)
+    login_service.forget_login_failures(auth.user.email)
+    return MeOut.of(auth)
 
 
 @router.post("/setup")

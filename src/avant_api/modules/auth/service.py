@@ -45,11 +45,14 @@ class AuthService:
         self._limiter = limiter
 
     def login(self, body: LoginIn, user_agent: str | None, ip: str | None) -> LoginResult:
-        """Confere a senha com limite de 5 erros por e-mail e 20 por IP em 15 minutos."""
+        """Confere a senha com limite de 5 erros por e-mail e 20 por IP em 15 minutos.
+
+        Com 2FA, a entrada só conta como certa depois do código: até lá, segue no limite do e-mail.
+        """
         email = normalize_email(body.email)
-        keys = ((LOGIN_EMAIL, email), (LOGIN_IP, ip))
-        self._limiter.check(*keys)
-        try:
+        with self._limiter.attempt(
+            (LOGIN_EMAIL, email), (LOGIN_IP, ip), counts=(InvalidCredentials,)
+        ):
             result = login_with_password(
                 self._uows.trusted_uow(),
                 email=email,
@@ -59,11 +62,15 @@ class AuthService:
                 user_agent=user_agent,
                 ip=ip,
             )
-        except InvalidCredentials:
-            self._limiter.fail(*keys)
-            raise
-        self._limiter.clear(LOGIN_EMAIL, email)
+        if result.mfa_required:
+            self._limiter.fail((LOGIN_EMAIL, email))
+        else:
+            self._limiter.clear(LOGIN_EMAIL, email)
         return result
+
+    def forget_login_failures(self, email: str) -> None:
+        """Zera o limite de login do e-mail depois do código do 2FA certo."""
+        self._limiter.clear(LOGIN_EMAIL, normalize_email(email))
 
     def authenticate(self, token: str) -> Authenticated:
         """A pessoa autenticada pelo token da sessão."""
