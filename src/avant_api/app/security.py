@@ -91,6 +91,8 @@ def get_session_actor(request: Request, auth: Authenticated = Depends(get_auth))
     if auth.active is None or auth.grants is None:
         raise NoActiveCompany("a pessoa não é membro ativo de nenhuma Empresa")
     check_tab_company(request, auth)
+    if auth.active.company.is_internal and auth.session.mfa_verified_at is None:
+        raise MfaRequired("entre com o 2FA para usar a Company Groone")
     return Actor(user_id=auth.user.id, company_id=auth.active.company.id, grants=auth.grants)
 
 
@@ -101,8 +103,13 @@ def bearer_token(request: Request) -> str | None:
 
 
 def api_key_actor(request: Request, services: Services, token: str) -> Actor:
-    """Autentica a chave de API e aplica o limite de pedidos por chave."""
+    """Autentica a chave de API e aplica o limite de pedidos por chave; a Company Groone não abre
+    por chave, só pela sessão com 2FA."""
     auth = authenticate_api_key(services.trusted_uow(), token=token, clock=services.clock)
+    with services.trusted_uow() as uow:
+        company = uow.companies.get(auth.actor.company_id)
+    if company is not None and company.is_internal:
+        raise StaffOnly("a Company Groone não abre por chave de API")
     result = services.bucket.take(f"key:{auth.key.id}", API_KEY, time.time())
     request.state.rate_limit = {
         "X-RateLimit-Limit": str(API_KEY.burst),
@@ -134,28 +141,9 @@ def require(permission: str) -> Callable[[Actor], Actor]:
 
 
 def require_report(permission: str) -> Callable[..., Actor]:
-    """Como ``require``; na Company Groone, onde os relatórios leem todos os clientes, só pela
-    sessão com 2FA verificado, nunca por chave de API."""
-
-    def dependency(request: Request, services: Services = Depends(get_services)) -> Actor:
-        """Exige a permissão e, na Company Groone, a sessão com 2FA."""
-        token = bearer_token(request)
-        if token is not None:
-            actor = api_key_actor(request, services, token)
-            with services.trusted_uow() as uow:
-                company = uow.companies.get(actor.company_id)
-            if company is not None and company.is_internal:
-                raise StaffOnly("os relatórios da Groone não abrem por chave de API")
-        else:
-            auth = get_auth(get_session_auth(optional_auth(request, services)))
-            actor = get_session_actor(request, auth)
-            internal = auth.active is not None and auth.active.company.is_internal
-            if internal and auth.session.mfa_verified_at is None:
-                raise MfaRequired("entre com o 2FA para ver os relatórios da Groone")
-        actor.grants.require(permission)
-        return actor
-
-    return dependency
+    """Como ``require``: na Company Groone, onde os relatórios leem todos os clientes, só pela
+    sessão com 2FA verificado, nunca por chave de API (regra de ``get_actor``)."""
+    return require(permission)
 
 
 def require_session(permission: str) -> Callable[[Actor], Actor]:
