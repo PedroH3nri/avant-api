@@ -173,3 +173,24 @@ def test_validation_error_format(client: TestClient) -> None:
     assert r.status_code == 422
     assert r.json()["error"]["code"] == "validation_error"
     assert client.get("/api/v1/nada").json()["error"]["code"] == "not_found"
+
+
+def test_tab_company_must_match_the_session(
+    client: TestClient, engine: Engine, mailer: CapturingMailer
+) -> None:
+    me = _onboard_owner(client, engine, mailer)
+    assert client.get("/api/v1/invitations").status_code == 200
+    same = {"X-Avant-Company": me["active_company_id"]}
+    assert client.get("/api/v1/invitations", headers=same).status_code == 200
+    other = {"X-Avant-Company": str(uuid.uuid4())}
+    r = client.get("/api/v1/invitations", headers=other)
+    assert r.status_code == 409 and r.json()["error"]["code"] == "company_changed"
+    garbage = {"X-Avant-Company": "nao-e-uuid"}
+    assert client.get("/api/v1/invitations", headers=garbage).status_code == 409
+    write = client.post(
+        "/api/v1/invitations",
+        json={"email": "nova@acai.com", "role_id": None},
+        headers={**_csrf(client), **other},
+    )
+    assert write.status_code == 409
+    assert client.get("/api/v1/auth/me", headers=other).status_code == 200
