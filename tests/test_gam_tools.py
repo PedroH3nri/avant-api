@@ -92,6 +92,14 @@ def test_staff_lists_runs_and_downloads(
     assert again.status_code == 409 and again.json()["error"]["code"] == "gam_tool_running"
     runs = staff.get(f"{BASE}/runs", params={"network": network_id}).json()
     assert [item["id"] for item in runs["items"]] == [run["id"]]
+    everything = staff.get(f"{BASE}/runs").json()["items"]
+    assert [item["id"] for item in everything] == [run["id"]]
+    assert everything[0]["network"] == {
+        "id": network_id,
+        "network_code": "4242",
+        "display_name": "Rede Açaí",
+        "client_name": me["companies"][0]["name"],
+    }
     shown = staff.get(f"{BASE}/runs/{run['id']}").json()
     assert shown["kind"] == "setup" and shown["requested_by"]["name"] == "Admin"
 

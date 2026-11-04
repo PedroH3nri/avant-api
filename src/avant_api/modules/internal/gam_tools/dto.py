@@ -20,6 +20,13 @@ class GamToolPersonOut(BaseModel):
     name: str
 
 
+class GamToolRunNetworkOut(BaseModel):
+    id: uuid.UUID
+    network_code: str
+    display_name: str | None
+    client_name: str
+
+
 class GamToolNetworkOut(BaseModel):
     id: uuid.UUID
     network_code: str
@@ -105,14 +112,20 @@ class GamToolRunOut(BaseModel):
     state: GamRunState
     error_code: str | None
     requested_by: GamToolPersonOut | None
+    network: GamToolRunNetworkOut | None = None
     created_at: datetime
     updated_at: datetime | None
     finished_at: datetime | None
     steps: list[GamStepOut]
 
     @classmethod
-    def of(cls, run: GamToolRun, people: dict[uuid.UUID, User] | None = None) -> "GamToolRunOut":
-        """A execução com os passos e quem pediu."""
+    def of(
+        cls,
+        run: GamToolRun,
+        people: dict[uuid.UUID, User] | None = None,
+        networks: dict[uuid.UUID, GamToolRunNetworkOut] | None = None,
+    ) -> "GamToolRunOut":
+        """A execução com os passos, quem pediu e, na lista, a network e o cliente."""
         person = (people or {}).get(run.requested_by)
         return cls(
             id=run.id,
@@ -123,6 +136,7 @@ class GamToolRunOut(BaseModel):
             state=run.state,
             error_code=run.error_code,
             requested_by=GamToolPersonOut(id=person.id, name=person.name) if person else None,
+            network=(networks or {}).get(run.network_id),
             created_at=run.created_at,
             updated_at=run.updated_at,
             finished_at=run.finished_at,
