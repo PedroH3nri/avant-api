@@ -2,6 +2,8 @@
 requisições por chave de API.
 
 Tentativas: janela fixa; cada chave conta as que falharam e zera sozinha no fim da janela.
+Com ``attempt``, a tentativa é reservada antes (INCR atômico) e devolvida se não falhar, para
+uma rajada em paralelo não passar do limite.
 Chaves de API: balde de fichas (2 por segundo, rajada de 20).
 Em staging e produção os contadores ficam no Redis, valendo para todas as instâncias.
 """
@@ -9,6 +11,8 @@ Em staging e produção os contadores ficam no Redis, valendo para todas as inst
 import math
 import threading
 import time
+from collections.abc import Iterator
+from contextlib import contextmanager
 from dataclasses import dataclass
 from typing import Protocol
 
@@ -27,6 +31,10 @@ class Rule:
 LOGIN_EMAIL = Rule("login:email", 5, 15 * 60)
 LOGIN_IP = Rule("login:ip", 20, 15 * 60)
 PASSWORD_IP = Rule("password:ip", 20, 15 * 60)
+# Senha atual na troca de senha, por pessoa.
+PASSWORD_CHANGE = Rule("password:change", 5, 15 * 60)
+# Códigos do 2FA no segundo passo do login, por IP; por pessoa, quem trava é o core.
+MFA_IP = Rule("mfa:ip", 20, 15 * 60)
 
 
 class Counter(Protocol):
@@ -34,8 +42,12 @@ class Counter(Protocol):
         """Tentativas na janela e segundos até ela acabar."""
         ...
 
-    def incr(self, key: str, window_seconds: int) -> None:
-        """Soma uma tentativa, abrindo a janela se for a primeira."""
+    def incr(self, key: str, window_seconds: int) -> tuple[int, int]:
+        """Soma uma tentativa, abrindo a janela se for a primeira; devolve como get."""
+        ...
+
+    def decr(self, key: str) -> None:
+        """Devolve uma tentativa reservada, sem passar de zero."""
         ...
 
     def delete(self, key: str) -> None:
@@ -55,14 +67,22 @@ class MemoryCounter:
             left = until - time.monotonic()
             return (count, math.ceil(left)) if left > 0 else (0, 0)
 
-    def incr(self, key: str, window_seconds: int) -> None:
-        """Soma uma tentativa, abrindo a janela se for a primeira."""
+    def incr(self, key: str, window_seconds: int) -> tuple[int, int]:
+        """Soma uma tentativa, abrindo a janela se for a primeira; devolve como get."""
         with self._lock:
             count, until = self._data.get(key, (0, 0.0))
             now = time.monotonic()
             if until <= now:
                 count, until = 0, now + window_seconds
             self._data[key] = (count + 1, until)
+            return count + 1, math.ceil(until - now)
+
+    def decr(self, key: str) -> None:
+        """Devolve uma tentativa reservada, sem passar de zero."""
+        with self._lock:
+            count, until = self._data.get(key, (0, 0.0))
+            if count > 0:
+                self._data[key] = (count - 1, until)
 
     def delete(self, key: str) -> None:
         """Zera o contador."""
@@ -70,9 +90,18 @@ class MemoryCounter:
             self._data.pop(key, None)
 
 
+# Devolve uma tentativa só se a chave ainda existe, para não criar chave sem prazo.
+_DECR = """
+local count = tonumber(redis.call('GET', KEYS[1]) or '0')
+if count > 0 then redis.call('DECR', KEYS[1]) end
+return 0
+"""
+
+
 class RedisCounter:
     def __init__(self, client: redis.Redis) -> None:
         self._redis = client
+        self._decr = client.register_script(_DECR)
 
     @classmethod
     def from_url(cls, url: str) -> "RedisCounter":
@@ -87,12 +116,18 @@ class RedisCounter:
         raw, ttl = pipeline.execute()
         return (int(raw or 0), max(int(ttl), 0))
 
-    def incr(self, key: str, window_seconds: int) -> None:
-        """Soma uma tentativa, abrindo a janela se for a primeira."""
+    def incr(self, key: str, window_seconds: int) -> tuple[int, int]:
+        """Soma uma tentativa numa transação, abrindo a janela se for a primeira."""
         pipeline = self._redis.pipeline()
         pipeline.incr(key)
         pipeline.expire(key, window_seconds, nx=True)
-        pipeline.execute()
+        pipeline.ttl(key)
+        count, _, ttl = pipeline.execute()
+        return int(count), max(int(ttl), 0)
+
+    def decr(self, key: str) -> None:
+        """Devolve uma tentativa reservada, sem passar de zero."""
+        self._decr(keys=[key])
 
     def delete(self, key: str) -> None:
         """Zera o contador."""
@@ -126,6 +161,37 @@ class Limiter:
     def clear(self, rule: Rule, subject: str) -> None:
         """Zera o contador de uma regra para um sujeito."""
         self._counter.delete(self._key(rule, subject))
+
+    def reserve(self, *pairs: tuple[Rule, str | None]) -> None:
+        """Conta a tentativa já, de forma atômica, e recusa com 429 quem passou do limite."""
+        for rule, subject in pairs:
+            if subject is None:
+                continue
+            count, left = self._counter.incr(self._key(rule, subject), rule.window_seconds)
+            if count > rule.limit:
+                raise TooManyAttempts(retry_after=max(left, 1))
+
+    def release(self, *pairs: tuple[Rule, str | None]) -> None:
+        """Devolve a tentativa reservada em cada regra com sujeito."""
+        for rule, subject in pairs:
+            if subject is not None:
+                self._counter.decr(self._key(rule, subject))
+
+    @contextmanager
+    def attempt(
+        self, *pairs: tuple[Rule, str | None], counts: tuple[type[Exception], ...]
+    ) -> Iterator[None]:
+        """Reserva a tentativa antes de rodar; só fica contada se terminar num erro de counts."""
+        self.reserve(*pairs)
+        failed = False
+        try:
+            yield
+        except counts:
+            failed = True
+            raise
+        finally:
+            if not failed:
+                self.release(*pairs)
 
 
 # --- Chaves de API: balde de fichas -----------------------------------------------------

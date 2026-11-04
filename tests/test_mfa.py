@@ -97,3 +97,41 @@ def test_staff_must_set_up_mfa_first(client: TestClient, engine: Engine) -> None
         "DELETE", "/api/v1/auth/mfa", json={"code": recovery[0]}, headers=_csrf(client)
     )
     assert r.status_code == 403 and r.json()["error"]["code"] == "mfa_required"
+
+
+def _password_login(client: TestClient) -> None:
+    r = client.post("/api/v1/auth/login", json={"email": "dono@acai.com", "password": PASSWORD})
+    assert r.json()["mfa_required"] is True, r.text
+
+
+def test_login_counter_waits_for_the_code(
+    client: TestClient, engine: Engine, mailer: CapturingMailer
+) -> None:
+    _onboard_owner(client, engine, mailer)
+    _, recovery = _enable(client)
+    client.post("/api/v1/auth/logout", headers=_csrf(client))
+    for _ in range(5):
+        _password_login(client)
+    ok = client.post("/api/v1/auth/mfa/verify", json={"code": recovery[0]})
+    assert ok.status_code == 200, ok.text
+    client.post("/api/v1/auth/logout", headers=_csrf(client))
+    for _ in range(5):
+        _password_login(client)
+    r = client.post("/api/v1/auth/login", json={"email": "dono@acai.com", "password": PASSWORD})
+    assert r.status_code == 429 and r.json()["error"]["code"] == "too_many_attempts"
+
+
+def test_verify_is_limited_by_ip(
+    client: TestClient, engine: Engine, mailer: CapturingMailer
+) -> None:
+    _onboard_owner(client, engine, mailer)
+    secret, _ = _enable(client)
+    with TestClient(client.app, client=("203.0.113.7", 50000)) as other:
+        for _ in range(4):
+            _password_login(other)
+            for _ in range(5):
+                wrong = other.post("/api/v1/auth/mfa/verify", json={"code": "000000"})
+                assert wrong.status_code in (401, 422), wrong.text
+        _password_login(other)
+        r = other.post("/api/v1/auth/mfa/verify", json={"code": _now_code(secret)})
+        assert r.status_code == 429 and r.json()["error"]["code"] == "too_many_attempts"

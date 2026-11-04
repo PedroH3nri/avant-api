@@ -5,7 +5,12 @@ Tudo aqui é da pessoa e não de uma Empresa, por isso usa trusted_uow, como o l
 
 import uuid
 
-from avant_core.identity.errors import InvalidToken
+from avant_core.identity.errors import (
+    InvalidCredentials,
+    InvalidMfaCode,
+    InvalidToken,
+    MfaAttemptsExceeded,
+)
 from avant_core.identity.services import (
     Authenticated,
     change_password,
@@ -18,7 +23,7 @@ from avant_core.identity.services import (
 from avant_core.ports import Mailer, PasswordHasher, SecretBox
 from avant_core.shared.clock import Clock
 
-from avant_api.app.limits import PASSWORD_IP, Limiter
+from avant_api.app.limits import PASSWORD_CHANGE, PASSWORD_IP, Limiter
 from avant_api.app.ports import UnitOfWorkFactory
 from avant_api.modules.account.dto import ChangePasswordIn, ResetPasswordIn, SessionOut
 
@@ -51,9 +56,9 @@ class AccountService:
         )
 
     def reset_password(self, body: ResetPasswordIn, ip: str | None) -> None:
-        """Troca a senha pelo link e encerra todas as sessões da pessoa."""
-        self._limiter.check((PASSWORD_IP, ip))
-        try:
+        """Troca a senha pelo link e encerra todas as sessões; link e código errados contam."""
+        failures = (InvalidToken, InvalidMfaCode, MfaAttemptsExceeded)
+        with self._limiter.attempt((PASSWORD_IP, ip), counts=failures):
             reset_password(
                 self._uows.trusted_uow(),
                 token=body.token,
@@ -64,22 +69,22 @@ class AccountService:
                 clock=self._clock,
                 mailer=self._mailer,
             )
-        except InvalidToken:
-            self._limiter.fail((PASSWORD_IP, ip))
-            raise
 
     def change_password(self, auth: Authenticated, body: ChangePasswordIn) -> None:
-        """Troca a senha, mantém a sessão atual e encerra as outras."""
-        change_password(
-            self._uows.trusted_uow(),
-            user_id=auth.user.id,
-            session_id=auth.session.id,
-            current=body.current_password,
-            new=body.new_password,
-            hasher=self._hasher,
-            clock=self._clock,
-            mailer=self._mailer,
-        )
+        """Troca a senha, mantém a sessão atual e encerra as outras; 5 erros da senha atual."""
+        with self._limiter.attempt(
+            (PASSWORD_CHANGE, str(auth.user.id)), counts=(InvalidCredentials,)
+        ):
+            change_password(
+                self._uows.trusted_uow(),
+                user_id=auth.user.id,
+                session_id=auth.session.id,
+                current=body.current_password,
+                new=body.new_password,
+                hasher=self._hasher,
+                clock=self._clock,
+                mailer=self._mailer,
+            )
 
     def sessions(self, auth: Authenticated) -> list[SessionOut]:
         """As sessões abertas da pessoa, da mais recente para a mais antiga."""
