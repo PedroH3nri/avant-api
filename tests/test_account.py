@@ -110,6 +110,19 @@ def test_login_attempts_are_limited(
     assert 0 < int(r.headers["Retry-After"]) <= 900
 
 
+def test_change_password_attempts_are_limited(
+    client: TestClient, engine: Engine, mailer: CapturingMailer
+) -> None:
+    _onboard_owner(client, engine, mailer)
+    body = {"current_password": "errada", "new_password": NEW}
+    for _ in range(5):
+        r = client.post("/api/v1/auth/password/change", json=body, headers=_csrf(client))
+        assert r.status_code == 401
+    body["current_password"] = PASSWORD
+    r = client.post("/api/v1/auth/password/change", json=body, headers=_csrf(client))
+    assert r.status_code == 429 and r.json()["error"]["code"] == "too_many_attempts"
+
+
 class FakeGoogle:
     def __init__(self, identity: GoogleIdentity) -> None:
         self.identity = identity
@@ -219,10 +232,40 @@ def _limiter_round(limiter: Limiter) -> None:
     limiter.check((rule, "b"))
     limiter.clear(rule, "a")
     limiter.check((rule, "a"))
+    _attempt_round(limiter)
+
+
+def _attempt_round(limiter: Limiter) -> None:
+    rule = Rule("tentativa", 2, 60)
+    for _ in range(3):
+        with limiter.attempt((rule, "a"), counts=(KeyError,)):
+            pass
+    with pytest.raises(ValueError), limiter.attempt((rule, "a"), counts=(KeyError,)):
+        raise ValueError
+    for _ in range(2):
+        with pytest.raises(KeyError), limiter.attempt((rule, "a"), counts=(KeyError,)):
+            raise KeyError
+    with pytest.raises(Exception, match="muitas tentativas"):
+        limiter.reserve((rule, "a"))
+
+
+def _refused_attempt_round(limiter: Limiter) -> None:
+    email, ip = Rule("email", 5, 60), Rule("ip", 1, 60)
+    with pytest.raises(KeyError), limiter.attempt((ip, "a"), counts=(KeyError,)):
+        raise KeyError
+    for _ in range(6):
+        with (
+            pytest.raises(Exception, match="muitas tentativas"),
+            limiter.attempt((email, "e"), (ip, "a"), counts=(KeyError,)),
+        ):
+            pass
+    limiter.check((email, "e"))
+    limiter.reserve((email, "e"))
 
 
 def test_memory_limiter() -> None:
     _limiter_round(Limiter(MemoryCounter()))
+    _refused_attempt_round(Limiter(MemoryCounter()))
 
 
 @pytest.mark.skipif(
@@ -230,5 +273,8 @@ def test_memory_limiter() -> None:
 )
 def test_redis_limiter() -> None:
     _limiter_round(
+        Limiter(RedisCounter.from_url(os.environ["AVANT_TEST_REDIS_URL"]), f"teste:{uuid.uuid4()}")
+    )
+    _refused_attempt_round(
         Limiter(RedisCounter.from_url(os.environ["AVANT_TEST_REDIS_URL"]), f"teste:{uuid.uuid4()}")
     )

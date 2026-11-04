@@ -62,6 +62,7 @@ class GoogleFailed(DomainError):
 STATUS: dict[str, int] = {
     "not_authenticated": 401,
     "mfa_attempts_exceeded": 401,
+    "mfa_locked": 429,
     "mfa_required": 403,
     "mfa_already_enabled": 409,
     "mfa_not_enabled": 409,
@@ -155,8 +156,9 @@ def install(app: FastAPI) -> None:
         # TooManyAttempts, SyncTooSoon, RateLimited.
         retry_after = getattr(exc, "retry_after", None)
         headers = {"Retry-After": str(retry_after)} if retry_after is not None else None
+        details = {"retry_after": retry_after} if retry_after is not None else None
         return JSONResponse(
-            error_body(exc.code, str(exc)),
+            error_body(exc.code, str(exc), details),
             status_code=STATUS.get(exc.code, 400),
             headers=headers,
         )

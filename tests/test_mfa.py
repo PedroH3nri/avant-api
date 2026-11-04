@@ -6,6 +6,7 @@ from avant_core.identity.enums import CredentialProvider
 from avant_core.identity.models import User, UserCredential
 from avant_core.identity.security import totp
 from avant_core.identity.security.passwords import Argon2PasswordHasher
+from avant_core.ports import Notice
 from avant_core.shared.clock import SystemClock
 from fastapi.testclient import TestClient
 from sqlalchemy import Engine
@@ -97,3 +98,84 @@ def test_staff_must_set_up_mfa_first(client: TestClient, engine: Engine) -> None
         "DELETE", "/api/v1/auth/mfa", json={"code": recovery[0]}, headers=_csrf(client)
     )
     assert r.status_code == 403 and r.json()["error"]["code"] == "mfa_required"
+
+
+def _password_login(client: TestClient) -> None:
+    r = client.post("/api/v1/auth/login", json={"email": "dono@acai.com", "password": PASSWORD})
+    assert r.json()["mfa_required"] is True, r.text
+
+
+def test_login_counter_waits_for_the_code(
+    client: TestClient, engine: Engine, mailer: CapturingMailer
+) -> None:
+    _onboard_owner(client, engine, mailer)
+    _, recovery = _enable(client)
+    client.post("/api/v1/auth/logout", headers=_csrf(client))
+    for _ in range(5):
+        _password_login(client)
+    ok = client.post("/api/v1/auth/mfa/verify", json={"code": recovery[0]})
+    assert ok.status_code == 200, ok.text
+    client.post("/api/v1/auth/logout", headers=_csrf(client))
+    for _ in range(5):
+        _password_login(client)
+    r = client.post("/api/v1/auth/login", json={"email": "dono@acai.com", "password": PASSWORD})
+    assert r.status_code == 429 and r.json()["error"]["code"] == "too_many_attempts"
+
+
+def test_verify_is_limited_by_ip(
+    client: TestClient, engine: Engine, mailer: CapturingMailer
+) -> None:
+    _onboard_owner(client, engine, mailer)
+    secret, _ = _enable(client)
+    with TestClient(client.app, client=("203.0.113.7", 50000)) as other:
+        _password_login(other)
+        for _ in range(5):
+            wrong = other.post("/api/v1/auth/mfa/verify", json={"code": "000000"})
+            assert wrong.status_code in (401, 422), wrong.text
+        _password_login(other)
+        for _ in range(15):
+            locked = other.post("/api/v1/auth/mfa/verify", json={"code": "000000"})
+            assert locked.json()["error"]["code"] == "mfa_locked", locked.text
+        r = other.post("/api/v1/auth/mfa/verify", json={"code": _now_code(secret)})
+        assert r.status_code == 429 and r.json()["error"]["code"] == "too_many_attempts"
+
+
+def test_wrong_codes_lock_the_person(
+    client: TestClient, engine: Engine, mailer: CapturingMailer
+) -> None:
+    _onboard_owner(client, engine, mailer)
+    secret, _ = _enable(client)
+    client.post("/api/v1/auth/logout", headers=_csrf(client))
+    _password_login(client)
+    for _ in range(5):
+        client.post("/api/v1/auth/mfa/verify", json={"code": "000000"})
+    _password_login(client)
+    r = client.post("/api/v1/auth/mfa/verify", json={"code": _now_code(secret)})
+    assert r.status_code == 429 and r.json()["error"]["code"] == "mfa_locked"
+
+
+def test_new_recovery_codes_send_a_notice(
+    client: TestClient, engine: Engine, mailer: CapturingMailer
+) -> None:
+    _onboard_owner(client, engine, mailer)
+    _, recovery = _enable(client)
+    r = client.post(
+        "/api/v1/auth/mfa/recovery-codes", json={"code": recovery[0]}, headers=_csrf(client)
+    )
+    assert r.status_code == 200, r.text
+    assert (("dono@acai.com", Notice.RECOVERY_CODES_REGENERATED)) in mailer.notices
+
+
+def test_reset_link_burns_after_five_wrong_codes(
+    client: TestClient, engine: Engine, mailer: CapturingMailer
+) -> None:
+    _onboard_owner(client, engine, mailer)
+    _enable(client)
+    client.post("/api/v1/auth/password/forgot", json={"email": "dono@acai.com"})
+    token = mailer.resets[-1][1]
+    body = {"token": token, "password": "outra-senha-456", "mfa_code": "000000"}
+    codes = [
+        client.post("/api/v1/auth/password/reset", json=body).json()["error"]["code"]
+        for _ in range(5)
+    ]
+    assert codes == ["invalid_mfa_code"] * 4 + ["mfa_attempts_exceeded"]
