@@ -124,6 +124,7 @@ def client(engine: Engine, mailer: CapturingMailer) -> Iterator[TestClient]:
             "ad_units",
             "sites",
             "network_sync_runs",
+            "gam_tool_runs",
             "networks",
             "mcm_candidates",
             "sessions",
