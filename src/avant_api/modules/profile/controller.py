@@ -28,8 +28,8 @@ def edit_appearance(
 
 @router.put("/auth/me/image")
 def edit_image(
-    content: bytes = Depends(image_upload),
     auth: Authenticated = Depends(get_auth),
+    content: bytes = Depends(image_upload),
     service: ProfileService = Depends(profile_service),
 ) -> UserOut:
     """Troca a foto de perfil: o corpo é o arquivo PNG, JPEG ou WebP de até 2 MB."""

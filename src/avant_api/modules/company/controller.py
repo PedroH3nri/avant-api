@@ -47,8 +47,8 @@ def image(
 
 @router.put("/image")
 def edit_image(
-    content: bytes = Depends(image_upload),
     actor: Actor = Depends(require("company.edit")),
+    content: bytes = Depends(image_upload),
     service: CompanyService = Depends(company_service),
 ) -> CompanyDetailOut:
     """Troca a imagem: o corpo é o arquivo PNG, JPEG ou WebP de até 2 MB."""

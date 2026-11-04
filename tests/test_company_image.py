@@ -2,10 +2,13 @@
 
 from io import BytesIO
 
+import pytest
+from avant_core.shared.errors import InvalidImage
 from fastapi.testclient import TestClient
 from PIL import Image
 from sqlalchemy import Engine
 
+from avant_api.app.images import PillowImageProcessor
 from tests.conftest import CapturingMailer
 from tests.test_api import _csrf, _onboard_owner
 from tests.test_internal import _staff
@@ -97,3 +100,23 @@ def test_groone_changes_the_image_of_a_client(
     removed = staff.delete(f"/api/v1/internal/clients/{company_id}/image", headers=_csrf(staff))
     assert removed.status_code == 200 and removed.json()["image_url"] is None
     assert staff.get(image_url).status_code == 404
+
+
+def test_upload_without_session_is_refused_before_reading_the_body(client: TestClient) -> None:
+    big = b"x" * (3 * 1024 * 1024)
+    for path in (
+        "/api/v1/auth/me/image",
+        "/api/v1/company/image",
+        "/api/v1/company/documents/contract",
+    ):
+        anonymous = client.put(path, content=big, headers={"Content-Type": "image/png"})
+        assert anonymous.status_code == 401, (path, anonymous.text)
+
+
+def test_images_with_too_many_pixels_are_refused_and_big_ones_are_shrunk_first() -> None:
+    processor = PillowImageProcessor()
+    with pytest.raises(InvalidImage):
+        processor.square_webp(_png(4000, 2600), 256)
+    small = processor.square_webp(_png(3000, 2500), 256)
+    with Image.open(BytesIO(small)) as result:
+        assert result.size == (256, 256)
