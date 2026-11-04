@@ -10,6 +10,7 @@ from avant_api.modules.internal.clients.controller import router as clients
 from avant_api.modules.internal.commissions.controller import router as commissions
 from avant_api.modules.internal.contracts.controller import router as contracts
 from avant_api.modules.internal.dashboard_templates.controller import router as dashboard_templates
+from avant_api.modules.internal.gam_tools.controller import router as gam_tools
 from avant_api.modules.internal.goals.controller import router as goals
 from avant_api.modules.internal.inventory.controller import router as inventory
 from avant_api.modules.internal.invoices.controller import router as invoices
@@ -39,5 +40,6 @@ for child in (
     tasks,
     checklists,
     checklist_items,
+    gam_tools,
 ):
     router.include_router(child)
