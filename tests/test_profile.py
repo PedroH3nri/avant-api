@@ -39,8 +39,19 @@ def test_appearance_belongs_to_the_person(
     assert ana.get("/api/v1/auth/me").json()["user"]["locale"] == "es"
     assert client.get("/api/v1/auth/me").json()["accent"] == "default"
 
+    groone = ana.patch(
+        "/api/v1/auth/appearance", json={"theme": "groone", "accent": "navy"}, headers=_csrf(ana)
+    )
+    assert groone.status_code == 200, groone.text
+    assert (groone.json()["theme"], groone.json()["accent"]) == ("groone", "navy")
+    for accent in ("cyan", "pink", "gold", "graphite"):
+        found = ana.patch("/api/v1/auth/appearance", json={"accent": accent}, headers=_csrf(ana))
+        assert found.json()["accent"] == accent
+
     invalid = ana.patch("/api/v1/auth/appearance", json={"accent": "#ff0000"}, headers=_csrf(ana))
     assert invalid.status_code == 422
+    red = ana.patch("/api/v1/auth/appearance", json={"accent": "red"}, headers=_csrf(ana))
+    assert red.status_code == 422
     assert TestClient(client.app).patch("/api/v1/auth/appearance", json={}).status_code == 401
 
 
