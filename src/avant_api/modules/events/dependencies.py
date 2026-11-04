@@ -8,5 +8,5 @@ from avant_api.modules.events.service import EventService
 
 
 def event_service(services: Services = Depends(get_services)) -> EventService:
-    """O service dos avisos com o canal de eventos da aplicação."""
-    return EventService(services.events)
+    """O service dos avisos com o canal de eventos e o teto de streams do processo."""
+    return EventService(services.events, services.stream_limiter)
