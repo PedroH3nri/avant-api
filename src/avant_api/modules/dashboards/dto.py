@@ -5,11 +5,11 @@ from datetime import datetime
 from typing import Any
 
 from avant_core.access.enums import Visibility
-from avant_core.dashboards.models import Dashboard, DashboardTemplate
+from avant_core.dashboards.models import Dashboard, DashboardRun, DashboardTemplate
 from avant_core.dashboards.services import DashboardInput
 from pydantic import BaseModel, Field
 
-from avant_api.modules.reports.dto import LabelOut
+from avant_api.modules.reports.dto import LabelOut, ReportResultOut
 from avant_api.shared.dto import PageOut
 
 
@@ -109,3 +109,28 @@ class WidgetRunIn(BaseModel):
     """Os filtros que a pessoa escolheu na tela; sem eles valem os gravados no dashboard."""
 
     filters: dict[str, Any] | None = None
+
+
+class WidgetErrorOut(BaseModel):
+    """Por que um widget não rodou: o código e a mensagem do erro."""
+
+    code: str
+    message: str
+
+
+class DashboardRunOut(BaseModel):
+    """O resultado de cada widget com consulta, pelo id, e o erro dos que não rodaram."""
+
+    results: dict[str, ReportResultOut]
+    errors: dict[str, WidgetErrorOut]
+
+    @classmethod
+    def of(cls, run: DashboardRun) -> "DashboardRunOut":
+        """Monta a resposta a partir da execução do dashboard."""
+        return cls(
+            results={key: ReportResultOut.of(result) for key, result in run.results.items()},
+            errors={
+                key: WidgetErrorOut(code=error.code, message=str(error))
+                for key, error in run.errors.items()
+            },
+        )

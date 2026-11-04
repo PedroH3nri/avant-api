@@ -21,6 +21,8 @@ from avant_api.modules.reports.dependencies import report_service
 from avant_api.modules.reports.dto import (
     ExportFormat,
     MetricCatalogOut,
+    ReportBatchIn,
+    ReportBatchOut,
     ReportPageOut,
     ReportQueryIn,
     ReportResultOut,
@@ -57,6 +59,16 @@ def query(
 ) -> ReportResultOut:
     """Roda uma consulta sem salvar (a pré-visualização do construtor de relatórios)."""
     return service.query(actor, body)
+
+
+@router.post("/reports/query/batch")
+def query_batch(
+    body: ReportBatchIn,
+    actor: Actor = Depends(require_report("reports.view")),
+    service: ReportService = Depends(report_service),
+) -> ReportBatchOut:
+    """Roda as consultas de uma tela numa requisição só, gastando uma consulta do limite."""
+    return service.query_batch(actor, body)
 
 
 @router.post("/reports/query/export")

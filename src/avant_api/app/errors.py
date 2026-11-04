@@ -155,8 +155,9 @@ def install(app: FastAPI) -> None:
         # TooManyAttempts, SyncTooSoon, RateLimited.
         retry_after = getattr(exc, "retry_after", None)
         headers = {"Retry-After": str(retry_after)} if retry_after is not None else None
+        details = {"retry_after": retry_after} if retry_after is not None else None
         return JSONResponse(
-            error_body(exc.code, str(exc)),
+            error_body(exc.code, str(exc), details),
             status_code=STATUS.get(exc.code, 400),
             headers=headers,
         )

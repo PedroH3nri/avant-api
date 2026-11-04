@@ -28,6 +28,7 @@ from avant_core.metrics.services import (
     CustomMetricSet,
     decode_query,
     list_custom_metrics,
+    run_queries,
     run_query,
 )
 from avant_core.metrics.services.query_rules import MAX_DAYS, MAX_LIMIT
@@ -63,6 +64,8 @@ from avant_api.modules.reports.dto import (
     LabelOut,
     MetricCatalogOut,
     MetricOut,
+    ReportBatchIn,
+    ReportBatchOut,
     ReportCountsOut,
     ReportPageOut,
     ReportPreviewOut,
@@ -117,6 +120,15 @@ class ReportService:
     def query(self, actor: Actor, body: ReportQueryIn) -> ReportResultOut:
         """Roda uma consulta sem salvar."""
         return ReportResultOut.of(self._run(actor, body.definition()))
+
+    def query_batch(self, actor: Actor, body: ReportBatchIn) -> ReportBatchOut:
+        """Roda as consultas de uma tela juntas, gastando uma consulta do limite."""
+        definitions = [section.definition() for section in body.sections]
+        results = self.run_guarded(
+            actor,
+            lambda uow: run_queries(uow, actor=actor, definitions=definitions, clock=self._clock),
+        )
+        return ReportBatchOut(results=[ReportResultOut.of(result) for result in results])
 
     def export(self, actor: Actor, body: ReportQueryIn, locale: Locale) -> str:
         """A mesma consulta em CSV, com o cabeçalho no idioma pedido."""

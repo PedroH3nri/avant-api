@@ -202,3 +202,52 @@ def test_groone_dashboards_sum_every_client(
         headers=_csrf(client),
     )
     assert refused.status_code == 422
+
+
+def test_whole_dashboard_runs_in_one_request(
+    client: TestClient, engine: Engine, mailer: CapturingMailer
+) -> None:
+    me = _onboard_owner(client, engine, mailer)
+    ids = _metrics(engine, uuid.UUID(me["active_company_id"]))
+    impressions = _kpi("impressions", "views")
+    impressions["x"] = 3
+    created = client.post(
+        "/api/v1/dashboards", json=_form(_kpi("revenue"), impressions), headers=_csrf(client)
+    ).json()
+    ran = client.post(f"/api/v1/dashboards/{created['id']}/run", json={}, headers=_csrf(client))
+    assert ran.status_code == 200, ran.text
+    body = ran.json()
+    assert body["results"]["kpi"]["totals"] == {"revenue": "36"}
+    assert body["results"]["views"]["totals"] == {"impressions": "4500"} and body["errors"] == {}
+    only_acai = client.post(
+        f"/api/v1/dashboards/{created['id']}/run",
+        json={"filters": {"site": [str(ids["acai"])]}},
+        headers=_csrf(client),
+    ).json()
+    assert only_acai["results"]["kpi"]["totals"] == {"revenue": "8"}
+    home = client.post(
+        f"/api/v1/dashboards/templates/{_template('overview')}/run", json={}, headers=_csrf(client)
+    )
+    assert home.status_code == 200, home.text
+    assert "revenue" in home.json()["results"]
+    hidden = client.post(
+        f"/api/v1/dashboards/templates/{_template('groone_overview')}/run",
+        json={},
+        headers=_csrf(client),
+    )
+    assert hidden.status_code == 404
+
+    ana = _member_client(client, mailer, "ana@acai.com")
+    ana_id = next(
+        member["id"]
+        for member in client.get("/api/v1/members").json()["items"]
+        if member["user"]["name"] == "Ana"
+    )
+    role = client.post(
+        "/api/v1/roles",
+        json={"name": "Sem relatórios", "permissions": ["sites.view"]},
+        headers=_csrf(client),
+    ).json()
+    client.patch(f"/api/v1/members/{ana_id}", json={"role_id": role["id"]}, headers=_csrf(client))
+    denied = ana.post(f"/api/v1/dashboards/{created['id']}/run", json={}, headers=_csrf(ana))
+    assert denied.status_code == 403
