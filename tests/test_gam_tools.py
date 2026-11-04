@@ -92,7 +92,8 @@ def test_staff_lists_runs_and_downloads(
     assert again.status_code == 409 and again.json()["error"]["code"] == "gam_tool_running"
     runs = staff.get(f"{BASE}/runs", params={"network": network_id}).json()
     assert [item["id"] for item in runs["items"]] == [run["id"]]
-    assert staff.get(f"{BASE}/runs/{run['id']}").json()["kind"] == "setup"
+    shown = staff.get(f"{BASE}/runs/{run['id']}").json()
+    assert shown["kind"] == "setup" and shown["requested_by"]["name"] == "Admin"
 
     lines = staff.get(f"{BASE}/ads-txt", params={"network": network_id}).json()["lines"]
     assert lines[-1] == "groone.com, pub-55, DIRECT" and len(lines) == 3

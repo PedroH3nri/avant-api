@@ -6,10 +6,16 @@ from datetime import date, datetime
 from avant_core.gam.networks.enums import Delegation, NetworkStatus
 from avant_core.gam.tools.enums import GamFormat, GamRunState, GamStepState, GamToolKind
 from avant_core.gam.tools.models import GamStep, GamToolNetwork, GamToolRun, GamToolSite
+from avant_core.identity.models import User
 from pydantic import BaseModel, Field
 
 
 class GamToolClientOut(BaseModel):
+    id: uuid.UUID
+    name: str
+
+
+class GamToolPersonOut(BaseModel):
     id: uuid.UUID
     name: str
 
@@ -98,15 +104,16 @@ class GamToolRunOut(BaseModel):
     domains: list[str]
     state: GamRunState
     error_code: str | None
-    requested_by: uuid.UUID
+    requested_by: GamToolPersonOut | None
     created_at: datetime
     updated_at: datetime | None
     finished_at: datetime | None
     steps: list[GamStepOut]
 
     @classmethod
-    def of(cls, run: GamToolRun) -> "GamToolRunOut":
-        """A execução com os passos."""
+    def of(cls, run: GamToolRun, people: dict[uuid.UUID, User] | None = None) -> "GamToolRunOut":
+        """A execução com os passos e quem pediu."""
+        person = (people or {}).get(run.requested_by)
         return cls(
             id=run.id,
             network_id=run.network_id,
@@ -115,7 +122,7 @@ class GamToolRunOut(BaseModel):
             domains=list(run.domains),
             state=run.state,
             error_code=run.error_code,
-            requested_by=run.requested_by,
+            requested_by=GamToolPersonOut(id=person.id, name=person.name) if person else None,
             created_at=run.created_at,
             updated_at=run.updated_at,
             finished_at=run.finished_at,

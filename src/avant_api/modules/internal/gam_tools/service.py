@@ -20,6 +20,7 @@ from avant_core.gam.tools.services import (
     page_gam_tool_runs,
     start_gam_tool,
 )
+from avant_core.identity.models import User
 from avant_core.shared.clock import Clock
 
 from avant_api.app.ports import UnitOfWorkFactory
@@ -62,13 +63,13 @@ class GamToolService:
         found = page_gam_tool_runs(
             self._uows.trusted_uow(), actor=actor, network_id=network_id, page=page
         )
-        return page_out(found, GamToolRunOut.of)
+        people = self._people({run.requested_by for run in found.items})
+        return page_out(found, lambda run: GamToolRunOut.of(run, people))
 
     def run(self, actor: Actor, run_id: uuid.UUID) -> GamToolRunOut:
         """Uma execução com os passos."""
-        return GamToolRunOut.of(
-            get_gam_tool_run(self._uows.trusted_uow(), actor=actor, run_id=run_id)
-        )
+        found = get_gam_tool_run(self._uows.trusted_uow(), actor=actor, run_id=run_id)
+        return GamToolRunOut.of(found, self._people({found.requested_by}))
 
     def start(self, actor: Actor, body: GamToolRunIn) -> GamToolRunOut:
         """Abre a execução e enfileira no worker."""
@@ -82,7 +83,7 @@ class GamToolService:
             block_format=body.format,
         )
         self._tasks.send(RUN_GAM_TOOL, str(run.id))
-        return GamToolRunOut.of(run)
+        return GamToolRunOut.of(run, self._people({run.requested_by}))
 
     def ads_txt(self, actor: Actor, network_id: uuid.UUID) -> AdsTxtOut:
         """As linhas do ads.txt da network."""
@@ -115,3 +116,9 @@ class GamToolService:
             for file in files:
                 archive.writestr(file.name, file.content)
         return "blocos.zip", buffer.getvalue(), "application/zip"
+
+    def _people(self, user_ids: set[uuid.UUID]) -> dict[uuid.UUID, User]:
+        """As pessoas que pediram as execuções, pelo id."""
+        with self._uows.trusted_uow() as uow:
+            found = (uow.users.get(user_id) for user_id in user_ids)
+            return {user.id: user for user in found if user is not None}
