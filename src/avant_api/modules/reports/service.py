@@ -91,6 +91,7 @@ class ReportService:
         self._clock = clock
         self._bucket = bucket
         self._tasks = tasks
+        self._internal: dict[uuid.UUID, bool] = {}
 
     def catalog(self, actor: Actor) -> MetricCatalogOut:
         """Métricas e dimensões que a pessoa pode pedir, nos três idiomas, mais as
@@ -261,10 +262,13 @@ class ReportService:
         )
 
     def _groone(self, actor: Actor) -> bool:
-        """Diz se a Empresa ativa é a Company Groone."""
-        with self._uows.uow(actor.company_id) as uow:
-            company = uow.companies.get(actor.company_id)
-            return company is not None and company.is_internal
+        """Diz se a Empresa ativa é a Company Groone; lido uma vez por pedido (o service é do
+        pedido)."""
+        if actor.company_id not in self._internal:
+            with self._uows.uow(actor.company_id) as uow:
+                company = uow.companies.get(actor.company_id)
+                self._internal[actor.company_id] = company is not None and company.is_internal
+        return self._internal[actor.company_id]
 
     def _query_uow(self, actor: Actor) -> UnitOfWork:
         """O Unit of Work da consulta: sem RLS na Company Groone (o avant-core recorta os
