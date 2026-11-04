@@ -49,12 +49,12 @@ def network(
 
 @router.get("/runs")
 def runs(
-    network: uuid.UUID,
+    network: uuid.UUID | None = None,
     page: int = Query(default=1, ge=1),
     actor: Actor = Depends(require_staff(PERMISSION)),
     service: GamToolService = Depends(gam_tool_service),
 ) -> PageOut[GamToolRunOut]:
-    """As execuções da network, a mais recente primeiro."""
+    """As execuções da network, ou de todas sem ``network``, a mais recente primeiro."""
     return service.runs(actor, network, page)
 
 

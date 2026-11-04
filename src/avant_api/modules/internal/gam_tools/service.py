@@ -30,6 +30,7 @@ from avant_api.modules.internal.gam_tools.dto import (
     GamToolNetworkDetailOut,
     GamToolNetworkOut,
     GamToolRunIn,
+    GamToolRunNetworkOut,
     GamToolRunOut,
 )
 from avant_api.shared.dto import PageOut, page_out
@@ -58,13 +59,14 @@ class GamToolService:
         view = get_gam_tool_network(self._uows.trusted_uow(), actor=actor, network_id=network_id)
         return GamToolNetworkDetailOut.of_detail(view)
 
-    def runs(self, actor: Actor, network_id: uuid.UUID, page: int) -> PageOut[GamToolRunOut]:
-        """Uma página das execuções da network."""
+    def runs(self, actor: Actor, network_id: uuid.UUID | None, page: int) -> PageOut[GamToolRunOut]:
+        """Uma página das execuções da network (ou de todas), com a network e o cliente."""
         found = page_gam_tool_runs(
             self._uows.trusted_uow(), actor=actor, network_id=network_id, page=page
         )
         people = self._people({run.requested_by for run in found.items})
-        return page_out(found, lambda run: GamToolRunOut.of(run, people))
+        networks = self._networks({run.network_id for run in found.items})
+        return page_out(found, lambda run: GamToolRunOut.of(run, people, networks))
 
     def run(self, actor: Actor, run_id: uuid.UUID) -> GamToolRunOut:
         """Uma execução com os passos."""
@@ -116,6 +118,23 @@ class GamToolService:
             for file in files:
                 archive.writestr(file.name, file.content)
         return "blocos.zip", buffer.getvalue(), "application/zip"
+
+    def _networks(self, network_ids: set[uuid.UUID]) -> dict[uuid.UUID, GamToolRunNetworkOut]:
+        """A network e o nome do cliente de cada execução, pelo id da network."""
+        found: dict[uuid.UUID, GamToolRunNetworkOut] = {}
+        with self._uows.trusted_uow() as uow:
+            for network_id in network_ids:
+                network = uow.networks.get(network_id)
+                company = uow.companies.get(network.company_id) if network else None
+                if network is None or company is None:
+                    continue
+                found[network_id] = GamToolRunNetworkOut(
+                    id=network.id,
+                    network_code=network.network_code,
+                    display_name=network.display_name,
+                    client_name=company.name,
+                )
+        return found
 
     def _people(self, user_ids: set[uuid.UUID]) -> dict[uuid.UUID, User]:
         """As pessoas que pediram as execuções, pelo id."""
