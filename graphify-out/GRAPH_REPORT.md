@@ -1,17 +1,17 @@
 # Graph Report - avant-api  (2026-11-04)
 
 ## Corpus Check
-- 290 files · ~89,193 words
+- 290 files · ~89,247 words
 - Verdict: corpus is large enough that graph structure adds value.
 - Unclassified: 11 file(s) not represented in the graph (top: (none) 7, .ttf 2, .rdb 1)
 
 ## Summary
-- 3919 nodes · 10775 edges · 203 communities (104 shown, 99 thin omitted)
+- 3919 nodes · 10778 edges · 203 communities (104 shown, 99 thin omitted)
 - Extraction: 83% EXTRACTED · 17% INFERRED · 0% AMBIGUOUS · INFERRED: 1809 edges (avg confidence: 0.91)
 - Token cost: 0 input · 0 output
 
 ## Graph Freshness
-- Built from commit: `d2b03810`
+- Built from commit: `dffde270`
 - Run `git rev-parse HEAD` and compare to check if the graph is stale.
 - Run `graphify update .` after code changes (no API cost).
 
@@ -599,7 +599,7 @@ Nodes (3): test_clients_by_manager_and_name(), test_saved_views_are_staff_only()
 
 ## Knowledge Gaps
 - **1 isolated node(s):** `avant-api`
-  These have ≤1 connection - possible missing edges or undocumented components. (Counts symbols only; 1790 node(s) total have ≤1 connection when file, concept and rationale nodes are included.)
+  These have ≤1 connection - possible missing edges or undocumented components. (Counts symbols only; 1789 node(s) total have ≤1 connection when file, concept and rationale nodes are included.)
 - **99 thin communities (<3 nodes) omitted from report** — run `graphify query` to explore isolated nodes.
 
 ## Suggested Questions
@@ -614,7 +614,7 @@ _Questions this graph is uniquely positioned to answer:_
 - **Should `_csrf` be split into smaller, more focused modules?**
   _Cohesion score 0.08686868686868687 - nodes in this community are weakly interconnected._
 - **Why does `PageOut` connect `networks/controller.py` to `clients/controller.py`, `roles/controller.py`, `.uow`, `Actor`, `ClientService`, `SiteListOut`, `test_events.py`, `ReportService`, `_month`, `SiteOut`, `.trusted_uow`, `.uow`, `api_keys/controller.py`, `InvoiceServiceOut`, `InvitationOut`, `CompanyService`, `.page_saved`, `invoices/controller.py`, `test_account.py`, `.owner_invitations`, `checklists/controller.py`, `AuditOut`, `SupportTaskService`, `PageOut`, `Services`, `members/controller.py`, `tasks/controller.py`, `get`, `networks/controller.py`, `Actor`, `NetworkOut`, `.page`, `ItemsOut`, `contracts/dto.py`, `GoalService`, `NetworkService`, `ContractService`, `contracts/controller.py`, `image`, `disable`, `image_url`, `index`, `Actor`, `add_note`, `UnitOfWorkFactory`, `tasks`, `networks/service.py`?**
-  _High betweenness centrality (0.091) - this node is a cross-community bridge._
+  _High betweenness centrality (0.092) - this node is a cross-community bridge._
 - **Are the 59 inferred relationships involving `PageOut` (e.g. with `events()` and `AlertPageOut`) actually correct?**
   _`PageOut` has 59 INFERRED edges - model-reasoned connections that need verification._
 - **Should `clients/controller.py` be split into smaller, more focused modules?**

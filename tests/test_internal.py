@@ -1,9 +1,13 @@
 """Painel interno contra o Postgres: só a equipe Groone com 2FA verificado."""
 
+from datetime import timedelta
+
+from avant_core.access.models import ApiKey
 from avant_core.db.uow import SqlAlchemyUnitOfWork
 from avant_core.identity.security.passwords import Argon2PasswordHasher
 from avant_core.internal.services import bootstrap_groone
 from avant_core.shared.clock import SystemClock
+from avant_core.shared.tokens import hash_token
 from fastapi.testclient import TestClient
 from sqlalchemy import Engine, text
 
@@ -214,11 +218,29 @@ def test_groone_routes_need_the_session_with_2fa(
         json={"name": "Vazada", "permissions": ["team.view"]},
         headers=_csrf(staff),
     )
-    if created.status_code == 201:
-        key = TestClient(client.app)
-        key.headers["Authorization"] = f"Bearer {created.json()['token']}"
-        refused = key.get("/api/v1/invitations")
-        assert refused.status_code == 403 and refused.json()["error"]["code"] == "staff_only"
+    assert created.status_code == 403 and created.json()["error"]["code"] == "staff_only"
+    token = "avk_" + "g" * 43
+    with SqlAlchemyUnitOfWork(engine, bypass_rls=True) as uow:
+        groone = uow.companies.internal()
+        assert groone is not None
+        (membership,) = uow.memberships.list_for_company(groone.id)
+        uow.api_keys.add(
+            ApiKey(
+                company_id=groone.id,
+                membership_id=membership.id,
+                name="Antiga",
+                prefix=token[4:12],
+                secret_hash=hash_token(token),
+                permissions=["team.view"],
+                created_at=SystemClock().now(),
+                expires_at=SystemClock().now() + timedelta(days=30),
+            )
+        )
+        uow.commit()
+    key = TestClient(client.app)
+    key.headers["Authorization"] = f"Bearer {token}"
+    refused = key.get("/api/v1/invitations")
+    assert refused.status_code == 403 and refused.json()["error"]["code"] == "staff_only"
     with SqlAlchemyUnitOfWork(engine, bypass_rls=True) as uow:
         uow.session.execute(text("UPDATE sessions SET mfa_verified_at = NULL"))
         uow.commit()
