@@ -249,8 +249,23 @@ def _attempt_round(limiter: Limiter) -> None:
         limiter.reserve((rule, "a"))
 
 
+def _refused_attempt_round(limiter: Limiter) -> None:
+    email, ip = Rule("email", 5, 60), Rule("ip", 1, 60)
+    with pytest.raises(KeyError), limiter.attempt((ip, "a"), counts=(KeyError,)):
+        raise KeyError
+    for _ in range(6):
+        with (
+            pytest.raises(Exception, match="muitas tentativas"),
+            limiter.attempt((email, "e"), (ip, "a"), counts=(KeyError,)),
+        ):
+            pass
+    limiter.check((email, "e"))
+    limiter.reserve((email, "e"))
+
+
 def test_memory_limiter() -> None:
     _limiter_round(Limiter(MemoryCounter()))
+    _refused_attempt_round(Limiter(MemoryCounter()))
 
 
 @pytest.mark.skipif(
@@ -258,5 +273,8 @@ def test_memory_limiter() -> None:
 )
 def test_redis_limiter() -> None:
     _limiter_round(
+        Limiter(RedisCounter.from_url(os.environ["AVANT_TEST_REDIS_URL"]), f"teste:{uuid.uuid4()}")
+    )
+    _refused_attempt_round(
         Limiter(RedisCounter.from_url(os.environ["AVANT_TEST_REDIS_URL"]), f"teste:{uuid.uuid4()}")
     )

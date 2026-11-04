@@ -163,12 +163,18 @@ class Limiter:
         self._counter.delete(self._key(rule, subject))
 
     def reserve(self, *pairs: tuple[Rule, str | None]) -> None:
-        """Conta a tentativa já, de forma atômica, e recusa com 429 quem passou do limite."""
+        """Conta a tentativa já, de forma atômica, e recusa com 429 quem passou do limite.
+
+        A recusa não conta: devolve tudo o que reservou, para um IP no limite não gastar o e-mail.
+        """
+        reserved: list[tuple[Rule, str | None]] = []
         for rule, subject in pairs:
             if subject is None:
                 continue
             count, left = self._counter.incr(self._key(rule, subject), rule.window_seconds)
+            reserved.append((rule, subject))
             if count > rule.limit:
+                self.release(*reserved)
                 raise TooManyAttempts(retry_after=max(left, 1))
 
     def release(self, *pairs: tuple[Rule, str | None]) -> None:
