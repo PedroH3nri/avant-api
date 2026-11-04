@@ -148,3 +148,9 @@ def test_events_route_is_session_only_and_frees_the_slot(
     client.app.state.services.events = ListEvents([])  # type: ignore[attr-defined]
     for _ in range(EVENT_STREAMS_PER_USER + 2):
         assert client.get("/api/v1/events").status_code == 200
+
+
+def test_metrics_updates_reach_who_sees_reports() -> None:
+    source = ListEvents([_event("metrics.updated", network_id="n1")])
+    chunks = asyncio.run(_collect(source, {"reports.view"}))
+    assert 'event: metrics.updated\ndata: {"network_id": "n1"}\n\n' in chunks
