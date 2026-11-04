@@ -18,6 +18,7 @@ from avant_api.modules.dashboards.dto import (
     DashboardIn,
     DashboardOut,
     DashboardPageOut,
+    DashboardRunOut,
     DashboardTemplateOut,
     HomeDashboardOut,
     WidgetRunIn,
@@ -99,6 +100,17 @@ def create_from_template(
     return service.create_from_template(actor, template_id)
 
 
+@router.post("/templates/{template_id}/run")
+def run_template_all(
+    template_id: uuid.UUID,
+    body: WidgetRunIn,
+    actor: Actor = Depends(require_report("reports.view")),
+    service: DashboardService = Depends(dashboard_service),
+) -> DashboardRunOut:
+    """Roda todos os widgets de um modelo pronto numa requisição, com uma consulta do limite."""
+    return service.run_template_all(actor, template_id, body)
+
+
 @router.post("/templates/{template_id}/widgets/{widget_id}/run")
 def run_template(
     template_id: uuid.UUID,
@@ -150,6 +162,18 @@ def duplicate(
 ) -> DashboardOut:
     """Faz uma cópia privada, de quem duplica, com " (cópia)" no nome."""
     return service.duplicate(actor, dashboard_id)
+
+
+@router.post("/{dashboard_id}/run")
+def run_all(
+    dashboard_id: uuid.UUID,
+    body: WidgetRunIn,
+    actor: Actor = Depends(require_report("reports.view")),
+    service: DashboardService = Depends(dashboard_service),
+) -> DashboardRunOut:
+    """Roda todos os widgets com consulta numa requisição, gastando uma consulta do limite; um
+    widget que não roda volta em ``errors`` sem derrubar os outros."""
+    return service.run_all(actor, dashboard_id, body)
 
 
 @router.post("/{dashboard_id}/widgets/{widget_id}/run")

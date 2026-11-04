@@ -51,7 +51,7 @@ def _header(definition: QueryDefinition, locale: Locale, names: Mapping[str, str
     metrics = [_metric_label(key, locale, names) for key in definition.metrics]
     header = [DIMENSIONS_BY_KEY[key].label.text(locale) for key in definition.dimensions]
     header += metrics
-    if definition.compare:
+    if definition.compares:
         header += [f"{label} (anterior)" for label in metrics]
     return header
 
@@ -71,7 +71,7 @@ def _rows(result: QueryResult, definition: QueryDefinition) -> list[list[Cell]]:
             text = dimension_text(row.dimensions.get(key))
             cells.append(result.labels.get(key, {}).get(text or "", text or ""))
         cells += [row.metrics.get(key) for key in definition.metrics]
-        if definition.compare:
+        if definition.compares:
             previous = row.previous or {}
             cells += [previous.get(key) for key in definition.metrics]
         rows.append(cells)

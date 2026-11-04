@@ -339,3 +339,71 @@ def test_groone_reports_sum_every_client(
     assert [row["dimensions"]["client"] for row in result["rows"]] == [company_id]
     assert result["totals"] == {"revenue_gross": "45", "revenue_groone": "9"}
     assert company_id in result["labels"]["client"]
+
+
+def test_batch_runs_a_screen_with_one_slot_and_tells_how_long_to_wait(
+    client: TestClient, engine: Engine, mailer: CapturingMailer
+) -> None:
+    me = _onboard_owner(client, engine, mailer)
+    ids = _metrics(engine, uuid.UUID(me["active_company_id"]))
+    before = YESTERDAY - timedelta(days=1)
+    sections = [
+        _day(compare="previous"),
+        _day(["site"], order=[{"field": "revenue"}]),
+        _day(
+            compare="custom",
+            compare_start=before.isoformat(),
+            compare_end=before.isoformat(),
+        ),
+    ]
+    response = client.post(
+        "/api/v1/reports/query/batch", json={"sections": sections}, headers=_csrf(client)
+    )
+    assert response.status_code == 200, response.text
+    totals, by_site, chosen = response.json()["results"]
+    assert totals["totals"]["revenue"] == "36" and totals["previous_totals"]["revenue"] == "1.6"
+    assert by_site["rows"][0]["dimensions"]["site"] == str(ids["blog"])
+    assert chosen["previous_period"] == {"start": before.isoformat(), "end": before.isoformat()}
+    assert chosen["previous_totals"]["revenue"] == "1.6"
+    for _ in range(9):
+        again = client.post(
+            "/api/v1/reports/query/batch", json={"sections": sections}, headers=_csrf(client)
+        )
+        assert again.status_code == 200, again.text
+    limited = client.post(
+        "/api/v1/reports/query/batch", json={"sections": sections}, headers=_csrf(client)
+    )
+    assert limited.status_code == 429
+    error = limited.json()["error"]
+    assert error["code"] == "rate_limited" and error["details"]["retry_after"] >= 1
+    assert limited.headers["Retry-After"] == str(error["details"]["retry_after"])
+
+
+def test_batch_refuses_bad_sections_and_needs_permission(
+    client: TestClient, engine: Engine, mailer: CapturingMailer
+) -> None:
+    _onboard_owner(client, engine, mailer)
+    empty = client.post("/api/v1/reports/query/batch", json={"sections": []}, headers=_csrf(client))
+    assert empty.json()["error"]["code"] == "validation_error"
+    no_end = client.post(
+        "/api/v1/reports/query/batch",
+        json={"sections": [_day(compare="custom", compare_start=YESTERDAY.isoformat())]},
+        headers=_csrf(client),
+    )
+    assert no_end.status_code == 422 and no_end.json()["error"]["code"] == "invalid_input"
+    ana = _member_client(client, mailer, "ana@acai.com")
+    ana_id = next(
+        member["id"]
+        for member in client.get("/api/v1/members").json()["items"]
+        if member["user"]["name"] == "Ana"
+    )
+    role = client.post(
+        "/api/v1/roles",
+        json={"name": "Sem relatórios", "permissions": ["sites.view"]},
+        headers=_csrf(client),
+    ).json()
+    client.patch(f"/api/v1/members/{ana_id}", json={"role_id": role["id"]}, headers=_csrf(client))
+    denied = ana.post(
+        "/api/v1/reports/query/batch", json={"sections": [_day()]}, headers=_csrf(ana)
+    )
+    assert denied.status_code == 403 and denied.json()["error"]["code"] == "permission_denied"

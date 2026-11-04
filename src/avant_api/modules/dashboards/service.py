@@ -20,6 +20,8 @@ from avant_core.dashboards.services import (
     home_template,
     list_dashboard_templates,
     page_dashboards,
+    run_dashboard,
+    run_template,
     run_template_widget,
     run_widget,
     set_company_default,
@@ -32,6 +34,7 @@ from avant_api.modules.dashboards.dto import (
     DashboardIn,
     DashboardOut,
     DashboardPageOut,
+    DashboardRunOut,
     DashboardTemplateOut,
     HomeDashboardOut,
     WidgetRunIn,
@@ -186,6 +189,28 @@ class DashboardService:
             ),
         )
         return ReportResultOut.of(result)
+
+    def run_all(self, actor: Actor, dashboard_id: uuid.UUID, body: WidgetRunIn) -> DashboardRunOut:
+        """Roda todos os widgets do dashboard numa requisição, gastando uma consulta do limite."""
+        run = self._reports.run_guarded(
+            actor,
+            lambda uow: run_dashboard(
+                uow, actor=actor, dashboard_id=dashboard_id, clock=self._clock, filters=body.filters
+            ),
+        )
+        return DashboardRunOut.of(run)
+
+    def run_template_all(
+        self, actor: Actor, template_id: uuid.UUID, body: WidgetRunIn
+    ) -> DashboardRunOut:
+        """Roda todos os widgets de um modelo pronto numa requisição, com uma consulta do limite."""
+        run = self._reports.run_guarded(
+            actor,
+            lambda uow: run_template(
+                uow, actor=actor, template_id=template_id, clock=self._clock, filters=body.filters
+            ),
+        )
+        return DashboardRunOut.of(run)
 
     def _out(self, actor: Actor, dashboard: Dashboard) -> DashboardOut:
         """O dashboard com o que diz se a pessoa pode editá-lo."""

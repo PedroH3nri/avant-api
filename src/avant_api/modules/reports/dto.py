@@ -8,6 +8,7 @@ from typing import Annotated, Any, Literal
 from avant_core.access.enums.visibility import Visibility
 from avant_core.gam.inventory.enums import SiteCategory
 from avant_core.metrics.enums import (
+    CompareMode,
     FilterOperator,
     MetricFormat,
     MetricKind,
@@ -32,12 +33,13 @@ from avant_core.metrics.services.query_rules import (
     MAX_LIMIT,
     UNFILTERABLE_DIMENSIONS,
 )
+from avant_core.metrics.services.report_service import MAX_SECTIONS
 from avant_core.money.catalog import BASE_CURRENCY
 from avant_core.reports.enums.chart_type import ChartType
 from avant_core.reports.models.report_template import ReportTemplate
 from avant_core.reports.models.saved_report import SavedReport
 from avant_core.reports.services import ReportInput
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 from avant_api.shared.dto import PageOut
 
@@ -166,8 +168,11 @@ class ReportQueryIn(BaseModel):
     period: PeriodIn
     dimensions: list[str] = Field(default_factory=list, max_length=6)
     filters: list[FilterIn] = Field(default_factory=list, max_length=20)
-    # Soma também o período de mesmo tamanho logo antes.
-    compare: bool = False
+    # Com que período comparar: o anterior de mesmo tamanho, o mesmo do ano passado ou um
+    # escolhido (``compare_start`` e ``compare_end``). ``true``/``false`` antigos ainda valem.
+    compare: CompareMode = CompareMode.NONE
+    compare_start: date | None = None
+    compare_end: date | None = None
     order: list[OrderIn] = Field(default_factory=list, max_length=5)
     limit: int = Field(default=1000, ge=1, le=MAX_LIMIT)
     # Moeda do dinheiro na resposta; o painel manda a moeda de visualização da pessoa.
@@ -187,7 +192,17 @@ class ReportQueryIn(BaseModel):
             order=tuple(Order(item.field, item.descending) for item in self.order),
             limit=self.limit,
             currency=self.currency.upper(),
+            compare_start=self.compare_start,
+            compare_end=self.compare_end,
         )
+
+    @field_validator("compare", mode="before")
+    @classmethod
+    def _old_compare(cls, value: object) -> object:
+        """Aceita o ``compare`` antigo: ``true`` é o período anterior, ``false`` é nenhum."""
+        if isinstance(value, bool):
+            return CompareMode.PREVIOUS if value else CompareMode.NONE
+        return value
 
 
 class ReportRowOut(BaseModel):
@@ -245,6 +260,18 @@ class ReportResultOut(BaseModel):
         )
 
 
+class ReportBatchIn(BaseModel):
+    """As consultas de uma tela, que rodam juntas e gastam uma consulta do limite."""
+
+    sections: list[ReportQueryIn] = Field(min_length=1, max_length=MAX_SECTIONS)
+
+
+class ReportBatchOut(BaseModel):
+    """Os resultados das consultas, na ordem em que vieram."""
+
+    results: list[ReportResultOut]
+
+
 def dimension_text(value: DimensionValue) -> str | None:
     """Valor de uma dimensão como texto: data em ISO, id como texto."""
     if value is None:
@@ -261,7 +288,9 @@ class SavedQueryOut(BaseModel):
     period: PeriodIn
     dimensions: list[str]
     filters: list[FilterIn]
-    compare: bool
+    compare: CompareMode
+    compare_start: date | None
+    compare_end: date | None
     order: list[OrderIn]
     limit: int
 
@@ -278,6 +307,8 @@ class SavedQueryOut(BaseModel):
                 for item in definition.filters
             ],
             compare=definition.compare,
+            compare_start=definition.compare_start,
+            compare_end=definition.compare_end,
             order=[
                 OrderIn(field=item.field, descending=item.descending) for item in definition.order
             ],
