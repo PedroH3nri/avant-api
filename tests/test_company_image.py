@@ -6,7 +6,7 @@ from io import BytesIO
 import pytest
 from avant_core.shared.errors import InvalidImage
 from fastapi.testclient import TestClient
-from PIL import Image, ImageStat
+from PIL import Image, ImageChops, ImageStat
 from sqlalchemy import Engine
 
 from avant_api.app.images import PillowImageProcessor
@@ -115,10 +115,11 @@ def test_upload_without_session_is_refused_before_reading_the_body(client: TestC
         assert anonymous.status_code == 401, (path, anonymous.text)
 
 
-def _jpeg(width: int, height: int) -> bytes:
+def _jpeg(width: int, height: int, *, progressive: bool = False) -> bytes:
     """Uma foto JPEG de uma cor só no tamanho pedido, como a de um celular."""
     output = BytesIO()
-    Image.new("RGB", (width, height), (40, 120, 200)).save(output, format="JPEG", quality=85)
+    image = Image.new("RGB", (width, height), (40, 120, 200))
+    image.save(output, format="JPEG", quality=85, progressive=progressive)
     return output.getvalue()
 
 
@@ -142,6 +143,9 @@ def test_phone_photos_pass_and_huge_pngs_are_refused() -> None:
     processor = PillowImageProcessor()
     with Image.open(BytesIO(processor.square_webp(_jpeg(4032, 3024), 256))) as result:
         assert result.size == (256, 256)
+    for huge in (_jpeg(8000, 6000, progressive=True), _jpeg(6000, 5000)):
+        with pytest.raises(InvalidImage):
+            processor.square_webp(huge, 256)
     with pytest.raises(InvalidImage):
         processor.square_webp(_png(4000, 2600), 256)
     with Image.open(BytesIO(processor.square_webp(_png(3000, 2500), 256))) as result:
@@ -150,8 +154,12 @@ def test_phone_photos_pass_and_huge_pngs_are_refused() -> None:
 
 def test_wide_and_palette_logos_stay_sharp() -> None:
     processor = PillowImageProcessor()
-    for mode in ("RGB", "P"):
-        assert _sharpness(processor.square_webp(_striped_logo(2400, 300, mode), 256)) > 100
+    assert _sharpness(processor.square_webp(_striped_logo(2400, 300, "RGB"), 256)) > 100
+    rgb = processor.square_webp(_striped_logo(4000, 1100, "RGB"), 256)
+    palette = processor.square_webp(_striped_logo(4000, 1100, "P"), 256)
+    with Image.open(BytesIO(rgb)) as first, Image.open(BytesIO(palette)) as second:
+        difference = ImageChops.difference(first.convert("L"), second.convert("L"))
+        assert ImageStat.Stat(difference).mean[0] < 3
 
 
 def test_phone_rotation_from_exif_is_kept() -> None:

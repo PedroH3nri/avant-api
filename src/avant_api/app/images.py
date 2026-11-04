@@ -1,8 +1,9 @@
 """Conversão da imagem da Empresa com o Pillow (adaptador do port ``ImageProcessor``).
 
-Um PNG de 2 MB pode declarar dezenas de megapixels: o teto é 8 MP (o JPEG conta depois de lido
-já reduzido, então foto de celular passa), a imagem é reduzida pelo lado menor antes de virar
-RGBA e no máximo duas conversões rodam ao mesmo tempo em cada processo.
+Um PNG de 2 MB pode declarar dezenas de megapixels: o teto é 8 MP. O JPEG comum vai até 24 MP e
+é lido já reduzido, então foto de celular passa; o progressivo fica nos 8 MP. A imagem é
+reduzida pelo lado menor antes de virar RGBA e no máximo duas conversões rodam ao mesmo tempo
+em cada processo.
 """
 
 import threading
@@ -13,6 +14,9 @@ from PIL import Image, ImageOps, UnidentifiedImageError
 
 ACCEPTED_FORMATS = frozenset({"PNG", "JPEG", "WEBP"})
 MAX_PIXELS = 8_000_000
+# Foto de celular (até 24 MP) é lida já reduzida; o JPEG progressivo guarda a imagem inteira na
+# memória mesmo assim, por isso fica com o teto comum.
+MAX_JPEG_PIXELS = 24_000_000
 WEBP_QUALITY = 90
 # O lado menor é reduzido até este múltiplo do lado final antes do corte, para não converter tudo.
 SHRINK_FACTOR = 4
@@ -37,6 +41,7 @@ class PillowImageProcessor:
                 if source.format not in ACCEPTED_FORMATS:
                     raise InvalidImage(f"formato {source.format} não aceito")
                 if source.format == "JPEG":
+                    _check_jpeg_size(source)
                     source.draft("RGB", (target, target))
                 width, height = source.size
                 if width * height > MAX_PIXELS:
@@ -54,3 +59,11 @@ class PillowImageProcessor:
         output = BytesIO()
         square.save(output, format="WEBP", quality=WEBP_QUALITY)
         return output.getvalue()
+
+
+def _check_jpeg_size(source: Image.Image) -> None:
+    """Recusa o JPEG grande demais antes de ler: 24 MP no comum, 8 MP no progressivo."""
+    progressive = bool(source.info.get("progressive") or source.info.get("progression"))
+    limit = MAX_PIXELS if progressive else MAX_JPEG_PIXELS
+    if source.width * source.height > limit:
+        raise InvalidImage("a imagem tem pixels demais")
