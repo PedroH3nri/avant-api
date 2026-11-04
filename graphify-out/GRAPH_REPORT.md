@@ -1,7 +1,7 @@
 # Graph Report - avant-api  (2026-11-04)
 
 ## Corpus Check
-- 293 files · ~90,855 words
+- 293 files · ~90,866 words
 - Verdict: corpus is large enough that graph structure adds value.
 - Unclassified: 10 file(s) not represented in the graph (top: (none) 7, .ttf 2, .lock 1)
 
@@ -11,7 +11,7 @@
 - Token cost: 0 input · 0 output
 
 ## Graph Freshness
-- Built from commit: `258713ed`
+- Built from commit: `f9036297`
 - Run `git rev-parse HEAD` and compare to check if the graph is stale.
 - Run `graphify update .` after code changes (no API cost).
 
@@ -587,7 +587,7 @@ Nodes (5): Bucket, duplicate(), pinned(), SavedReportOut, ReportService
 _Questions this graph is uniquely positioned to answer:_
 
 - **Why does `UnitOfWorkFactory` connect `UnitOfWorkFactory` to `SiteService`, `roles/controller.py`, `DashboardService`, `Actor`, `.__init__`, `UserOut`, `_month`, `.__init__`, `.trusted_uow`, `.uow`, `GoalService`, `PageOut`, `api_keys/controller.py`, `InvitationOut`, `PageOut`, `custom_metrics/controller.py`, `client_documents/service.py`, `goals/controller.py`, `.__init__`, `mfa/controller.py`, `contracts/dto.py`, `company/controller.py`, `.__init__`, `.__init__`, `.__init__`, `tasks/controller.py`, `commissions/controller.py`, `ClientService`, `CompanyService`, `documents/controller.py`, `MemberOut`, `reports/service.py`, `networks/service.py`, `.__init__`, `Services`, `.authenticate`, `currencies/controller.py`, `goals/service.py`, `MemberService`, `clients`, `GoogleService`, `account/controller.py`, `GamToolService`, `ContractService`, `Actor`, `.uow`, `ItemsOut`, `networks/controller.py`, `image`, `client_documents/controller.py`, `people/controller.py`, `InvoiceService`?**
-  _High betweenness centrality (0.120) - this node is a cross-community bridge._
+  _High betweenness centrality (0.116) - this node is a cross-community bridge._
 - **Are the 120 inferred relationships involving `CapturingMailer` (e.g. with `test_change_password_and_sessions()` and `test_change_password_attempts_are_limited()`) actually correct?**
   _`CapturingMailer` has 120 INFERRED edges - model-reasoned connections that need verification._
 - **What connects `avant-api` to the rest of the system?**

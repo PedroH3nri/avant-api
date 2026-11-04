@@ -106,9 +106,7 @@ def api_key_actor(request: Request, services: Services, token: str) -> Actor:
     """Autentica a chave de API e aplica o limite de pedidos por chave; a Company Groone não abre
     por chave, só pela sessão com 2FA."""
     auth = authenticate_api_key(services.trusted_uow(), token=token, clock=services.clock)
-    with services.trusted_uow() as uow:
-        company = uow.companies.get(auth.actor.company_id)
-    if company is not None and company.is_internal:
+    if auth.company.is_internal:
         raise StaffOnly("a Company Groone não abre por chave de API")
     result = services.bucket.take(f"key:{auth.key.id}", API_KEY, time.time())
     request.state.rate_limit = {
