@@ -2,6 +2,7 @@
 
 import uuid
 from dataclasses import dataclass, field
+from typing import Any
 
 from avant_core.db.uow import SqlAlchemyUnitOfWork
 from avant_core.identity.security.crypto import FernetSecretBox
@@ -26,6 +27,22 @@ from avant_api.app.settings import Settings
 from avant_api.app.tasks import CeleryQueue, RecordingQueue, TaskQueue
 
 
+def engine_options(settings: Settings) -> dict[str, Any]:
+    """Pool contado (o total por processo cabe no max_connections) e prazo em toda consulta e em
+    toda transação parada, mandados na conexão."""
+    timeouts = (
+        f"-c statement_timeout={settings.db_statement_timeout_ms} "
+        f"-c idle_in_transaction_session_timeout={settings.db_idle_in_transaction_timeout_ms}"
+    )
+    return {
+        "pool_size": settings.db_pool_size,
+        "max_overflow": settings.db_max_overflow,
+        "pool_timeout": settings.db_pool_timeout_seconds,
+        "pool_pre_ping": True,
+        "connect_args": {"options": timeouts},
+    }
+
+
 @dataclass
 class Services:
     settings: Settings
@@ -47,9 +64,7 @@ class Services:
     @classmethod
     def build(cls, settings: Settings) -> "Services":
         """Monta banco, Redis, email, Google e fila de tarefas a partir das configurações."""
-        engine = create_engine(
-            settings.database_url, pool_size=settings.db_pool_size, pool_pre_ping=True
-        )
+        engine = create_engine(settings.database_url, **engine_options(settings))
         return cls(
             settings=settings,
             engine=engine,
