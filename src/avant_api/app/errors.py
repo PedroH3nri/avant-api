@@ -6,6 +6,7 @@ O frontend traduz pelo code; a mensagem é só para quem lê o log ou a API.
 import logging
 from typing import Any
 
+import redis
 from avant_core.shared.errors import DomainError
 from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
@@ -187,6 +188,19 @@ def install(app: FastAPI) -> None:
         """Devolve 404, 405 e outros erros HTTP no formato da API."""
         code = {404: "not_found", 405: "method_not_allowed"}.get(exc.status_code, "http_error")
         return JSONResponse(error_body(code, str(exc.detail)), status_code=exc.status_code)
+
+    @app.exception_handler(redis.RedisError)
+    async def redis_unavailable(request: Request, exc: redis.RedisError) -> JSONResponse:
+        """Redis fora do ar (limites, chaves de API, relatórios): 503 para tentar de novo."""
+        log.warning(
+            "redis indisponível",
+            extra={"path": request.url.path, "error": type(exc).__name__},
+        )
+        return JSONResponse(
+            error_body("service_unavailable", "serviço indisponível, tente de novo"),
+            status_code=503,
+            headers={"Retry-After": "5"},
+        )
 
     @app.exception_handler(Exception)
     async def unexpected(request: Request, exc: Exception) -> JSONResponse:

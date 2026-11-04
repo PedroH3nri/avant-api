@@ -46,11 +46,13 @@ def create_app(services: Services | None = None) -> FastAPI:
     if services is None:
         configure_logging()
         services = Services.build(Settings())
+    # Em produção a documentação fica fechada: o OpenAPI lista também as rotas internas.
+    public_docs = services.settings.avant_env != "production"
     app = FastAPI(
         title="Groone Avant API",
         version="1",
-        docs_url="/api/docs",
-        openapi_url="/api/v1/openapi.json",
+        docs_url="/api/docs" if public_docs else None,
+        openapi_url="/api/v1/openapi.json" if public_docs else None,
         redoc_url=None,
     )
     app.state.services = services

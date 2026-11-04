@@ -26,6 +26,14 @@ def _route_template(request: Request) -> str:
     return "unmatched"
 
 
+# Em toda resposta da API: sem adivinhar o tipo, sem moldura e sem Referer para fora.
+SECURITY_HEADERS = {
+    "X-Content-Type-Options": "nosniff",
+    "X-Frame-Options": "DENY",
+    "Referrer-Policy": "no-referrer",
+}
+
+
 async def observe(
     request: Request, call_next: Callable[[Request], Awaitable[Response]]
 ) -> Response:
@@ -39,6 +47,7 @@ async def observe(
     REQUESTS.labels(request.method, route, str(response.status_code)).inc()
     LATENCY.labels(request.method, route).observe(elapsed)
     response.headers["X-Request-Id"] = request_id
+    response.headers.update(SECURITY_HEADERS)
     # Chaves de API: a dependência deixa o estado do balde para o cabeçalho.
     for name, value in getattr(request.state, "rate_limit", {}).items():
         response.headers[name] = value
