@@ -8,5 +8,5 @@ from avant_api.modules.mfa.service import MfaService
 
 
 def mfa_service(services: Services = Depends(get_services)) -> MfaService:
-    """O service do 2FA com o banco, o relógio, a caixa de segredos e o limite."""
-    return MfaService(services, services.clock, services.box, services.limiter)
+    """O service do 2FA com o banco, o relógio, a caixa de segredos, o e-mail e o limite."""
+    return MfaService(services, services.clock, services.box, services.mailer, services.limiter)
