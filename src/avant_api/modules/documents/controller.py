@@ -26,8 +26,8 @@ def documents(
 def upload(
     kind: DocumentKind,
     name: str = Query(min_length=1, max_length=255),
-    content: bytes = Depends(document_upload),
     actor: Actor = Depends(require("company.edit")),
+    content: bytes = Depends(document_upload),
     service: DocumentService = Depends(document_service),
 ) -> DocumentOut:
     """Envia o documento: o corpo é o arquivo JPG, PNG ou PDF de até 5 MB e ``name`` é o nome

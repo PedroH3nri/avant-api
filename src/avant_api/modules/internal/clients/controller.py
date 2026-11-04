@@ -154,8 +154,8 @@ def client_image(
 @router.put("/clients/{company_id}/image")
 def edit_client_image(
     company_id: uuid.UUID,
-    content: bytes = Depends(image_upload),
     actor: Actor = Depends(require_staff("internal.clients.manage")),
+    content: bytes = Depends(image_upload),
     service: ClientService = Depends(client_service),
 ) -> ClientOut:
     """Troca a imagem de uma Empresa cliente: o corpo é o arquivo de até 2 MB."""
