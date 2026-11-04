@@ -11,6 +11,7 @@ from typing import Literal
 from avant_core.access.models import Actor
 from avant_core.gam.inventory.enums import InventoryStatus, SiteCategory
 from avant_core.gam.inventory.models import SiteFilter
+from avant_core.shared.errors import InvalidInput
 from fastapi import APIRouter, Depends, Query, status
 
 from avant_api.app.security import require
@@ -29,6 +30,7 @@ from avant_api.modules.sites.dto import (
 )
 from avant_api.modules.sites.service import SiteService
 from avant_api.shared.dto import ItemsOut, PageOut
+from avant_api.shared.options import capped
 
 router = APIRouter(tags=["sites"])
 
@@ -55,11 +57,12 @@ def index(
 
 @router.get("/sites/options")
 def site_options(
+    query: str | None = Query(default=None, max_length=100),
     actor: Actor = Depends(require("sites.view")),
     service: SiteService = Depends(site_service),
 ) -> ItemsOut[SiteListOut]:
-    """Todos os sites ativos que quem age enxerga, para seletores e telas que juntam dados."""
-    return ItemsOut(items=service.list_all(actor))
+    """Os sites ativos que quem age enxerga, para seletores: com busca pelo domínio e teto."""
+    return ItemsOut(items=capped(service.list_all(actor), query, lambda site: site.domain))
 
 
 @router.post("/sites", status_code=status.HTTP_201_CREATED)
@@ -144,7 +147,9 @@ def ad_units(
     actor: Actor = Depends(require("sites.view")),
     service: SiteService = Depends(site_service),
 ) -> ItemsOut[AdUnitOut]:
-    """Lista plana; a tela monta a árvore pelos ``parent_id``."""
+    """Lista plana de uma network ou de um site; a tela monta a árvore pelos ``parent_id``."""
+    if network_id is None and site_id is None:
+        raise InvalidInput("informe network_id ou site_id")
     return ItemsOut(items=service.ad_units(actor, network_id, site_id, status, unlinked))
 
 

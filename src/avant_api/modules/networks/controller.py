@@ -18,6 +18,7 @@ from avant_api.modules.networks.dto import (
 )
 from avant_api.modules.networks.service import NetworkService
 from avant_api.shared.dto import ItemsOut, PageOut
+from avant_api.shared.options import capped
 
 router = APIRouter(prefix="/networks", tags=["networks"])
 
@@ -34,11 +35,18 @@ def index(
 
 @router.get("/options")
 def options(
+    query: str | None = Query(default=None, max_length=100),
     actor: Actor = Depends(require("network.view")),
     service: NetworkService = Depends(network_service),
 ) -> ItemsOut[NetworkDetailOut]:
-    """Todas as networks da Empresa ativa, para seletores e telas que juntam dados."""
-    return ItemsOut(items=service.list_all(actor))
+    """As networks da Empresa ativa, para seletores: com busca pelo nome ou código e teto."""
+    return ItemsOut(
+        items=capped(
+            service.list_all(actor),
+            query,
+            lambda network: f"{network.display_name or ''} {network.network_code}",
+        )
+    )
 
 
 @router.get("/service-account")
