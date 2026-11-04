@@ -13,6 +13,12 @@ class Settings(BaseSettings):
     # Papel avant_app: sem BYPASSRLS e sem ser dono das tabelas.
     database_url: str
     db_pool_size: int = 10
+    db_max_overflow: int = 5
+    # Quanto um pedido espera por uma conexão livre antes de desistir com erro.
+    db_pool_timeout_seconds: int = 10
+    # Toda consulta da API tem prazo; o motor de relatórios usa um prazo menor por cima.
+    db_statement_timeout_ms: int = 30_000
+    db_idle_in_transaction_timeout_ms: int = 60_000
     # Chave Fernet dos segredos de 2FA. Trocar a chave invalida todos os 2FA ativos.
     mfa_encryption_key: str
     app_base_url: str = "http://localhost:8080"
