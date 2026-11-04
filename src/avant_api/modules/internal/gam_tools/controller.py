@@ -6,6 +6,7 @@ no core. A execução roda no worker; a tela acompanha pelo evento ``gam_tool_ru
 """
 
 import uuid
+from urllib.parse import quote
 
 from avant_core.access.models import Actor
 from fastapi import APIRouter, Depends, Query, Response, status
@@ -99,5 +100,6 @@ def install(
 ) -> Response:
     """O arquivo de instalação Tag Light: .txt de um site ou .zip com vários."""
     name, content, media_type = service.install(actor, network, sites, language, label)
-    headers = {"Content-Disposition": f'attachment; filename="{name}"'}
+    safe = quote(name)
+    headers = {"Content-Disposition": f"attachment; filename=\"{safe}\"; filename*=UTF-8''{safe}"}
     return Response(content=content, media_type=media_type, headers=headers)

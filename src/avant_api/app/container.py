@@ -11,7 +11,7 @@ from avant_core.ports import ImageProcessor, Mailer, PasswordHasher, SecretBox
 from avant_core.shared.clock import Clock, SystemClock
 from sqlalchemy import Engine, create_engine
 
-from avant_api.app.events import EventSource, NoEvents, RedisEvents
+from avant_api.app.events import EventSource, NoEvents, RedisEvents, StreamLimiter
 from avant_api.app.google import GoogleAuth, GoogleOAuth
 from avant_api.app.images import PillowImageProcessor
 from avant_api.app.limits import (
@@ -41,6 +41,7 @@ class Services:
     google: GoogleAuth | None = None
     tasks: TaskQueue = field(default_factory=RecordingQueue)
     events: EventSource = field(default_factory=NoEvents)
+    stream_limiter: StreamLimiter = field(default_factory=StreamLimiter)
     images: ImageProcessor = field(default_factory=PillowImageProcessor)
 
     @classmethod

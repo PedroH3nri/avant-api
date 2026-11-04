@@ -4,27 +4,66 @@ repassa; por isso funciona com várias instâncias e no blue-green.
 Contrato, igual ao do worker: canal ``avant:events:{company_id}``, mensagem JSON
 ``{"type": "network.updated", "data": {"network_id": "..."}}``. O evento só diz o que
 mudou: a tela busca o estado pela rota de sempre, que confere a permissão de novo.
+
+Cada processo tem um cliente Redis só e um teto de streams abertos, por pessoa e no total.
 """
 
 import asyncio
 import json
 import logging
+import threading
 import uuid
+from collections import Counter
 from collections.abc import AsyncIterator, Callable
 from typing import Protocol
 
 import redis.asyncio as aioredis
+
+from avant_api.app.errors import TooManyAttempts
 
 log = logging.getLogger("avant.api.events")
 
 # Tipo de evento -> permissão para recebê-lo. O que não está aqui não sai.
 PERMISSION_FOR = {
     "network.updated": "network.view",
+    "gam_tool_run.updated": "internal.gam_tools.view",
 }
 HEARTBEAT_SECONDS = 15
 # Depois disso o servidor fecha; o EventSource reconecta e a sessão é conferida de novo.
 MAX_STREAM_SECONDS = 30 * 60
 RETRY_MS = 5000
+# Abas abertas de uma pessoa e streams de um processo da API ao mesmo tempo.
+EVENT_STREAMS_PER_USER = 5
+EVENT_STREAMS_PER_PROCESS = 500
+
+
+class StreamLimiter:
+    """Conta os streams abertos neste processo e recusa com 429 quem passa do teto."""
+
+    def __init__(
+        self, per_user: int = EVENT_STREAMS_PER_USER, per_process: int = EVENT_STREAMS_PER_PROCESS
+    ) -> None:
+        self._per_user = per_user
+        self._per_process = per_process
+        self._open: Counter[uuid.UUID] = Counter()
+        self._lock = threading.Lock()
+
+    def acquire(self, user_id: uuid.UUID) -> None:
+        """Reserva um stream para a pessoa, ou recusa quando ela ou o processo está no teto."""
+        with self._lock:
+            if (
+                self._open[user_id] >= self._per_user
+                or sum(self._open.values()) >= self._per_process
+            ):
+                raise TooManyAttempts("avisos em tempo real abertos demais", retry_after=30)
+            self._open[user_id] += 1
+
+    def release(self, user_id: uuid.UUID) -> None:
+        """Devolve o stream que acabou."""
+        with self._lock:
+            self._open[user_id] -= 1
+            if self._open[user_id] <= 0:
+                del self._open[user_id]
 
 
 def channel(company_id: uuid.UUID) -> str:
@@ -39,13 +78,21 @@ class EventSource(Protocol):
 
 
 class RedisEvents:
+    """Um cliente Redis por processo; cada stream só abre a própria inscrição no canal."""
+
     def __init__(self, url: str) -> None:
         self._url = url
+        self._client: aioredis.Redis | None = None
+
+    def _shared(self) -> aioredis.Redis:
+        """O cliente do processo, criado no primeiro stream."""
+        if self._client is None:
+            self._client = aioredis.Redis.from_url(self._url)
+        return self._client
 
     async def listen(self, channel: str, *, timeout: float) -> AsyncIterator[str | None]:
         """Escuta o canal da Empresa e entrega cada evento, ou None no tempo limite."""
-        client = aioredis.Redis.from_url(self._url)
-        pubsub = client.pubsub()
+        pubsub = self._shared().pubsub()
         try:
             await pubsub.subscribe(channel)
             while True:
@@ -57,7 +104,6 @@ class RedisEvents:
                     yield data.decode() if isinstance(data, bytes) else str(data)
         finally:
             await pubsub.aclose()  # type: ignore[no-untyped-call]
-            await client.aclose()
 
 
 class NoEvents:
