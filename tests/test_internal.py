@@ -5,7 +5,7 @@ from avant_core.identity.security.passwords import Argon2PasswordHasher
 from avant_core.internal.services import bootstrap_groone
 from avant_core.shared.clock import SystemClock
 from fastapi.testclient import TestClient
-from sqlalchemy import Engine
+from sqlalchemy import Engine, text
 
 from tests.conftest import CapturingMailer
 from tests.test_api import PASSWORD, _csrf, _onboard_owner
@@ -202,3 +202,25 @@ def test_client_teams_leave_out_the_groone_team(
     groone_id = staff.get("/api/v1/company").json()["id"]
     r = staff.get("/api/v1/internal/teams", params={"company_id": groone_id})
     assert r.status_code == 404
+
+
+def test_groone_routes_need_the_session_with_2fa(
+    client: TestClient, engine: Engine, mailer: CapturingMailer
+) -> None:
+    staff = _staff(client, engine)
+    assert staff.get("/api/v1/invitations").status_code == 200
+    created = staff.post(
+        "/api/v1/api-keys",
+        json={"name": "Vazada", "permissions": ["team.view"]},
+        headers=_csrf(staff),
+    )
+    if created.status_code == 201:
+        key = TestClient(client.app)
+        key.headers["Authorization"] = f"Bearer {created.json()['token']}"
+        refused = key.get("/api/v1/invitations")
+        assert refused.status_code == 403 and refused.json()["error"]["code"] == "staff_only"
+    with SqlAlchemyUnitOfWork(engine, bypass_rls=True) as uow:
+        uow.session.execute(text("UPDATE sessions SET mfa_verified_at = NULL"))
+        uow.commit()
+    old = staff.get("/api/v1/invitations")
+    assert old.status_code == 403 and old.json()["error"]["code"] == "mfa_required"
