@@ -23,6 +23,12 @@ class NoActiveCompany(DomainError):
     code = "no_active_company"
 
 
+class CompanyChanged(DomainError):
+    """A aba fala de uma Empresa, mas a sessão já está em outra (trocada em outra aba)."""
+
+    code = "company_changed"
+
+
 class TooManyAttempts(DomainError):
     """Passou do limite de tentativas; o cabeçalho Retry-After diz quando tentar de novo."""
 
@@ -72,6 +78,7 @@ STATUS: dict[str, int] = {
     "account_disabled": 403,
     "csrf_failed": 403,
     "no_active_company": 403,
+    "company_changed": 409,
     "staff_only": 403,
     "seat_limit_below_usage": 409,
     "client_contact_taken": 409,

@@ -3,6 +3,9 @@
 As rotas de Empresa aceitam a sessão do painel (cookie + CSRF) ou uma chave de API
 (``Authorization: Bearer avk_...``, sem CSRF: não há cookie para roubar). Login, 2FA,
 conta, sessões, criar chave, sair da Empresa e o painel interno são só pela sessão.
+
+Pela sessão, a aba manda ``X-Avant-Company`` com a Empresa que acha ativa; se outra aba já
+trocou a Empresa da sessão, a requisição é recusada com 409 em vez de ir para a Empresa errada.
 """
 
 import hmac
@@ -19,11 +22,12 @@ from fastapi import Depends, Request
 
 from avant_api.app.container import Services
 from avant_api.app.cookies import SessionCookies
-from avant_api.app.errors import CsrfFailed, NoActiveCompany, RateLimited
+from avant_api.app.errors import CompanyChanged, CsrfFailed, NoActiveCompany, RateLimited
 from avant_api.app.limits import API_KEY
 
 SAFE_METHODS = frozenset({"GET", "HEAD", "OPTIONS"})
 CSRF_HEADER = "X-CSRF-Token"
+COMPANY_HEADER = "X-Avant-Company"
 
 
 def get_services(request: Request) -> Services:
@@ -57,6 +61,16 @@ def optional_auth(
     return auth
 
 
+def check_tab_company(request: Request, auth: Authenticated) -> None:
+    """Recusa com 409 quando a Empresa que a aba manda não é a Empresa ativa da sessão."""
+    sent = request.headers.get(COMPANY_HEADER)
+    if sent is None:
+        return
+    active = str(auth.active.company.id) if auth.active is not None else ""
+    if not hmac.compare_digest(sent.strip().lower(), active):
+        raise CompanyChanged("a Empresa ativa mudou em outra aba")
+
+
 def get_session_auth(auth: Authenticated | None = Depends(optional_auth)) -> Authenticated:
     """Qualquer sessão válida, mesmo da equipe Groone ainda sem 2FA. Só para /me, logout e
     as rotas de configuração do 2FA."""
@@ -72,10 +86,11 @@ def get_auth(auth: Authenticated = Depends(get_session_auth)) -> Authenticated:
     return auth
 
 
-def get_session_actor(auth: Authenticated = Depends(get_auth)) -> Actor:
-    """Só pela sessão do painel, nunca por chave de API."""
+def get_session_actor(request: Request, auth: Authenticated = Depends(get_auth)) -> Actor:
+    """Só pela sessão do painel, nunca por chave de API; a aba precisa estar na mesma Empresa."""
     if auth.active is None or auth.grants is None:
         raise NoActiveCompany("a pessoa não é membro ativo de nenhuma Empresa")
+    check_tab_company(request, auth)
     return Actor(user_id=auth.user.id, company_id=auth.active.company.id, grants=auth.grants)
 
 
@@ -104,7 +119,7 @@ def get_actor(request: Request, services: Services = Depends(get_services)) -> A
     token = bearer_token(request)
     if token is not None:
         return api_key_actor(request, services, token)
-    return get_session_actor(get_auth(get_session_auth(optional_auth(request, services))))
+    return get_session_actor(request, get_auth(get_session_auth(optional_auth(request, services))))
 
 
 def require(permission: str) -> Callable[[Actor], Actor]:
@@ -133,7 +148,7 @@ def require_report(permission: str) -> Callable[..., Actor]:
                 raise StaffOnly("os relatórios da Groone não abrem por chave de API")
         else:
             auth = get_auth(get_session_auth(optional_auth(request, services)))
-            actor = get_session_actor(auth)
+            actor = get_session_actor(request, auth)
             internal = auth.active is not None and auth.active.company.is_internal
             if internal and auth.session.mfa_verified_at is None:
                 raise MfaRequired("entre com o 2FA para ver os relatórios da Groone")
@@ -154,24 +169,26 @@ def require_session(permission: str) -> Callable[[Actor], Actor]:
     return dependency
 
 
-def require_staff_member(auth: Authenticated = Depends(get_auth)) -> Actor:
+def require_staff_member(request: Request, auth: Authenticated = Depends(get_auth)) -> Actor:
     """Painel interno sem permissão específica: a Company Groone ativa e o 2FA desta sessão."""
     if auth.active is None or auth.grants is None or not auth.active.company.is_internal:
         raise StaffOnly("só a equipe Groone, com a Company Groone ativa")
+    check_tab_company(request, auth)
     if auth.session.mfa_verified_at is None:
         raise MfaRequired("entre com o 2FA para usar o painel interno")
     return Actor(user_id=auth.user.id, company_id=auth.active.company.id, grants=auth.grants)
 
 
-def require_staff(permission: str) -> Callable[[Authenticated], Actor]:
+def require_staff(permission: str) -> Callable[[Request, Authenticated], Actor]:
     """Painel interno: a Company Groone ativa, 2FA verificado nesta sessão e a permissão.
 
     O core confere de novo a Company Groone em cada caso de uso."""
 
-    def dependency(auth: Authenticated = Depends(get_auth)) -> Actor:
+    def dependency(request: Request, auth: Authenticated = Depends(get_auth)) -> Actor:
         """Exige a equipe Groone com a Company Groone ativa e a permissão."""
         if auth.active is None or auth.grants is None or not auth.active.company.is_internal:
             raise StaffOnly("só a equipe Groone, com a Company Groone ativa")
+        check_tab_company(request, auth)
         if auth.session.mfa_verified_at is None:
             raise MfaRequired("entre com o 2FA para usar o painel interno")
         auth.grants.require(permission)
