@@ -29,6 +29,9 @@ class Settings(BaseSettings):
     # E-mail da conta de serviço da Groone no Ad Manager, mostrado no guia de conexão.
     # Não é segredo: a chave fica só nos workers da fila gam.
     gam_service_account_email: str = "avant@groone-ads.iam.gserviceaccount.com"
+    # Network da Groone, que entra no arquivo de instalação dos clientes Manage Inventory.
+    # Não é segredo: é o mesmo valor que o Genius usa no groone.js.
+    gam_groone_network_code: str = "22893970961"
     session_cookie: str = "avant_session"
     csrf_cookie: str = "avant_csrf"
 
