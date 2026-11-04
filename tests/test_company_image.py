@@ -1,11 +1,12 @@
 """Imagem da Empresa contra o Postgres: o cliente na Empresa ativa e a Groone no painel interno."""
 
+import uuid
 from io import BytesIO
 
 import pytest
 from avant_core.shared.errors import InvalidImage
 from fastapi.testclient import TestClient
-from PIL import Image
+from PIL import Image, ImageStat
 from sqlalchemy import Engine
 
 from avant_api.app.images import PillowImageProcessor
@@ -103,20 +104,66 @@ def test_groone_changes_the_image_of_a_client(
 
 
 def test_upload_without_session_is_refused_before_reading_the_body(client: TestClient) -> None:
-    big = b"x" * (3 * 1024 * 1024)
+    big = b"x" * (6 * 1024 * 1024)
     for path in (
         "/api/v1/auth/me/image",
         "/api/v1/company/image",
-        "/api/v1/company/documents/contract",
+        "/api/v1/company/documents/identity",
+        f"/api/v1/internal/clients/{uuid.uuid4()}/image",
     ):
         anonymous = client.put(path, content=big, headers={"Content-Type": "image/png"})
         assert anonymous.status_code == 401, (path, anonymous.text)
 
 
-def test_images_with_too_many_pixels_are_refused_and_big_ones_are_shrunk_first() -> None:
+def _jpeg(width: int, height: int) -> bytes:
+    """Uma foto JPEG de uma cor só no tamanho pedido, como a de um celular."""
+    output = BytesIO()
+    Image.new("RGB", (width, height), (40, 120, 200)).save(output, format="JPEG", quality=85)
+    return output.getvalue()
+
+
+def _striped_logo(width: int, height: int, mode: str) -> bytes:
+    """Uma logo PNG com listras verticais de 4 px, para medir a nitidez depois de reduzir."""
+    image = Image.new("RGB", (width, height), (255, 255, 255))
+    for x in range(0, width, 8):
+        image.paste((0, 0, 0), (x, 0, x + 4, height))
+    output = BytesIO()
+    (image.convert("P") if mode == "P" else image).save(output, format="PNG")
+    return output.getvalue()
+
+
+def _sharpness(webp: bytes) -> float:
+    """O desvio padrão dos tons de cinza: quanto mais borrada, menor."""
+    with Image.open(BytesIO(webp)) as result:
+        return float(ImageStat.Stat(result.convert("L")).stddev[0])
+
+
+def test_phone_photos_pass_and_huge_pngs_are_refused() -> None:
     processor = PillowImageProcessor()
+    with Image.open(BytesIO(processor.square_webp(_jpeg(4032, 3024), 256))) as result:
+        assert result.size == (256, 256)
     with pytest.raises(InvalidImage):
         processor.square_webp(_png(4000, 2600), 256)
-    small = processor.square_webp(_png(3000, 2500), 256)
-    with Image.open(BytesIO(small)) as result:
+    with Image.open(BytesIO(processor.square_webp(_png(3000, 2500), 256))) as result:
         assert result.size == (256, 256)
+
+
+def test_wide_and_palette_logos_stay_sharp() -> None:
+    processor = PillowImageProcessor()
+    for mode in ("RGB", "P"):
+        assert _sharpness(processor.square_webp(_striped_logo(2400, 300, mode), 256)) > 100
+
+
+def test_phone_rotation_from_exif_is_kept() -> None:
+    photo = Image.new("RGB", (400, 200), (0, 0, 255))
+    photo.paste((255, 0, 0), (0, 0, 200, 200))
+    exif = Image.Exif()
+    exif[0x0112] = 6
+    output = BytesIO()
+    photo.save(output, format="JPEG", exif=exif.tobytes())
+    square = PillowImageProcessor().square_webp(output.getvalue(), 64)
+    with Image.open(BytesIO(square)) as result:
+        pixels = result.convert("RGB")
+        top, bottom = pixels.getpixel((32, 4)), pixels.getpixel((32, 60))
+    assert isinstance(top, tuple) and isinstance(bottom, tuple)
+    assert top[0] > 200 and bottom[2] > 200
