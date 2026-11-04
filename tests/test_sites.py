@@ -4,6 +4,7 @@ o inventário entra direto pelo Unit of Work."""
 import uuid
 from datetime import UTC, datetime
 
+import pytest
 from avant_core.db.uow import SqlAlchemyUnitOfWork
 from avant_core.gam.inventory.models import AdUnit, Site
 from avant_core.gam.networks.enums import ConnectionType
@@ -11,6 +12,7 @@ from avant_core.gam.networks.models import Network
 from fastapi.testclient import TestClient
 from sqlalchemy import Engine
 
+from avant_api.shared import options as options_module
 from tests.conftest import CapturingMailer
 from tests.test_api import _csrf, _onboard_owner
 from tests.test_team import _member_client
@@ -33,7 +35,13 @@ def _inventory(engine: Engine, company_id: uuid.UUID) -> dict[str, uuid.UUID]:
         loose = AdUnit(company_id, net.id, "u3", "solto", NOW)
         uow.ad_units.add(loose)
         uow.commit()
-        return {"acai": acai.id, "blog": blog.id, "root": root.id, "child": child.id}
+        return {
+            "acai": acai.id,
+            "blog": blog.id,
+            "root": root.id,
+            "child": child.id,
+            "network": net.id,
+        }
 
 
 def test_sites_and_assignment(client: TestClient, engine: Engine, mailer: CapturingMailer) -> None:
@@ -77,7 +85,9 @@ def test_sites_and_assignment(client: TestClient, engine: Engine, mailer: Captur
     assert [u["name"] for u in detail["ad_units"]] == ["acai.com.br", "topo"]
     assert detail["assigned_to"] is None
     assert client.get(f"/api/v1/sites/{ids['acai']}").json()["assigned_to"] == [ana_id]
-    assert {u["name"] for u in ana.get("/api/v1/ad-units").json()["items"]} == {
+    by_network = f"/api/v1/ad-units?network_id={ids['network']}"
+    assert ana.get("/api/v1/ad-units").status_code == 422
+    assert {u["name"] for u in ana.get(by_network).json()["items"]} == {
         "acai.com.br",
         "topo",
     }
@@ -94,7 +104,7 @@ def test_sites_and_assignment(client: TestClient, engine: Engine, mailer: Captur
     moved = client.patch(url, json={"site_id": str(ids["blog"])}, headers=_csrf(client))
     assert moved.status_code == 200, moved.text
     assert moved.json()["site_id"] == str(ids["blog"]) and moved.json()["site_manual"] is True
-    assert ana.get("/api/v1/ad-units").json()["items"] == []
+    assert ana.get(by_network).json()["items"] == []
     back = client.patch(url, json={"automatic": True}, headers=_csrf(client))
     assert back.json()["site_manual"] is False
 
@@ -228,3 +238,15 @@ def test_site_category_and_responsible(
     ana_member = next(member["id"] for member in members if member["user"]["name"] == "Ana")
     assert client.delete(f"/api/v1/members/{ana_member}", headers=_csrf(client)).status_code == 204
     assert client.get(f"/api/v1/sites/{ids['acai']}").json()["responsible_user_id"] is None
+
+
+def test_options_have_a_ceiling_and_a_search(
+    client: TestClient, engine: Engine, mailer: CapturingMailer, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    me = _onboard_owner(client, engine, mailer)
+    _inventory(engine, uuid.UUID(me["active_company_id"]))
+    found = client.get("/api/v1/sites/options?query=BLOG").json()["items"]
+    assert [site["domain"] for site in found] == ["blog.com"]
+    monkeypatch.setattr(options_module, "OPTIONS_LIMIT", 1)
+    assert len(client.get("/api/v1/sites/options").json()["items"]) == 1
+    assert len(client.get("/api/v1/networks/options").json()["items"]) == 1
