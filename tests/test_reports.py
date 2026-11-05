@@ -15,7 +15,7 @@ from avant_core.metrics.models import GamCounts, GamDailyMetric
 from fastapi.testclient import TestClient
 from sqlalchemy import Engine
 
-from tests.conftest import CapturingMailer
+from tests.conftest import CapturingMailer, refresh_levels
 from tests.test_api import _csrf, _onboard_owner
 from tests.test_team import _member_client
 
@@ -42,6 +42,7 @@ def _metrics(engine: Engine, company_id: uuid.UUID) -> dict[str, uuid.UUID]:
             ),
         ]
         uow.gam_metrics.upsert_daily(rows)
+        refresh_levels(uow)
         uow.commit()
         return {"network": network.id, "acai": acai.id, "blog": blog.id}
 

@@ -8,14 +8,17 @@ import os
 import uuid
 from collections.abc import Iterator
 from dataclasses import dataclass, field
+from datetime import date
 
 import pytest
 from alembic import command
 from alembic.config import Config
 from avant_core.alerts.models import AlertMail
 from avant_core.company.enums import InvitationKind
+from avant_core.db.uow import SqlAlchemyUnitOfWork
 from avant_core.identity.security.crypto import FernetSecretBox
 from avant_core.identity.security.passwords import Argon2PasswordHasher
+from avant_core.metrics.models import DateRange
 from avant_core.ports import Notice
 from avant_core.schedules.models import ScheduledReportMail
 from avant_core.shared.clock import SystemClock
@@ -119,7 +122,13 @@ def client(engine: Engine, mailer: CapturingMailer) -> Iterator[TestClient]:
             "metrics.mcm_earnings",
             "metrics.exchange_rates",
             "metrics.gam_key_value_daily",
-            "metrics.gam_daily",
+            "metrics.gam_key_value_daily_detail",
+            "metrics.gam_network_daily",
+            "metrics.gam_network_daily_detail",
+            "metrics.gam_domain_daily",
+            "metrics.gam_domain_daily_detail",
+            "metrics.gam_ad_unit_daily",
+            "metrics.gam_ad_unit_daily_detail",
             "site_assignments",
             "ad_units",
             "sites",
@@ -141,3 +150,10 @@ def client(engine: Engine, mailer: CapturingMailer) -> Iterator[TestClient]:
         conn.execute(text("DELETE FROM companies"))
         conn.execute(text("DELETE FROM users"))
     owner.dispose()
+
+
+def refresh_levels(uow: SqlAlchemyUnitOfWork) -> None:
+    """Regrava os níveis das métricas das networks gravadas direto na base (sem o relatório)."""
+    query = "SELECT DISTINCT network_id FROM metrics.gam_ad_unit_daily_detail"
+    for network_id in uow.session.execute(text(query)).scalars():
+        uow.gam_metrics.refresh_levels(network_id, DateRange(date(2000, 1, 1), date(2100, 1, 1)))
