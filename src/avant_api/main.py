@@ -3,12 +3,13 @@
 uvicorn avant_api.main:create_app --factory --host 0.0.0.0 --port 8000 --proxy-headers
 """
 
-from fastapi import FastAPI
+from fastapi import Depends, FastAPI
 
 from avant_api.app import errors
 from avant_api.app.container import Services
 from avant_api.app.logs import configure_logging
 from avant_api.app.middleware import observe
+from avant_api.app.security import check_fetch_site
 from avant_api.app.settings import Settings
 from avant_api.modules.account.controller import router as account
 from avant_api.modules.alerts.controller import router as alerts
@@ -54,6 +55,7 @@ def create_app(services: Services | None = None) -> FastAPI:
         docs_url="/api/docs" if public_docs else None,
         openapi_url="/api/v1/openapi.json" if public_docs else None,
         redoc_url=None,
+        dependencies=[Depends(check_fetch_site)],
     )
     app.state.services = services
     errors.install(app)
