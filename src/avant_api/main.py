@@ -28,6 +28,7 @@ from avant_api.modules.groups.controller import router as groups
 from avant_api.modules.health.controller import router as health
 from avant_api.modules.internal.router import router as internal
 from avant_api.modules.invitations.controller import router as invitations
+from avant_api.modules.key_values.controller import router as key_values
 from avant_api.modules.members.controller import router as members
 from avant_api.modules.mfa.controller import router as mfa
 from avant_api.modules.networks.controller import router as networks
@@ -89,4 +90,5 @@ def create_app(services: Services | None = None) -> FastAPI:
         internal,
     ):
         app.include_router(router, prefix=API_PREFIX)
+    app.include_router(key_values)
     return app
