@@ -44,8 +44,8 @@ ALLOWED_FETCH_SITES = frozenset({"same-origin", "none"})
 
 
 def check_fetch_site(request: Request) -> None:
-    """Em toda rota, com ou sem sessão (login, aceite de convite): quando o navegador informa,
-    só escritas da mesma origem; outro site ou um subdomínio irmão são recusados."""
+    """Em toda rota, com ou sem sessão: escrita de outro site ou de subdomínio irmão é recusada.
+    Sem o cabeçalho (chave de API, navegador antigo) vale como mesma origem, por escolha."""
     if request.method in SAFE_METHODS:
         return
     if request.headers.get(FETCH_SITE_HEADER, "same-origin") not in ALLOWED_FETCH_SITES:

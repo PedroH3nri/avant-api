@@ -1,5 +1,6 @@
 """Fluxo ponta a ponta: convite de dono, aceite, login, convite de equipe."""
 
+import re
 import uuid
 
 from avant_core.company.enums import CompanyStatus, InvitationKind
@@ -145,6 +146,28 @@ def test_writes_without_a_session_from_another_site_are_refused(
     assert "avant_session" not in client.cookies
     same = client.post("/api/v1/auth/login", json=login, headers={"Sec-Fetch-Site": "same-origin"})
     assert same.status_code == 200, same.text
+    accept = client.post(
+        "/api/v1/auth/invitations/qualquer/accept",
+        json={"name": "Ana", "password": PASSWORD},
+        headers={"Sec-Fetch-Site": "cross-site"},
+    )
+    assert accept.status_code == 403 and accept.json()["error"]["code"] == "csrf_failed"
+
+
+def test_every_write_route_refuses_another_site(client: TestClient) -> None:
+    writes = [
+        (method.upper(), re.sub(r"\{[^}]+\}", "00000000-0000-0000-0000-000000000000", path))
+        for path, operations in client.app.openapi()["paths"].items()  # type: ignore[attr-defined]
+        for method in operations
+        if method.upper() not in {"GET", "HEAD", "OPTIONS"}
+    ]
+    assert len(writes) > 20
+    unchecked = [
+        (method, path)
+        for method, path in writes
+        if client.request(method, path, headers={"Sec-Fetch-Site": "cross-site"}).status_code != 403
+    ]
+    assert unchecked == []
 
 
 def test_deployed_cookies_use_the_host_prefix() -> None:
