@@ -1,5 +1,5 @@
 version = 1
-revision = 3
+revision = 5
 requires-python = ">=3.12"
 resolution-markers = [
     "python_full_version >= '3.15'",
@@ -213,7 +213,7 @@ dev = [
 
 [package.metadata]
 requires-dist = [
-    { name = "avant-core", git = "https://github.com/PedroH3nri/avant-core?tag=v0.82.0" },
+    { name = "avant-core", git = "https://github.com/PedroH3nri/avant-core?tag=v0.83.2" },
     { name = "celery", specifier = ">=5.4,<6" },
     { name = "fastapi", specifier = ">=0.115,<1" },
     { name = "fpdf2", specifier = ">=2.8" },
@@ -238,8 +238,8 @@ dev = [
 
 [[package]]
 name = "avant-core"
-version = "0.82.0"
-source = { git = "https://github.com/PedroH3nri/avant-core?tag=v0.82.0#93475f7eb81bcfbe906aec6b82bfa06c871a5846" }
+version = "0.83.2"
+source = { git = "https://github.com/PedroH3nri/avant-core?tag=v0.83.2#3196d2a4c16cadc4a523dba86d5af4e8f43dcfa2" }
 dependencies = [
     { name = "alembic" },
     { name = "argon2-cffi" },
