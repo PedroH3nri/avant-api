@@ -7,16 +7,16 @@ from contextlib import contextmanager
 from avant_api.app.errors import ExportsBusy
 
 EXPORT_SLOTS = 2
-WAIT_SECONDS = 10.0
 RETRY_AFTER = 10
 
 _exporting = threading.BoundedSemaphore(EXPORT_SLOTS)
 
 
 @contextmanager
-def export_slot(wait: float | None = None) -> Iterator[None]:
-    """Ocupa uma vaga enquanto exporta; sem vaga depois da espera, levanta ExportsBusy (503)."""
-    if not _exporting.acquire(timeout=WAIT_SECONDS if wait is None else wait):
+def export_slot() -> Iterator[None]:
+    """Ocupa uma vaga enquanto exporta; sem vaga livre, levanta ExportsBusy (503) na hora, sem
+    prender a thread do pedido."""
+    if not _exporting.acquire(blocking=False):
         raise ExportsBusy(retry_after=RETRY_AFTER)
     try:
         yield
