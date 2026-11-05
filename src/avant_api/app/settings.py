@@ -38,8 +38,6 @@ class Settings(BaseSettings):
     # Network da Groone, que entra no arquivo de instalação dos clientes Manage Inventory.
     # Não é segredo: é o mesmo valor que o Genius usa no groone.js.
     gam_groone_network_code: str = "22893970961"
-    session_cookie: str = "avant_session"
-    csrf_cookie: str = "avant_csrf"
 
     @model_validator(mode="after")
     def _mail_in_deployed_envs(self) -> "Settings":
@@ -57,3 +55,18 @@ class Settings(BaseSettings):
     def cookie_secure(self) -> bool:
         """Diz se os cookies saem com Secure (staging e produção)."""
         return self.avant_env in ("staging", "production")
+
+    @property
+    def session_cookie(self) -> str:
+        """O cookie da sessão; com Secure, com o prefixo __Host- (nenhum subdomínio o grava)."""
+        return f"{self._cookie_prefix}avant_session"
+
+    @property
+    def csrf_cookie(self) -> str:
+        """O cookie de CSRF, legível pelo painel, com o mesmo prefixo do de sessão."""
+        return f"{self._cookie_prefix}avant_csrf"
+
+    @property
+    def _cookie_prefix(self) -> str:
+        """``__Host-`` quando os cookies saem com Secure; sem HTTPS o navegador recusaria."""
+        return "__Host-" if self.cookie_secure else ""

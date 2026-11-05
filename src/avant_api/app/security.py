@@ -36,10 +36,19 @@ def get_services(request: Request) -> Services:
     return services
 
 
+FETCH_SITE_HEADER = "Sec-Fetch-Site"
+
+# "none" é a pessoa digitando a URL ou abrindo um favorito; o painel só escreve por fetch.
+ALLOWED_FETCH_SITES = frozenset({"same-origin", "none"})
+
+
 def check_csrf(request: Request, services: Services) -> None:
-    """Double submit: o cookie avant_csrf (legível pelo Vue) precisa vir também no cabeçalho."""
+    """Double submit (o cookie de CSRF volta no cabeçalho) e, quando o navegador informa, só
+    escritas da mesma origem: outro site ou um subdomínio irmão são recusados."""
     if request.method in SAFE_METHODS:
         return
+    if request.headers.get(FETCH_SITE_HEADER, "same-origin") not in ALLOWED_FETCH_SITES:
+        raise CsrfFailed("escrita vinda de outro site")
     cookie = request.cookies.get(services.settings.csrf_cookie, "")
     header = request.headers.get(CSRF_HEADER, "")
     if not cookie or not hmac.compare_digest(cookie, header):
