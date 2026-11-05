@@ -39,9 +39,20 @@ class SessionCookies:
         )
 
     def close(self, response: Response) -> None:
-        """Apaga os cookies de sessão e de CSRF."""
-        response.delete_cookie(self._settings.session_cookie, path="/")
-        response.delete_cookie(self._settings.csrf_cookie, path="/")
+        """Apaga os cookies de sessão e de CSRF com os mesmos atributos da gravação, que o
+        navegador exige para apagar um cookie ``__Host-``."""
+        self._delete(response, self._settings.session_cookie, httponly=True)
+        self._delete(response, self._settings.csrf_cookie, httponly=False)
+
+    def _delete(self, response: Response, name: str, *, httponly: bool) -> None:
+        """Apaga um cookie do painel com a segurança da sessão."""
+        response.delete_cookie(
+            name,
+            secure=self._settings.cookie_secure,
+            samesite="lax",
+            path="/",
+            httponly=httponly,
+        )
 
     def session_token(self, cookies: dict[str, str]) -> str | None:
         """O token da sessão que veio no cookie, se veio."""

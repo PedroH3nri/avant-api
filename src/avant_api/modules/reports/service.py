@@ -77,6 +77,7 @@ from avant_api.modules.reports.dto import (
     SiteCategoryOut,
 )
 from avant_api.modules.reports.export import to_csv, to_xlsx
+from avant_api.modules.reports.export_slots import export_slot
 
 QUERY_CANCELED = "57014"
 
@@ -85,12 +86,18 @@ class ReportService:
     """Catálogo de métricas, consultas avulsas e relatórios salvos, com limite de taxa."""
 
     def __init__(
-        self, uows: UnitOfWorkFactory, clock: Clock, bucket: Bucket, tasks: TaskQueue
+        self,
+        uows: UnitOfWorkFactory,
+        clock: Clock,
+        bucket: Bucket,
+        tasks: TaskQueue,
+        known: Callable[[], dict[uuid.UUID, bool]] | None = None,
     ) -> None:
         self._uows = uows
         self._clock = clock
         self._bucket = bucket
         self._tasks = tasks
+        self._known = known or dict
         self._internal: dict[uuid.UUID, bool] = {}
 
     def catalog(self, actor: Actor) -> MetricCatalogOut:
@@ -134,7 +141,8 @@ class ReportService:
     def export(self, actor: Actor, body: ReportQueryIn, locale: Locale) -> str:
         """A mesma consulta em CSV, com o cabeçalho no idioma pedido."""
         definition = body.definition()
-        return to_csv(self._run(actor, definition), definition, locale, self._names(actor))
+        with export_slot():
+            return to_csv(self._run(actor, definition), definition, locale, self._names(actor))
 
     def page_saved(
         self, actor: Actor, scope: ReportScope | None, query: str | None, page: int
@@ -234,11 +242,12 @@ class ReportService:
     ) -> bytes:
         """O relatório salvo em CSV ou XLSX, com o cabeçalho no idioma pedido."""
         report = get_report(self._uows.uow(actor.company_id), actor=actor, report_id=report_id)
-        result = self._run_saved(actor, report_id)
         definition = decode_query(report.query)
-        if file_format == "xlsx":
-            return to_xlsx(result, definition, locale, self._names(actor))
-        return to_csv(result, definition, locale, self._names(actor)).encode()
+        with export_slot():
+            result = self._run_saved(actor, report_id)
+            if file_format == "xlsx":
+                return to_xlsx(result, definition, locale, self._names(actor))
+            return to_csv(result, definition, locale, self._names(actor)).encode()
 
     def run_guarded[T](self, actor: Actor, call: Callable[[UnitOfWork], T]) -> T:
         """Roda uma consulta do motor com o limite de taxa, o tempo máximo do Postgres e o Unit
@@ -264,6 +273,8 @@ class ReportService:
     def _groone(self, actor: Actor) -> bool:
         """Diz se a Empresa ativa é a Company Groone; lido uma vez por pedido (o service é do
         pedido)."""
+        if actor.company_id not in self._internal:
+            self._internal.update(self._known())
         if actor.company_id not in self._internal:
             with self._uows.uow(actor.company_id) as uow:
                 company = uow.companies.get(actor.company_id)

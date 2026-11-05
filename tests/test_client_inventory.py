@@ -11,7 +11,7 @@ from avant_core.metrics.models import GamCounts, GamDailyMetric
 from fastapi.testclient import TestClient
 from sqlalchemy import Engine
 
-from tests.conftest import CapturingMailer
+from tests.conftest import CapturingMailer, refresh_levels
 from tests.test_api import _onboard_owner
 from tests.test_internal import _staff
 
@@ -46,6 +46,7 @@ def _scaling_client(engine: Engine, company_id: uuid.UUID) -> None:
                 )
             ]
         )
+        refresh_levels(uow)
         uow.commit()
 
 

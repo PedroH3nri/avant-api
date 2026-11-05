@@ -8,9 +8,12 @@ from avant_core.company.services import slugify
 from avant_core.db.uow import SqlAlchemyUnitOfWork
 from avant_core.shared.clock import SystemClock
 from avant_core.shared.tokens import new_token
+from fastapi import Response
 from fastapi.testclient import TestClient
 from sqlalchemy import Engine, text
 
+from avant_api.app.cookies import SessionCookies
+from avant_api.app.settings import Settings
 from tests.conftest import FINANCE, CapturingMailer
 
 PASSWORD = "senha-forte-123"
@@ -111,6 +114,38 @@ def test_csrf_is_required_for_writes(
     r = client.post("/api/v1/invitations", json={"email": "ana@acai.com", "role_id": str(FINANCE)})
     assert r.status_code == 403
     assert r.json()["error"]["code"] == "csrf_failed"
+
+
+def test_writes_from_another_site_fail_the_csrf_check(
+    client: TestClient, engine: Engine, mailer: CapturingMailer
+) -> None:
+    _onboard_owner(client, engine, mailer)
+    body = {"email": "ana@acai.com", "role_id": str(FINANCE)}
+    for site in ("cross-site", "same-site"):
+        headers = {**_csrf(client), "Sec-Fetch-Site": site}
+        refused = client.post("/api/v1/invitations", json=body, headers=headers)
+        assert refused.status_code == 403 and refused.json()["error"]["code"] == "csrf_failed"
+    same = {**_csrf(client), "Sec-Fetch-Site": "same-origin"}
+    assert client.post("/api/v1/invitations", json=body, headers=same).status_code == 201
+
+
+def test_deployed_cookies_use_the_host_prefix() -> None:
+    local = Settings.model_construct(avant_env="local")
+    assert (local.session_cookie, local.csrf_cookie) == ("avant_session", "avant_csrf")
+    deployed = Settings.model_construct(avant_env="production")
+    assert deployed.session_cookie == "__Host-avant_session"
+    assert deployed.csrf_cookie == "__Host-avant_csrf"
+
+
+def test_closing_deployed_cookies_keeps_them_secure() -> None:
+    response = Response()
+    SessionCookies(Settings.model_construct(avant_env="production"), SystemClock()).close(response)
+    removals = response.headers.getlist("set-cookie")
+    assert [cookie.split("=")[0] for cookie in removals] == [
+        "__Host-avant_session",
+        "__Host-avant_csrf",
+    ]
+    assert all("Secure" in cookie and "Path=/" in cookie for cookie in removals)
 
 
 def test_team_invitation_flow(client: TestClient, engine: Engine, mailer: CapturingMailer) -> None:

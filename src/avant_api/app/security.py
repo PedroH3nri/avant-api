@@ -10,6 +10,7 @@ trocou a Empresa da sessão, a requisição é recusada com 409 em vez de ir par
 
 import hmac
 import time
+import uuid
 from collections.abc import Callable
 
 from avant_core.access.errors import StaffOnly
@@ -36,10 +37,19 @@ def get_services(request: Request) -> Services:
     return services
 
 
+FETCH_SITE_HEADER = "Sec-Fetch-Site"
+
+# "none" é a pessoa digitando a URL ou abrindo um favorito; o painel só escreve por fetch.
+ALLOWED_FETCH_SITES = frozenset({"same-origin", "none"})
+
+
 def check_csrf(request: Request, services: Services) -> None:
-    """Double submit: o cookie avant_csrf (legível pelo Vue) precisa vir também no cabeçalho."""
+    """Double submit (o cookie de CSRF volta no cabeçalho) e, quando o navegador informa, só
+    escritas da mesma origem: outro site ou um subdomínio irmão são recusados."""
     if request.method in SAFE_METHODS:
         return
+    if request.headers.get(FETCH_SITE_HEADER, "same-origin") not in ALLOWED_FETCH_SITES:
+        raise CsrfFailed("escrita vinda de outro site")
     cookie = request.cookies.get(services.settings.csrf_cookie, "")
     header = request.headers.get(CSRF_HEADER, "")
     if not cookie or not hmac.compare_digest(cookie, header):
@@ -86,6 +96,17 @@ def get_auth(auth: Authenticated = Depends(get_session_auth)) -> Authenticated:
     return auth
 
 
+def remember_company(request: Request, company_id: uuid.UUID, internal: bool) -> None:
+    """Guarda no pedido se a Empresa ativa é a Company Groone, já lida na autenticação."""
+    request.state.internal_companies = {company_id: internal}
+
+
+def known_companies(request: Request) -> dict[uuid.UUID, bool]:
+    """As Empresas do pedido que já se sabe se são a Company Groone (vazio se nenhuma)."""
+    found: dict[uuid.UUID, bool] = getattr(request.state, "internal_companies", {})
+    return found
+
+
 def get_session_actor(request: Request, auth: Authenticated = Depends(get_auth)) -> Actor:
     """Só pela sessão do painel, nunca por chave de API; a aba precisa estar na mesma Empresa."""
     if auth.active is None or auth.grants is None:
@@ -93,6 +114,7 @@ def get_session_actor(request: Request, auth: Authenticated = Depends(get_auth))
     check_tab_company(request, auth)
     if auth.active.company.is_internal and auth.session.mfa_verified_at is None:
         raise MfaRequired("entre com o 2FA para usar a Company Groone")
+    remember_company(request, auth.active.company.id, auth.active.company.is_internal)
     return Actor(user_id=auth.user.id, company_id=auth.active.company.id, grants=auth.grants)
 
 
@@ -116,6 +138,7 @@ def api_key_actor(request: Request, services: Services, token: str) -> Actor:
     if not result.allowed:
         raise RateLimited(retry_after=max(result.retry_after, 1))
     request.state.api_key_id = auth.key.id
+    remember_company(request, auth.company.id, False)
     return auth.actor
 
 
