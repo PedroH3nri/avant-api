@@ -3,6 +3,7 @@
 import re
 import uuid
 
+import httpx
 from avant_core.company.enums import CompanyStatus, InvitationKind
 from avant_core.company.models import ClientProfile, Company, Invitation
 from avant_core.company.services import slugify
@@ -154,6 +155,14 @@ def test_writes_without_a_session_from_another_site_are_refused(
     assert accept.status_code == 403 and accept.json()["error"]["code"] == "csrf_failed"
 
 
+def _error_code(response: httpx.Response) -> str | None:
+    """O código de erro da resposta da API, se for um erro com corpo JSON."""
+    if response.status_code < 400:
+        return None
+    code: str | None = response.json().get("error", {}).get("code")
+    return code
+
+
 def test_every_write_route_refuses_another_site(client: TestClient) -> None:
     writes = [
         (method.upper(), re.sub(r"\{[^}]+\}", "00000000-0000-0000-0000-000000000000", path))
@@ -165,7 +174,8 @@ def test_every_write_route_refuses_another_site(client: TestClient) -> None:
     unchecked = [
         (method, path)
         for method, path in writes
-        if client.request(method, path, headers={"Sec-Fetch-Site": "cross-site"}).status_code != 403
+        if _error_code(client.request(method, path, headers={"Sec-Fetch-Site": "cross-site"}))
+        != "csrf_failed"
     ]
     assert unchecked == []
 
