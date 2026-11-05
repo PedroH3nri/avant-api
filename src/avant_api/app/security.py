@@ -41,12 +41,14 @@ FETCH_SITE_HEADER = "Sec-Fetch-Site"
 
 # "none" é a pessoa digitando a URL ou abrindo um favorito; o painel só escreve por fetch.
 ALLOWED_FETCH_SITES = frozenset({"same-origin", "none"})
+# A única rota que recebe escrita de outro site: o beacon da g-tag, sem sessão nem cookie.
+CROSS_SITE_PATHS = frozenset({"/api/admanager/keyvalue"})
 
 
 def check_fetch_site(request: Request) -> None:
     """Em toda rota, com ou sem sessão: escrita de outro site ou de subdomínio irmão é recusada.
     Sem o cabeçalho (chave de API, navegador antigo) vale como mesma origem, por escolha."""
-    if request.method in SAFE_METHODS:
+    if request.method in SAFE_METHODS or request.url.path in CROSS_SITE_PATHS:
         return
     if request.headers.get(FETCH_SITE_HEADER, "same-origin") not in ALLOWED_FETCH_SITES:
         raise CsrfFailed("escrita vinda de outro site")
