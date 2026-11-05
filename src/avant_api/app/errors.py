@@ -40,6 +40,16 @@ class TooManyAttempts(DomainError):
         self.retry_after = retry_after
 
 
+class ExportsBusy(DomainError):
+    """As exportações do processo estão todas ocupadas; o Retry-After diz quando tentar."""
+
+    code = "exports_busy"
+
+    def __init__(self, *, retry_after: int) -> None:
+        super().__init__("muitas exportações ao mesmo tempo, tente de novo em instantes")
+        self.retry_after = retry_after
+
+
 class RateLimited(DomainError):
     """A chave de API passou do limite de requisições."""
 
@@ -67,6 +77,7 @@ class GoogleFailed(DomainError):
 
 
 STATUS: dict[str, int] = {
+    "exports_busy": 503,
     "not_authenticated": 401,
     "mfa_attempts_exceeded": 401,
     "mfa_locked": 429,
