@@ -15,6 +15,7 @@ from avant_api.app.security import require_staff
 from avant_api.modules.internal.gam_tools.dependencies import gam_tool_service
 from avant_api.modules.internal.gam_tools.dto import (
     AdsTxtOut,
+    Domain,
     GamToolNetworkDetailOut,
     GamToolNetworkOut,
     GamToolRunIn,
@@ -92,7 +93,7 @@ def ads_txt(
 @router.get("/install")
 def install(
     network: uuid.UUID,
-    sites: list[str] = Query(min_length=1, max_length=20),
+    sites: list[Domain] = Query(min_length=1, max_length=20),
     language: str = Query(default="pt", pattern="^(pt|en|es)$"),
     label: str = Query(default="pt", pattern="^(pt|en|es)$"),
     actor: Actor = Depends(require_staff(PERMISSION)),

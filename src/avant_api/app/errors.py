@@ -50,6 +50,16 @@ class ExportsBusy(DomainError):
         self.retry_after = retry_after
 
 
+class QueueUnavailable(DomainError):
+    """A fila do worker está fora do ar; o Retry-After diz quando tentar de novo."""
+
+    code = "queue_unavailable"
+
+    def __init__(self, *, retry_after: int) -> None:
+        super().__init__("a fila de tarefas está fora do ar, tente de novo em instantes")
+        self.retry_after = retry_after
+
+
 class RateLimited(DomainError):
     """A chave de API passou do limite de requisições."""
 
@@ -78,6 +88,7 @@ class GoogleFailed(DomainError):
 
 STATUS: dict[str, int] = {
     "exports_busy": 503,
+    "queue_unavailable": 503,
     "not_authenticated": 401,
     "mfa_attempts_exceeded": 401,
     "mfa_locked": 429,
