@@ -217,6 +217,8 @@ class BucketRule:
 API_KEY = BucketRule(rate=2.0, burst=20, abuse_limit=20, block_seconds=30)
 # Consultas de relatório somam muitas linhas: um balde próprio por pessoa e Empresa.
 REPORTS = BucketRule(rate=0.5, burst=10, abuse_limit=20, block_seconds=60)
+# Key-values da g-tag (rota pública, beacon de cada página): 4 pedidos por segundo por IP.
+KEY_VALUES = BucketRule(rate=4.0, burst=4, abuse_limit=40, block_seconds=60)
 
 
 @dataclass(frozen=True)

@@ -15,6 +15,11 @@ from sqlalchemy import Engine, create_engine
 from avant_api.app.events import EventSource, NoEvents, RedisEvents, StreamLimiter
 from avant_api.app.google import GoogleAuth, GoogleOAuth
 from avant_api.app.images import PillowImageProcessor
+from avant_api.app.key_value_buffer import (
+    KeyValueBuffer,
+    MemoryKeyValueBuffer,
+    RedisKeyValueBuffer,
+)
 from avant_api.app.limits import (
     Bucket,
     Limiter,
@@ -60,6 +65,7 @@ class Services:
     events: EventSource = field(default_factory=NoEvents)
     stream_limiter: StreamLimiter = field(default_factory=StreamLimiter)
     images: ImageProcessor = field(default_factory=PillowImageProcessor)
+    key_values: KeyValueBuffer = field(default_factory=MemoryKeyValueBuffer)
 
     @classmethod
     def build(cls, settings: Settings) -> "Services":
@@ -83,6 +89,9 @@ class Services:
             if settings.celery_broker_url
             else RecordingQueue(),
             events=RedisEvents(settings.redis_url) if settings.redis_url else NoEvents(),
+            key_values=RedisKeyValueBuffer.from_url(settings.redis_url)
+            if settings.redis_url
+            else MemoryKeyValueBuffer(),
         )
 
     def uow(self, company_id: uuid.UUID) -> SqlAlchemyUnitOfWork:
