@@ -43,13 +43,20 @@ FETCH_SITE_HEADER = "Sec-Fetch-Site"
 ALLOWED_FETCH_SITES = frozenset({"same-origin", "none"})
 
 
-def check_csrf(request: Request, services: Services) -> None:
-    """Double submit (o cookie de CSRF volta no cabeçalho) e, quando o navegador informa, só
-    escritas da mesma origem: outro site ou um subdomínio irmão são recusados."""
+def check_fetch_site(request: Request) -> None:
+    """Em toda rota, com ou sem sessão (login, aceite de convite): quando o navegador informa,
+    só escritas da mesma origem; outro site ou um subdomínio irmão são recusados."""
     if request.method in SAFE_METHODS:
         return
     if request.headers.get(FETCH_SITE_HEADER, "same-origin") not in ALLOWED_FETCH_SITES:
         raise CsrfFailed("escrita vinda de outro site")
+
+
+def check_csrf(request: Request, services: Services) -> None:
+    """Double submit da sessão: o cookie de CSRF volta no cabeçalho. A origem já foi conferida
+    por ``check_fetch_site`` em toda rota."""
+    if request.method in SAFE_METHODS:
+        return
     cookie = request.cookies.get(services.settings.csrf_cookie, "")
     header = request.headers.get(CSRF_HEADER, "")
     if not cookie or not hmac.compare_digest(cookie, header):
