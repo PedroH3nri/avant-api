@@ -125,8 +125,26 @@ def test_writes_from_another_site_fail_the_csrf_check(
         headers = {**_csrf(client), "Sec-Fetch-Site": site}
         refused = client.post("/api/v1/invitations", json=body, headers=headers)
         assert refused.status_code == 403 and refused.json()["error"]["code"] == "csrf_failed"
-    same = {**_csrf(client), "Sec-Fetch-Site": "same-origin"}
-    assert client.post("/api/v1/invitations", json=body, headers=same).status_code == 201
+    typed = {**_csrf(client), "Sec-Fetch-Site": "none"}
+    assert client.post("/api/v1/invitations", json=body, headers=typed).status_code == 201
+    without_header = client.post(
+        "/api/v1/invitations", json={**body, "email": "bia@acai.com"}, headers=_csrf(client)
+    )
+    assert without_header.status_code == 201, without_header.text
+
+
+def test_writes_without_a_session_from_another_site_are_refused(
+    client: TestClient, engine: Engine, mailer: CapturingMailer
+) -> None:
+    _onboard_owner(client, engine, mailer)
+    client.cookies.clear()
+    login = {"email": "dono@acai.com", "password": PASSWORD}
+    for site in ("cross-site", "same-site"):
+        refused = client.post("/api/v1/auth/login", json=login, headers={"Sec-Fetch-Site": site})
+        assert refused.status_code == 403 and refused.json()["error"]["code"] == "csrf_failed"
+    assert "avant_session" not in client.cookies
+    same = client.post("/api/v1/auth/login", json=login, headers={"Sec-Fetch-Site": "same-origin"})
+    assert same.status_code == 200, same.text
 
 
 def test_deployed_cookies_use_the_host_prefix() -> None:
