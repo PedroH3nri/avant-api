@@ -42,7 +42,8 @@ def test_clean_values_of_connected_networks_go_to_the_buffer(client: TestClient)
         headers={"Sec-Fetch-Site": "cross-site", "Origin": "https://blog.com"},
     )
     assert sent.status_code == 202, sent.text
-    assert sent.headers["Access-Control-Allow-Origin"] == "*"
+    assert sent.headers["Access-Control-Allow-Origin"] == "https://blog.com"
+    assert sent.headers["Access-Control-Allow-Credentials"] == "true"
     assert buffer.buffered == {"2100": {"utm_source:fb"}, GROONE: {"land_uri:/receitas/bolo"}}
 
 
@@ -52,7 +53,9 @@ def test_the_preflight_answers_with_cors(client: TestClient) -> None:
         headers={"Origin": "https://blog.com", "Access-Control-Request-Method": "POST"},
     )
     assert preflight.status_code == 204
-    assert preflight.headers["Access-Control-Allow-Origin"] == "*"
+    assert preflight.headers["Access-Control-Allow-Origin"] == "https://blog.com"
+    assert preflight.headers["Access-Control-Allow-Credentials"] == "true"
+    assert preflight.headers["Vary"] == "Origin"
     assert "POST" in preflight.headers["Access-Control-Allow-Methods"]
     assert "Content-Type" in preflight.headers["Access-Control-Allow-Headers"]
 
