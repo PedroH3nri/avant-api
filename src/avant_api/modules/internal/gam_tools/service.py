@@ -16,6 +16,7 @@ from avant_core.gam.tools.services import (
     get_ads_txt,
     get_gam_tool_network,
     get_gam_tool_run,
+    give_up_gam_tool,
     page_gam_tool_networks,
     page_gam_tool_runs,
     start_gam_tool,
@@ -23,6 +24,7 @@ from avant_core.gam.tools.services import (
 from avant_core.identity.models import User
 from avant_core.shared.clock import Clock
 
+from avant_api.app.errors import QueueUnavailable
 from avant_api.app.ports import UnitOfWorkFactory
 from avant_api.app.tasks import RUN_GAM_TOOL, TaskQueue
 from avant_api.modules.internal.gam_tools.dto import (
@@ -34,6 +36,9 @@ from avant_api.modules.internal.gam_tools.dto import (
     GamToolRunOut,
 )
 from avant_api.shared.dto import PageOut, page_out
+
+QUEUE_DOWN = "queue_unavailable"
+QUEUE_RETRY_AFTER = 30
 
 
 class GamToolService:
@@ -74,7 +79,8 @@ class GamToolService:
         return GamToolRunOut.of(found, self._people({found.requested_by}))
 
     def start(self, actor: Actor, body: GamToolRunIn) -> GamToolRunOut:
-        """Abre a execução e enfileira no worker."""
+        """Abre a execução e enfileira no worker; sem fila, fecha a execução com falha, para a
+        network não ficar travada, e responde 503."""
         run = start_gam_tool(
             self._uows.trusted_uow(),
             actor=actor,
@@ -84,7 +90,11 @@ class GamToolService:
             domains=body.domains,
             block_format=body.format,
         )
-        self._tasks.send(RUN_GAM_TOOL, str(run.id))
+        if not self._tasks.send(RUN_GAM_TOOL, str(run.id)):
+            give_up_gam_tool(
+                self._uows.trusted_uow(), run_id=run.id, code=QUEUE_DOWN, clock=self._clock
+            )
+            raise QueueUnavailable(retry_after=QUEUE_RETRY_AFTER)
         return GamToolRunOut.of(run, self._people({run.requested_by}))
 
     def ads_txt(self, actor: Actor, network_id: uuid.UUID) -> AdsTxtOut:

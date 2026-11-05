@@ -2,12 +2,13 @@
 
 import uuid
 from datetime import date, datetime
+from typing import Annotated
 
 from avant_core.gam.networks.enums import Delegation, NetworkStatus
 from avant_core.gam.tools.enums import GamFormat, GamRunState, GamStepState, GamToolKind
 from avant_core.gam.tools.models import GamStep, GamToolNetwork, GamToolRun, GamToolSite
 from avant_core.identity.models import User
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, StringConstraints
 
 
 class GamToolClientOut(BaseModel):
@@ -144,10 +145,13 @@ class GamToolRunOut(BaseModel):
         )
 
 
+Domain = Annotated[str, StringConstraints(min_length=1, max_length=253)]
+
+
 class GamToolRunIn(BaseModel):
     network_id: uuid.UUID
     kind: GamToolKind
-    domains: list[str] = Field(default_factory=list, max_length=20)
+    domains: list[Domain] = Field(default_factory=list, max_length=20)
     format: GamFormat | None = None
 
 

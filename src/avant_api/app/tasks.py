@@ -19,8 +19,8 @@ RUN_GAM_TOOL = "avant.gam.run_tool"
 
 
 class TaskQueue(Protocol):
-    def send(self, name: str, *args: Any) -> None:
-        """Agenda uma tarefa no worker pelo nome."""
+    def send(self, name: str, *args: Any) -> bool:
+        """Agenda uma tarefa no worker pelo nome; diz se chegou à fila."""
         ...
 
 
@@ -31,9 +31,9 @@ class CeleryQueue:
         self._app = Celery("avant-api", broker=broker_url)
         self._app.conf.update(task_serializer="json", broker_connection_retry_on_startup=True)
 
-    def send(self, name: str, *args: Any) -> None:
-        """Sem RabbitMQ, a rota não falha: o pedido já está gravado e o agendador do worker
-        passa pela network no próximo ciclo. Fica o erro no log (e o alerta)."""
+    def send(self, name: str, *args: Any) -> bool:
+        """Sem RabbitMQ não levanta erro e devolve False: quem chama decide (a maioria segue, porque
+        o agendador do worker passa no próximo ciclo). Fica o erro no log (e o alerta)."""
         queue = name.split(".")[1]
         try:
             self._app.send_task(
@@ -46,8 +46,9 @@ class CeleryQueue:
             )
         except Exception:
             log.exception("não foi possível enfileirar a tarefa", extra={"task": name})
-            return
+            return False
         log.info("tarefa enfileirada", extra={"task": name})
+        return True
 
 
 @dataclass
@@ -55,7 +56,12 @@ class RecordingQueue:
     """Local e testes: guarda o que seria enfileirado."""
 
     sent: list[tuple[str, tuple[Any, ...]]] = field(default_factory=list)
+    offline: bool = False
 
-    def send(self, name: str, *args: Any) -> None:
-        """Guarda a tarefa em memória, para os testes conferirem."""
+    def send(self, name: str, *args: Any) -> bool:
+        """Guarda a tarefa em memória, para os testes conferirem; ``offline`` simula a fila fora do
+        ar."""
+        if self.offline:
+            return False
         self.sent.append((name, args))
+        return True
