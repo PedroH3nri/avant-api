@@ -8,9 +8,11 @@ from avant_core.company.services import slugify
 from avant_core.db.uow import SqlAlchemyUnitOfWork
 from avant_core.shared.clock import SystemClock
 from avant_core.shared.tokens import new_token
+from fastapi import Response
 from fastapi.testclient import TestClient
 from sqlalchemy import Engine, text
 
+from avant_api.app.cookies import SessionCookies
 from avant_api.app.settings import Settings
 from tests.conftest import FINANCE, CapturingMailer
 
@@ -133,6 +135,17 @@ def test_deployed_cookies_use_the_host_prefix() -> None:
     deployed = Settings.model_construct(avant_env="production")
     assert deployed.session_cookie == "__Host-avant_session"
     assert deployed.csrf_cookie == "__Host-avant_csrf"
+
+
+def test_closing_deployed_cookies_keeps_them_secure() -> None:
+    response = Response()
+    SessionCookies(Settings.model_construct(avant_env="production"), SystemClock()).close(response)
+    removals = response.headers.getlist("set-cookie")
+    assert [cookie.split("=")[0] for cookie in removals] == [
+        "__Host-avant_session",
+        "__Host-avant_csrf",
+    ]
+    assert all("Secure" in cookie and "Path=/" in cookie for cookie in removals)
 
 
 def test_team_invitation_flow(client: TestClient, engine: Engine, mailer: CapturingMailer) -> None:
