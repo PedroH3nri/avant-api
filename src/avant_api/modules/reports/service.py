@@ -86,12 +86,18 @@ class ReportService:
     """Catálogo de métricas, consultas avulsas e relatórios salvos, com limite de taxa."""
 
     def __init__(
-        self, uows: UnitOfWorkFactory, clock: Clock, bucket: Bucket, tasks: TaskQueue
+        self,
+        uows: UnitOfWorkFactory,
+        clock: Clock,
+        bucket: Bucket,
+        tasks: TaskQueue,
+        known: Callable[[], dict[uuid.UUID, bool]] | None = None,
     ) -> None:
         self._uows = uows
         self._clock = clock
         self._bucket = bucket
         self._tasks = tasks
+        self._known = known or dict
         self._internal: dict[uuid.UUID, bool] = {}
 
     def catalog(self, actor: Actor) -> MetricCatalogOut:
@@ -267,6 +273,8 @@ class ReportService:
     def _groone(self, actor: Actor) -> bool:
         """Diz se a Empresa ativa é a Company Groone; lido uma vez por pedido (o service é do
         pedido)."""
+        if actor.company_id not in self._internal:
+            self._internal.update(self._known())
         if actor.company_id not in self._internal:
             with self._uows.uow(actor.company_id) as uow:
                 company = uow.companies.get(actor.company_id)
