@@ -1,9 +1,10 @@
-"""Service das networks do MCM sem dono no painel interno."""
+"""Service das networks no painel interno: o cadastro pela equipe e as do MCM sem cadastro."""
 
 import uuid
 
 from avant_core.access.models import Actor
-from avant_core.gam.mcm.services import assign_mcm_candidate, page_mcm_candidates
+from avant_core.gam.mcm.services import page_mcm_candidates
+from avant_core.gam.networks.services import confirm_client_network, register_client_network
 from avant_core.shared.clock import Clock
 
 from avant_api.app.ports import UnitOfWorkFactory
@@ -15,7 +16,7 @@ from avant_api.shared.dto import PageOut, page_out
 
 
 class McmService:
-    """Liga networks aprovadas no MCM às Empresas certas."""
+    """Cadastra networks dos clientes e lista as do MCM sem cadastro."""
 
     def __init__(self, uows: UnitOfWorkFactory, clock: Clock, tasks: TaskQueue) -> None:
         self._uows = uows
@@ -23,18 +24,26 @@ class McmService:
         self._tasks = tasks
 
     def unassigned(self, actor: Actor, page: int) -> PageOut[McmCandidateOut]:
-        """Uma página das networks MCM sem Empresa, a vista primeiro por último antes."""
+        """Uma página das networks do MCM sem cadastro, a vista primeiro por último antes."""
         found = page_mcm_candidates(self._uows.trusted_uow(), actor=actor, page=page)
         return page_out(found, McmCandidateOut.of)
 
-    def assign(self, actor: Actor, candidate_id: uuid.UUID, company_id: uuid.UUID) -> NetworkOut:
-        """Liga a network a uma Empresa e agenda a primeira sincronização."""
-        network = assign_mcm_candidate(
+    def register(self, actor: Actor, company_id: uuid.UUID, network_code: str) -> NetworkOut:
+        """Cadastra a network pendente do cliente e agenda o teste no worker."""
+        network = register_client_network(
             self._uows.trusted_uow(),
             actor=actor,
-            candidate_id=candidate_id,
             company_id=company_id,
+            network_code=network_code,
             clock=self._clock,
+        )
+        enqueue_sync(self._tasks, network)
+        return NetworkOut.of(network)
+
+    def confirm(self, actor: Actor, network_id: uuid.UUID) -> NetworkOut:
+        """Confirma a network do MCM cadastrada pelo cliente e agenda o teste no worker."""
+        network = confirm_client_network(
+            self._uows.trusted_uow(), actor=actor, network_id=network_id, clock=self._clock
         )
         enqueue_sync(self._tasks, network)
         return NetworkOut.of(network)

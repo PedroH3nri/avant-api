@@ -23,10 +23,17 @@ class ClientInventoryService:
         self._uows = uows
         self._clock = clock
 
-    def networks(self, actor: Actor, query: str | None, page: int) -> PageOut[ClientNetworkOut]:
+    def networks(
+        self, actor: Actor, query: str | None, page: int, awaiting_confirmation: bool = False
+    ) -> PageOut[ClientNetworkOut]:
         """Uma página das networks dos clientes com o status de faturamento."""
         found = page_client_networks(
-            self._uows.trusted_uow(), actor=actor, clock=self._clock, query=query, page=page
+            self._uows.trusted_uow(),
+            actor=actor,
+            clock=self._clock,
+            query=query,
+            page=page,
+            awaiting_confirmation=awaiting_confirmation,
         )
         return page_out(found, ClientNetworkOut.of_view)
 

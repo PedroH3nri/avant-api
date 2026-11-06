@@ -48,6 +48,9 @@ class NetworkOut(BaseModel):
     last_checked_at: datetime | None
     last_synced_at: datetime | None
     sync_requested_at: datetime | None
+    owner_user_id: uuid.UUID | None
+    # Network do MCM cadastrada pelo cliente que a equipe Groone ainda não confirmou.
+    awaiting_confirmation: bool
     created_at: datetime
 
     @classmethod
@@ -65,6 +68,8 @@ class NetworkOut(BaseModel):
             last_checked_at=network.last_checked_at,
             last_synced_at=network.last_synced_at,
             sync_requested_at=network.sync_requested_at,
+            owner_user_id=network.owner_user_id,
+            awaiting_confirmation=network.awaiting_confirmation,
             created_at=network.created_at,
         )
 

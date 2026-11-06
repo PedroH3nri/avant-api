@@ -49,7 +49,7 @@ def test_connect_sync_and_disconnect(
     assert r.status_code == 202, r.text
     network = r.json()
     assert network["network_code"] == "123" and network["status"] == "pending"
-    assert network["connection_type"] == "service_account" and network["sites"] == 0
+    assert network["connection_type"] == "mcm" and network["sites"] == 0
     assert _queue(client).sent == [(SYNC_NETWORK, (company_id, network["id"]))]
 
     # Conectar de novo a mesma network não duplica.
@@ -103,7 +103,7 @@ def test_networks_need_permission(
     assert TestClient(client.app).get("/api/v1/networks").status_code == 401
 
 
-def test_internal_assigns_unowned_mcm_network(
+def test_internal_registers_the_network_of_a_client(
     client: TestClient, engine: Engine, mailer: CapturingMailer
 ) -> None:
     me = _onboard_owner(client, engine, mailer)
@@ -124,18 +124,39 @@ def test_internal_assigns_unowned_mcm_network(
 
     # Dono de Empresa cliente não enxerga o painel.
     assert client.get("/api/v1/internal/networks/unassigned").status_code == 403
+    r = client.post(
+        "/api/v1/internal/networks",
+        json={"company_id": company_id, "network_code": "456"},
+        headers=_csrf(client),
+    )
+    assert r.status_code == 403
 
     staff = _staff(client, engine)
     (item,) = staff.get("/api/v1/internal/networks/unassigned").json()["items"]
     assert item["network_code"] == "456" and item["delegation"] == "manage_account"
     r = staff.post(
-        f"/api/v1/internal/networks/{item['id']}/assign",
-        json={"company_id": company_id},
+        "/api/v1/internal/networks",
+        json={"company_id": company_id, "network_code": "456"},
         headers=_csrf(staff),
     )
     assert r.status_code == 202, r.text
     assert r.json()["connection_type"] == "mcm" and r.json()["status"] == "pending"
+    assert r.json()["owner_user_id"] == me["user"]["id"]
     assert _queue(client).sent[-1] == (SYNC_NETWORK, (company_id, r.json()["id"]))
     assert staff.get("/api/v1/internal/networks/unassigned").json()["items"] == []
     (owned,) = client.get("/api/v1/networks").json()["items"]
     assert owned["network_code"] == "456"
+    assert owned["awaiting_confirmation"] is False
+
+    # A cadastrada pelo cliente espera a equipe confirmar.
+    mine = client.post("/api/v1/networks", json={"network_code": "789"}, headers=_csrf(client))
+    assert mine.status_code == 202 and mine.json()["awaiting_confirmation"] is True
+    confirm_url = f"/api/v1/internal/networks/{mine.json()['id']}/confirm"
+    assert client.post(confirm_url, headers=_csrf(client)).status_code == 403
+    waiting = staff.get("/api/v1/internal/networks?awaiting_confirmation=true").json()["items"]
+    assert [network["id"] for network in waiting] == [mine.json()["id"]]
+    confirmed = staff.post(confirm_url, headers=_csrf(staff))
+    assert confirmed.status_code == 202, confirmed.text
+    assert confirmed.json()["awaiting_confirmation"] is False
+    assert _queue(client).sent[-1] == (SYNC_NETWORK, (company_id, mine.json()["id"]))
+    assert staff.get("/api/v1/internal/networks?awaiting_confirmation=true").json()["items"] == []
