@@ -13,6 +13,7 @@ from avant_api.app.tasks import SYNC_NETWORK, RecordingQueue
 from tests.conftest import CapturingMailer
 from tests.test_api import PASSWORD, _csrf, _onboard_owner, _owner_invite
 from tests.test_internal import _staff
+from tests.test_mfa import _enable
 from tests.test_team import _member_client
 
 
@@ -169,3 +170,67 @@ def test_internal_registers_the_network_of_a_client(
     assert client.post(reject_url, headers=_csrf(client)).status_code == 403
     assert staff.post(reject_url, headers=_csrf(staff)).status_code == 204
     assert staff.post(reject_url, headers=_csrf(staff)).status_code == 404
+
+
+def _clients_viewer(client: TestClient, staff: TestClient, mailer: CapturingMailer) -> TestClient:
+    """Uma pessoa da equipe Groone, com 2FA, que vê os clientes mas não cadastra networks."""
+    role = staff.post(
+        "/api/v1/roles",
+        json={
+            "name": "Leitura clientes",
+            "permissions": ["internal.clients.view"],
+            "site_scope": "all",
+        },
+        headers=_csrf(staff),
+    )
+    assert role.status_code == 201, role.text
+    invited = staff.post(
+        "/api/v1/internal/staff/invitations",
+        json={"email": "clientes@groone.com", "role_id": role.json()["id"]},
+        headers=_csrf(staff),
+    )
+    assert invited.status_code == 201, invited.text
+    viewer = TestClient(client.app)
+    accepted = viewer.post(
+        f"/api/v1/auth/invitations/{mailer.sent[-1].token}/accept",
+        json={"name": "Leitura", "password": PASSWORD},
+    )
+    assert accepted.status_code == 200, accepted.text
+    _enable(viewer)
+    return viewer
+
+
+def test_staff_without_permission_and_other_clients(
+    client: TestClient, engine: Engine, mailer: CapturingMailer
+) -> None:
+    me = _onboard_owner(client, engine, mailer)
+    company_id = me["active_company_id"]
+    mine = client.post("/api/v1/networks", json={"network_code": "789"}, headers=_csrf(client))
+    other_owner = _second_owner(client, engine, mailer)
+    theirs = other_owner.post(
+        "/api/v1/networks", json={"network_code": "790"}, headers=_csrf(other_owner)
+    )
+    assert theirs.status_code == 202, theirs.text
+    staff = _staff(client, engine)
+    viewer = _clients_viewer(client, staff, mailer)
+
+    base = "/api/v1/internal/networks"
+    refused = [
+        viewer.post(
+            base, json={"company_id": company_id, "network_code": "1"}, headers=_csrf(viewer)
+        ),
+        viewer.post(f"{base}/{mine.json()['id']}/confirm", headers=_csrf(viewer)),
+        viewer.post(f"{base}/{mine.json()['id']}/reject", headers=_csrf(viewer)),
+    ]
+    for response in refused:
+        assert response.status_code == 403, response.text
+        assert response.json()["error"]["code"] == "permission_denied"
+
+    of_client = viewer.get(f"{base}?client_id={company_id}").json()["items"]
+    assert [network["id"] for network in of_client] == [mine.json()["id"]]
+
+    sent = len(_queue(client).sent)
+    confirm_url = f"{base}/{mine.json()['id']}/confirm"
+    assert staff.post(confirm_url, headers=_csrf(staff)).status_code == 202
+    assert staff.post(confirm_url, headers=_csrf(staff)).status_code == 202
+    assert len(_queue(client).sent) == sent + 1
