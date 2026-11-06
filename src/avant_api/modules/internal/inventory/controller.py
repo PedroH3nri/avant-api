@@ -4,6 +4,8 @@ A Groone não tem networks nem sites; os clientes têm. Cada linha leva o client
 faturamento, que só a equipe Groone vê.
 """
 
+import uuid
+
 from avant_core.access.models import Actor
 from fastapi import APIRouter, Depends, Query
 
@@ -20,12 +22,14 @@ router = APIRouter(prefix="/internal", tags=["internal"])
 def networks(
     query: str | None = Query(alias="q", default=None, max_length=120),
     page: int = Query(default=1, ge=1),
+    awaiting_confirmation: bool = Query(default=False),
+    client_id: uuid.UUID | None = Query(default=None),
     actor: Actor = Depends(require_staff("internal.clients.view")),
     service: ClientInventoryService = Depends(client_inventory_service),
 ) -> PageOut[ClientNetworkOut]:
     """Uma página das networks dos clientes, a mais recente primeiro, com busca por nome ou
-    código."""
-    return service.networks(actor, query, page)
+    código e os filtros de um cliente e das que a equipe precisa confirmar."""
+    return service.networks(actor, query, page, awaiting_confirmation, client_id)
 
 
 @router.get("/sites")

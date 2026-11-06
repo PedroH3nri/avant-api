@@ -5,7 +5,7 @@ from datetime import datetime
 
 from avant_core.gam.mcm.models import McmCandidate
 from avant_core.gam.networks.enums import Delegation
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 class McmCandidateOut(BaseModel):
@@ -33,5 +33,6 @@ class McmCandidateOut(BaseModel):
         )
 
 
-class AssignNetworkIn(BaseModel):
+class ClientNetworkIn(BaseModel):
     company_id: uuid.UUID
+    network_code: str = Field(min_length=1, max_length=20)
