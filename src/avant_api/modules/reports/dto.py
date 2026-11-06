@@ -33,7 +33,6 @@ from avant_core.metrics.services.query_rules import (
     MAX_LIMIT,
     UNFILTERABLE_DIMENSIONS,
 )
-from avant_core.metrics.services.report_service import MAX_SECTIONS
 from avant_core.money.catalog import BASE_CURRENCY
 from avant_core.reports.enums.chart_type import ChartType
 from avant_core.reports.models.report_template import ReportTemplate
@@ -260,10 +259,14 @@ class ReportResultOut(BaseModel):
         )
 
 
-class ReportBatchIn(BaseModel):
-    """As consultas de uma tela, que rodam juntas e gastam uma consulta do limite."""
+SCREEN_SECTIONS = 8
 
-    sections: list[ReportQueryIn] = Field(min_length=1, max_length=MAX_SECTIONS)
+
+class ReportBatchIn(BaseModel):
+    """As consultas de uma tela, que rodam juntas e gastam uma consulta do limite; até
+    ``SCREEN_SECTIONS`` (as telas usam no máximo 5), para um token não comprar muito banco."""
+
+    sections: list[ReportQueryIn] = Field(min_length=1, max_length=SCREEN_SECTIONS)
 
 
 class ReportBatchOut(BaseModel):
