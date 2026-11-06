@@ -160,3 +160,5 @@ def test_internal_registers_the_network_of_a_client(
     assert confirmed.json()["awaiting_confirmation"] is False
     assert _queue(client).sent[-1] == (SYNC_NETWORK, (company_id, mine.json()["id"]))
     assert staff.get("/api/v1/internal/networks?awaiting_confirmation=true").json()["items"] == []
+    of_client = staff.get(f"/api/v1/internal/networks?client_id={company_id}").json()
+    assert of_client["total"] == 2
