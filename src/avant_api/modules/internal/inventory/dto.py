@@ -31,6 +31,8 @@ class ClientNetworkOut(NetworkOut):
     sites: int
     # Vazio sem receita nos últimos 60 dias.
     revenue_status: RevenueStatusOut | None
+    # E-mail do child no MCM, só nas que aguardam a confirmação da equipe.
+    mcm_email: str | None
 
     @classmethod
     def of_view(cls, view: ClientNetworkView) -> "ClientNetworkOut":
@@ -40,6 +42,7 @@ class ClientNetworkOut(NetworkOut):
             client=ClientRefOut.of(view.company),
             sites=view.sites,
             revenue_status=RevenueStatusOut.of(view.revenue),
+            mcm_email=view.mcm_email,
         )
 
 

@@ -1,5 +1,7 @@
 """Service das networks e dos sites dos clientes, vistos pela equipe Groone."""
 
+import uuid
+
 from avant_core.access.models import Actor
 from avant_core.internal.services import page_client_networks, page_client_sites
 from avant_core.shared.clock import Clock
@@ -23,10 +25,23 @@ class ClientInventoryService:
         self._uows = uows
         self._clock = clock
 
-    def networks(self, actor: Actor, query: str | None, page: int) -> PageOut[ClientNetworkOut]:
+    def networks(
+        self,
+        actor: Actor,
+        query: str | None,
+        page: int,
+        awaiting_confirmation: bool = False,
+        client_id: uuid.UUID | None = None,
+    ) -> PageOut[ClientNetworkOut]:
         """Uma página das networks dos clientes com o status de faturamento."""
         found = page_client_networks(
-            self._uows.trusted_uow(), actor=actor, clock=self._clock, query=query, page=page
+            self._uows.trusted_uow(),
+            actor=actor,
+            clock=self._clock,
+            query=query,
+            page=page,
+            awaiting_confirmation=awaiting_confirmation,
+            company_id=client_id,
         )
         return page_out(found, ClientNetworkOut.of_view)
 

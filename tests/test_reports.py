@@ -386,6 +386,10 @@ def test_batch_refuses_bad_sections_and_needs_permission(
     _onboard_owner(client, engine, mailer)
     empty = client.post("/api/v1/reports/query/batch", json={"sections": []}, headers=_csrf(client))
     assert empty.json()["error"]["code"] == "validation_error"
+    too_many = client.post(
+        "/api/v1/reports/query/batch", json={"sections": [_day()] * 9}, headers=_csrf(client)
+    )
+    assert too_many.json()["error"]["code"] == "validation_error"
     no_end = client.post(
         "/api/v1/reports/query/batch",
         json={"sections": [_day(compare="custom", compare_start=YESTERDAY.isoformat())]},
