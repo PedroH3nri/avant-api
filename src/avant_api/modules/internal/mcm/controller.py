@@ -45,3 +45,13 @@ def confirm_network(
 ) -> NetworkOut:
     """Confirma que a network do MCM cadastrada pelo cliente é dele e agenda o teste."""
     return service.confirm(actor, network_id)
+
+
+@router.post("/{network_id}/reject", status_code=status.HTTP_204_NO_CONTENT)
+def reject_network(
+    network_id: uuid.UUID,
+    actor: Actor = Depends(require_staff("internal.networks.assign")),
+    service: McmService = Depends(mcm_service),
+) -> None:
+    """Recusa a network do MCM que o cliente cadastrou e não é dele; o código fica livre."""
+    service.reject(actor, network_id)

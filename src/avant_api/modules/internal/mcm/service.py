@@ -4,7 +4,11 @@ import uuid
 
 from avant_core.access.models import Actor
 from avant_core.gam.mcm.services import page_mcm_candidates
-from avant_core.gam.networks.services import confirm_client_network, register_client_network
+from avant_core.gam.networks.services import (
+    confirm_client_network,
+    register_client_network,
+    reject_client_network,
+)
 from avant_core.shared.clock import Clock
 
 from avant_api.app.ports import UnitOfWorkFactory
@@ -47,3 +51,9 @@ class McmService:
         )
         enqueue_sync(self._tasks, network)
         return NetworkOut.of(network)
+
+    def reject(self, actor: Actor, network_id: uuid.UUID) -> None:
+        """Recusa a network do MCM cadastrada pelo cliente que não é dele."""
+        reject_client_network(
+            self._uows.trusted_uow(), actor=actor, network_id=network_id, clock=self._clock
+        )

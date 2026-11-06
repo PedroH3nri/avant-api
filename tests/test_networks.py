@@ -162,3 +162,10 @@ def test_internal_registers_the_network_of_a_client(
     assert staff.get("/api/v1/internal/networks?awaiting_confirmation=true").json()["items"] == []
     of_client = staff.get(f"/api/v1/internal/networks?client_id={company_id}").json()
     assert of_client["total"] == 2
+
+    # A que não é do cliente a equipe recusa, e o código fica livre.
+    other = client.post("/api/v1/networks", json={"network_code": "999"}, headers=_csrf(client))
+    reject_url = f"/api/v1/internal/networks/{other.json()['id']}/reject"
+    assert client.post(reject_url, headers=_csrf(client)).status_code == 403
+    assert staff.post(reject_url, headers=_csrf(staff)).status_code == 204
+    assert staff.post(reject_url, headers=_csrf(staff)).status_code == 404
