@@ -248,6 +248,15 @@ src/avant_api/
   2 requisições por segundo com rajada de 20 (`X-RateLimit-Limit` e
   `X-RateLimit-Remaining`); passou, 429 `rate_limited` com `Retry-After`, e mais de 20
   recusas em um minuto bloqueiam a chave por 30 s. O balde fica no Redis.
+- **Reward no site** (`modules/reward_public/`, fora de `/api/v1`, sem sessão): o script
+  `reward.js` lê `GET /api/reward/v2?url=` (a configuração da página, com o `id` de cada
+  pergunta, guardada no Redis em `avant:reward:{domínio}/{caminho}` por 1 hora, ou 5 minutos
+  quando a página não tem reward), `GET /api/reward/icon/{id}` (o ícone, com cache longo),
+  `POST /api/reward/events` (até 20 eventos; a resposta leva `question_id`) e
+  `POST /api/reward/leads` (o contato com `answers: [{question_id, answer}]`). Os dois POST
+  aceitam outro site e qualquer `Content-Type` (`sendBeacon`), têm limite por IP e só gravam
+  na lista `avant:reward:buffer`, que o worker esvazia a cada minuto; o dia do evento é o de
+  São Paulo. Salvar, pausar ou apagar um reward apaga a chave da página.
 - **Permissão**: declarada na rota com `Depends(require("team.invite"))`.
 - **Erros**: sempre `{"error": {"code", "message", "details"}}`; o mapa de código para
   status HTTP está em `app/errors.py`.

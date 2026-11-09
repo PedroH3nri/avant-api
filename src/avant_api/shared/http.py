@@ -4,6 +4,7 @@ import ipaddress
 
 from avant_core.company.models import CompanyImage
 from avant_core.identity.models import UserImage
+from avant_core.rewards.models import RewardIcon
 from avant_core.shared.errors import ImageTooLarge
 from avant_core.shared.images import IMAGE_MAX_BYTES
 from fastapi import Request, Response, status
@@ -23,7 +24,7 @@ def client_info(request: Request) -> tuple[str | None, str | None]:
     return request.headers.get("User-Agent"), ip
 
 
-def image_response(request: Request, image: CompanyImage | UserImage) -> Response:
+def image_response(request: Request, image: CompanyImage | UserImage | RewardIcon) -> Response:
     """Devolve a imagem com ETag; 304 quando o navegador já tem a mesma."""
     etag = f'"{image.sha256}"'
     headers = {"ETag": etag, "Cache-Control": IMAGE_CACHE}
