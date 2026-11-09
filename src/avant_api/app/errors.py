@@ -155,6 +155,8 @@ STATUS: dict[str, int] = {
     "network_code_taken": 409,
     "network_disconnected": 409,
     "site_exists": 409,
+    "reward_page_taken": 409,
+    "reward_ad_unit_day_missing": 422,
     "site_from_gam": 409,
     "sync_too_soon": 429,
     "rate_limited": 429,
