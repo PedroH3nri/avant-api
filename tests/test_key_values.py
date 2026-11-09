@@ -67,8 +67,8 @@ def test_four_requests_per_second_per_ip(client: TestClient) -> None:
     assert answers == [202, 202, 202, 202, 429]
 
 
-def test_only_this_route_accepts_writes_from_another_site() -> None:
-    assert frozenset({PATH}) == CROSS_SITE_PATHS
+def test_only_the_site_beacons_accept_writes_from_another_site() -> None:
+    assert frozenset({PATH, "/api/reward/events", "/api/reward/leads"}) == CROSS_SITE_PATHS
 
 
 @pytest.mark.skipif("AVANT_TEST_REDIS_URL" not in os.environ, reason="defina AVANT_TEST_REDIS_URL")

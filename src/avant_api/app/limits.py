@@ -219,6 +219,10 @@ API_KEY = BucketRule(rate=2.0, burst=20, abuse_limit=20, block_seconds=30)
 REPORTS = BucketRule(rate=0.5, burst=10, abuse_limit=20, block_seconds=60)
 # Key-values da g-tag (rota pública, beacon de cada página): 4 pedidos por segundo por IP.
 KEY_VALUES = BucketRule(rate=4.0, burst=4, abuse_limit=40, block_seconds=60)
+# Rewards (rotas públicas do script do site): configuração da página, eventos e contatos por IP.
+REWARD_CONFIG = BucketRule(rate=5.0, burst=20, abuse_limit=60, block_seconds=60)
+REWARD_EVENTS = BucketRule(rate=4.0, burst=10, abuse_limit=40, block_seconds=60)
+REWARD_LEADS = BucketRule(rate=0.2, burst=3, abuse_limit=10, block_seconds=300)
 
 
 @dataclass(frozen=True)
