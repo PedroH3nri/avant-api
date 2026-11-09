@@ -84,8 +84,9 @@ class PublicRewardService:
         self._cache.set(key, body, TTL_SECONDS if reward else EMPTY_TTL_SECONDS)
         return body
 
-    def icon(self, reward_id: uuid.UUID) -> RewardIcon:
-        """O ícone em imagem do reward."""
+    def icon(self, reward_id: uuid.UUID, client: str) -> RewardIcon:
+        """O ícone em imagem do reward, com o mesmo limite por IP da configuração."""
+        self._limit("reward-icon", REWARD_CONFIG, client)
         return get_public_reward_icon(self._uows.trusted_uow(), reward_id=reward_id)
 
     def events(self, body: RewardEventsIn, client: str) -> int:

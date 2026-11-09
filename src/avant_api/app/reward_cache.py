@@ -6,10 +6,13 @@ domínio sem ``www.`` e o caminho sem barras nas pontas. Página sem reward tamb
 com o valor vazio, para o site não bater no banco a cada visita.
 """
 
+import logging
 from dataclasses import dataclass, field
 from typing import Protocol
 
 import redis
+
+log = logging.getLogger("avant.api.reward_cache")
 
 KEY = "avant:reward:{domain}/{path}"
 TTL_SECONDS = 3600
@@ -47,18 +50,29 @@ class RedisRewardCache:
         return cls(redis.Redis.from_url(url, socket_timeout=1.0))
 
     def get(self, key: str) -> str | None:
-        """Lê a chave como texto."""
-        found = self._client.get(key)
+        """Lê a chave como texto; com o Redis fora, vazio (a página vai ao banco)."""
+        try:
+            found = self._client.get(key)
+        except redis.RedisError:
+            log.warning("cache do reward indisponível na leitura", exc_info=True)
+            return None
         return found.decode() if isinstance(found, bytes) else found
 
     def set(self, key: str, value: str, ttl_seconds: int) -> None:
-        """Grava com prazo."""
-        self._client.set(key, value, ex=ttl_seconds)
+        """Grava com prazo; com o Redis fora, segue sem cache."""
+        try:
+            self._client.set(key, value, ex=ttl_seconds)
+        except redis.RedisError:
+            log.warning("cache do reward indisponível na escrita", exc_info=True)
 
     def delete(self, *keys: str) -> None:
-        """Apaga as chaves pedidas."""
-        if keys:
+        """Apaga as chaves pedidas; com o Redis fora, só registra (o prazo limpa depois)."""
+        if not keys:
+            return
+        try:
             self._client.delete(*keys)
+        except redis.RedisError:
+            log.warning("cache do reward indisponível ao apagar", exc_info=True)
 
 
 @dataclass
