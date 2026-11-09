@@ -75,7 +75,7 @@ def icon(
     service: PublicRewardService = Depends(public_reward_service),
 ) -> Response:
     """O ícone em imagem do reward, com cache longo (a URL leva a versão)."""
-    response = image_response(request, service.icon(reward_id))
+    response = image_response(request, service.icon(reward_id, client_address(request)))
     response.headers["Cache-Control"] = "public, max-age=31536000, immutable"
     response.headers.update(OPEN_CORS)
     return response

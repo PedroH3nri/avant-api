@@ -4,12 +4,13 @@ contatos no buffer, CORS e limite por IP."""
 import json
 import uuid
 
+import redis
 from fastapi.testclient import TestClient
 from sqlalchemy import Engine
 
 from avant_api.app.container import Services
 from avant_api.app.reward_buffer import MemoryRewardBuffer
-from avant_api.app.reward_cache import reward_cache_key
+from avant_api.app.reward_cache import RedisRewardCache, reward_cache_key
 from tests.conftest import CapturingMailer
 from tests.test_api import _csrf, _onboard_owner
 from tests.test_company_image import _png
@@ -65,6 +66,38 @@ def test_public_config_is_cached_and_cleared(
     assert visitor.get("/api/reward/v2", params={"url": "javascript:alert(1)"}).json() == {
         "reward": None
     }
+
+
+def test_icon_route_has_the_ip_limit(client: TestClient) -> None:
+    """Ícone que não existe é 404, e uma enxurrada de ids aleatórios do mesmo IP leva 429."""
+    visitor = TestClient(client.app)
+    codes = [visitor.get(f"/api/reward/icon/{uuid.uuid4()}").status_code for _ in range(25)]
+    assert codes[0] == 404
+    assert 429 in codes
+
+
+class _BrokenRedis:
+    """Um cliente Redis que sempre falha, como o Redis fora do ar."""
+
+    def get(self, key: str) -> None:
+        """Falha na leitura."""
+        raise redis.ConnectionError("fora do ar")
+
+    def set(self, *args: object, **kwargs: object) -> None:
+        """Falha na escrita."""
+        raise redis.ConnectionError("fora do ar")
+
+    def delete(self, *keys: str) -> None:
+        """Falha ao apagar."""
+        raise redis.ConnectionError("fora do ar")
+
+
+def test_cache_down_does_not_break_the_page_or_the_save() -> None:
+    """Com o Redis fora, a leitura vem vazia e gravar ou apagar só registra."""
+    cache = RedisRewardCache(_BrokenRedis())  # type: ignore[arg-type]
+    assert cache.get("avant:reward:blog.com/a") is None
+    cache.set("avant:reward:blog.com/a", "{}", 60)
+    cache.delete("avant:reward:blog.com/a")
 
 
 def test_events_and_leads_go_to_the_buffer(client: TestClient) -> None:
