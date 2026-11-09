@@ -38,11 +38,13 @@ def index(
     query: str | None = Query(alias="q", default=None, max_length=200),
     site_id: uuid.UUID | None = Query(default=None),
     page: int = Query(default=1, ge=1),
+    deleted: bool = Query(default=False),
     actor: Actor = Depends(require_staff(VIEW)),
     service: ClientRewardService = Depends(client_reward_service),
 ) -> PageOut[RewardOut]:
-    """Uma página dos rewards dos clientes, o mais novo primeiro, com busca no nome e na página."""
-    return service.page(actor, page, site_id, query)
+    """Uma página dos rewards dos clientes, o mais novo primeiro, com busca no nome e na página;
+    com ``deleted=true``, só os apagados."""
+    return service.page(actor, page, site_id, query, deleted)
 
 
 @router.post("/rewards", status_code=status.HTTP_201_CREATED)

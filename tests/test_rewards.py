@@ -189,6 +189,9 @@ def test_rewards_panel(client: TestClient, engine: Engine, mailer: CapturingMail
     gone = client.delete(f"/api/v1/rewards/{reward_id}", headers=_csrf(client))
     assert gone.status_code == 204
     assert client.get(f"/api/v1/rewards/{reward_id}").status_code == 404
+    deleted = client.get("/api/v1/rewards", params={"deleted": "true"}).json()["items"]
+    assert [item["id"] for item in deleted] == [reward_id] and deleted[0]["deleted_at"]
+    assert client.get("/api/v1/rewards").json()["total"] == 0
     still = client.get(f"/api/v1/rewards/{reward_id}/leads").json()["items"]
     assert [item["name"] for item in still] == ["Bia"]
     lead_url = f"/api/v1/rewards/{reward_id}/leads/{still[0]['id']}"

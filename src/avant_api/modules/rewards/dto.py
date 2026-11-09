@@ -178,6 +178,8 @@ class RewardOut(BaseModel):
     lead: RewardLeadIO | None
     created_at: datetime
     updated_at: datetime
+    # Preenchido só na lista dos apagados (``?deleted=true``).
+    deleted_at: datetime | None
 
     @classmethod
     def of(cls, details: RewardDetails) -> "RewardOut":
@@ -218,6 +220,7 @@ class RewardOut(BaseModel):
             lead=RewardLeadIO.of(reward.lead),
             created_at=reward.created_at,
             updated_at=reward.updated_at,
+            deleted_at=reward.deleted_at,
         )
 
 

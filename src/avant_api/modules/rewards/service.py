@@ -47,11 +47,21 @@ class RewardService:
         self._cache = cache
 
     def page(
-        self, actor: Actor, page: int, site_id: uuid.UUID | None, query: str | None
+        self,
+        actor: Actor,
+        page: int,
+        site_id: uuid.UUID | None,
+        query: str | None,
+        deleted: bool = False,
     ) -> PageOut[RewardOut]:
         """Uma página dos rewards, o mais novo primeiro."""
         found = page_rewards(
-            self._uows.uow(actor.company_id), actor=actor, page=page, site_id=site_id, query=query
+            self._uows.uow(actor.company_id),
+            actor=actor,
+            page=page,
+            site_id=site_id,
+            query=query,
+            deleted=deleted,
         )
         return page_out(found, RewardOut.of)
 
