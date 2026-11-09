@@ -35,6 +35,8 @@ from avant_api.modules.networks.controller import router as networks
 from avant_api.modules.profile.controller import router as profile
 from avant_api.modules.reports.controller import router as reports
 from avant_api.modules.results.controller import router as results
+from avant_api.modules.reward_public.controller import router as reward_public
+from avant_api.modules.rewards.controller import router as rewards
 from avant_api.modules.roles.controller import router as roles
 from avant_api.modules.schedules.controller import router as schedules
 from avant_api.modules.sites.controller import router as sites
@@ -77,6 +79,7 @@ def create_app(services: Services | None = None) -> FastAPI:
         audit,
         networks,
         sites,
+        rewards,
         reports,
         dashboards,
         alerts,
@@ -91,4 +94,5 @@ def create_app(services: Services | None = None) -> FastAPI:
     ):
         app.include_router(router, prefix=API_PREFIX)
     app.include_router(key_values)
+    app.include_router(reward_public)
     return app

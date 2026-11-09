@@ -100,6 +100,10 @@ Outros repositórios: avant-core, avant-worker, avant-web, avant-infra.
 | `GET /costs` | uma página (`page`) dos custos da aba Custos, do mês mais novo para o mais antigo | `costs.view` |
 | `POST /costs`, `PUT /costs/{id}`, `DELETE /costs/{id}` | cadastra, troca ou apaga um custo: `one_time` (um mês), `recurring` (do início até o fim, se tiver) ou `formula` (sobre `faturamento` e `receita` do mês; erro `invalid_formula`) | `costs.manage` |
 | `POST /costs/formula` | confere a fórmula e calcula com valores de exemplo, sem gravar | `costs.view` |
+| `GET /rewards?q=&site_id=&deleted=&page=` | uma página dos rewards, o mais novo primeiro, só nos sites que a pessoa vê; `deleted=true` lista só os apagados (as métricas e os contatos continuam) | `rewards.view` |
+| `POST /rewards`, `PUT /rewards/{id}`, `PATCH /rewards/{id}` (`{active}`), `DELETE /rewards/{id}`, `PUT /rewards/{id}/icon` | cria, troca, pausa ou ativa, apaga (`deleted_at`) e troca o ícone (imagem crua de até 2 MB); `reward_page_taken` (409) e `reward_ad_unit_day_missing` (422). Cada mudança apaga o cache público da página (`avant:reward:{domínio}/{caminho}`) | `rewards.manage` |
+| `GET /rewards/{id}`, `GET /sites/{id}/reward-ad-units`, `GET /rewards/{id}/metrics?from=&to=` | o reward com as perguntas; os ad units de reward do site por data do bloco, com os aparelhos; as métricas do período (padrão: os últimos 30 dias) | `rewards.view` |
+| `GET /rewards/{id}/leads?q=&question_id=&answer=&page=`, `GET /rewards/{id}/leads/export`, `DELETE /rewards/{id}/leads/{lead_id}` | contatos (dado pessoal), o mais novo primeiro, o CSV com o mesmo filtro e apagar um contato (os dois últimos na auditoria); continuam à vista depois que o reward é apagado | `rewards.leads` |
 | `GET /results?start=&end=&currency=` | faturamento, deduções (parte do cliente), receita, custos e resultado de cada mês, até 24 meses (padrão: os 6 até o atual); `deductions_pending` enquanto o GAM não fecha o mês | `results.view` |
 | `PUT /auth/preferences` | troca a moeda de visualização da pessoa (`display_currency`, que também vem em `/auth/me`) | sessão |
 | `PATCH /auth/appearance` | tema (`light`, `dark`, `system`), cor (`default`, `blue`, `green`, `purple`, `orange`) e idioma (`pt`, `en`, `es`) da pessoa, também em `/auth/me` | sessão |
@@ -138,6 +142,7 @@ Painel interno, em `/api/v1/internal` (Company Groone ativa e 2FA verificado na 
 | `GET`, `POST /internal/checklist-items`, `PUT /internal/checklist-items/{id}`, `POST .../{id}/move` | itens do checklist (uma lista para todos os sites): nome, tipo de conferência, palavras do tipo link, ativo e ordem (`step` -1 ou 1) | ver: `internal.checklists.view`; mudar: `internal.checklists.manage` |
 | `GET /internal/gam-tools/networks`, `GET /internal/gam-tools/networks/{id}` | ferramentas do GAM: networks dos clientes (páginas de 10, `q` no nome ou no network code) e a network com os sites e os blocos que o Avant já importou | `internal.gam_tools.view` |
 | `GET`, `POST /internal/gam-tools/runs` | execuções da network (`?network=`; sem ele, de todas as networks), a mais recente primeiro, cada uma com a network e o cliente; e nova execução `{network_id, kind, domains, format}` → 202, enfileira `avant.gam.run_tool`; `gam_tool_running` (409) com outra rodando | `internal.gam_tools.view`; `config`, `setup` e `key_values` escrevem no GAM e pedem `internal.gam_tools.run` |
+| `/internal/rewards...`, `GET /internal/sites/{id}/reward-ad-units` | as mesmas rotas dos rewards para todos os clientes, cada reward com o `client`; a auditoria vai para o cliente | `internal.rewards.view`, `.manage` e `.leads` |
 | `GET /internal/gam-tools/runs/{id}` | execução com os passos; a tela atualiza pelo evento `gam_tool_run.updated` | `internal.gam_tools.view` |
 | `GET /internal/gam-tools/ads-txt?network=`, `GET /internal/gam-tools/install?network=&sites=&language=&label=` | linhas do ads.txt e o arquivo de instalação Tag Light (.txt de um site, .zip de vários); `seller_id_missing`, `no_blocks_yet` e `gtag_install_pending` (409) | `internal.gam_tools.view` |
 | `GET /internal/owner-invitations`, `POST .../{id}/resend`, `DELETE .../{id}` | convites de dono (a lista em páginas) | `internal.clients.view` / `.manage` |
@@ -243,6 +248,15 @@ src/avant_api/
   2 requisições por segundo com rajada de 20 (`X-RateLimit-Limit` e
   `X-RateLimit-Remaining`); passou, 429 `rate_limited` com `Retry-After`, e mais de 20
   recusas em um minuto bloqueiam a chave por 30 s. O balde fica no Redis.
+- **Reward no site** (`modules/reward_public/`, fora de `/api/v1`, sem sessão): o script
+  `reward.js` lê `GET /api/reward/v2?url=` (a configuração da página, com o `id` de cada
+  pergunta, guardada no Redis em `avant:reward:{domínio}/{caminho}` por 1 hora, ou 5 minutos
+  quando a página não tem reward), `GET /api/reward/icon/{id}` (o ícone, com cache longo),
+  `POST /api/reward/events` (até 20 eventos; a resposta leva `question_id`) e
+  `POST /api/reward/leads` (o contato com `answers: [{question_id, answer}]`). Os dois POST
+  aceitam outro site e qualquer `Content-Type` (`sendBeacon`), têm limite por IP e só gravam
+  na lista `avant:reward:buffer`, que o worker esvazia a cada minuto; o dia do evento é o de
+  São Paulo. Salvar, pausar ou apagar um reward apaga a chave da página.
 - **Permissão**: declarada na rota com `Depends(require("team.invite"))`.
 - **Erros**: sempre `{"error": {"code", "message", "details"}}`; o mapa de código para
   status HTTP está em `app/errors.py`.
