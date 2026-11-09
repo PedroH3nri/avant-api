@@ -63,6 +63,8 @@ class RewardLeadIO(BaseModel):
 
 
 class RewardQuestionIn(BaseModel):
+    # O id da pergunta que já existe (mantém as métricas e respostas); vazio cria uma nova.
+    id: uuid.UUID | None = None
     title: str = Field(max_length=300)
     description: str = Field(default="", max_length=500)
     answers: list[str] = Field(min_length=3, max_length=3)
@@ -132,6 +134,7 @@ class RewardIn(BaseModel):
                     title=question.title,
                     answers=(question.answers[0], question.answers[1], question.answers[2]),
                     description=question.description,
+                    id=question.id,
                 )
                 for question in self.questions
             ),
@@ -253,7 +256,7 @@ class RewardDayOut(BaseModel):
 
 
 class RewardAnswerOut(BaseModel):
-    question: int
+    question_id: uuid.UUID
     answer: int
     count: int
 
@@ -280,14 +283,19 @@ class RewardMetricsOut(BaseModel):
         )
 
 
+class RewardLeadAnswerOut(BaseModel):
+    question_id: uuid.UUID
+    answer: int
+
+
 class RewardLeadOut(BaseModel):
     id: uuid.UUID
     name: str
     contact: str
     kind: RewardLeadKind
     language: str
-    # A resposta (0 a 2) de cada pergunta, na ordem; vazia se o contato veio antes.
-    answers: list[int]
+    # A resposta (0 a 2) de cada pergunta respondida; vazia se o contato veio antes.
+    answers: list[RewardLeadAnswerOut]
     created_at: datetime
 
     @classmethod
@@ -299,6 +307,9 @@ class RewardLeadOut(BaseModel):
             contact=lead.contact,
             kind=lead.kind,
             language=lead.language,
-            answers=list(lead.answers),
+            answers=[
+                RewardLeadAnswerOut(question_id=question_id, answer=answer)
+                for question_id, answer in zip(lead.question_ids, lead.answers, strict=True)
+            ],
             created_at=lead.created_at,
         )

@@ -125,6 +125,19 @@ def test_rewards_panel(client: TestClient, engine: Engine, mailer: CapturingMail
         headers=_csrf(client),
     )
     assert moved.status_code == 200 and moved.json()["page_path"] == "receitas/torta"
+    question = moved.json()["questions"][0]
+    kept = client.put(
+        f"/api/v1/rewards/{reward_id}",
+        json=_body(
+            site_id,
+            page_path="receitas/torta",
+            questions=[{**question, "title": "Qual torta?"}],
+        ),
+        headers=_csrf(client),
+    )
+    assert kept.json()["questions"][0]["id"] == question["id"]
+    assert kept.json()["questions"][0]["title"] == "Qual torta?"
+    question_id = uuid.UUID(question["id"])
     assert key not in _cache(client).values
     paused = client.patch(
         f"/api/v1/rewards/{reward_id}", json={"active": False}, headers=_csrf(client)
@@ -143,10 +156,16 @@ def test_rewards_panel(client: TestClient, engine: Engine, mailer: CapturingMail
     events = (
         RewardEvent(uuid.UUID(reward_id), date(2026, 11, 9), RewardEventKind.OPEN),
         RewardEvent(
-            uuid.UUID(reward_id), date(2026, 11, 9), RewardEventKind.ANSWER, question=1, answer=2
+            uuid.UUID(reward_id),
+            date(2026, 11, 9),
+            RewardEventKind.ANSWER,
+            question_id=question_id,
+            answer=2,
         ),
     )
-    lead = RewardLeadSubmission(uuid.UUID(reward_id), "Bia", "bia@email.com", "es", (2,), NOW)
+    lead = RewardLeadSubmission(
+        uuid.UUID(reward_id), "Bia", "bia@email.com", "es", ((question_id, 2),), NOW
+    )
     record_reward_batch(
         SqlAlchemyUnitOfWork(engine, bypass_rls=True),
         batch=RewardBatch("lote", events, (lead,)),
@@ -156,12 +175,13 @@ def test_rewards_panel(client: TestClient, engine: Engine, mailer: CapturingMail
         f"/api/v1/rewards/{reward_id}/metrics", params={"from": "2026-11-08", "to": "2026-11-09"}
     ).json()
     assert metrics["total"]["opens"] == 1 and len(metrics["days"]) == 2
-    assert metrics["answers"] == [{"question": 1, "answer": 2, "count": 1}]
+    assert metrics["answers"] == [{"question_id": str(question_id), "answer": 2, "count": 1}]
     assert ana.get(f"/api/v1/rewards/{reward_id}/leads").status_code == 403
     leads = client.get(
-        f"/api/v1/rewards/{reward_id}/leads", params={"question": 1, "answer": 2}
+        f"/api/v1/rewards/{reward_id}/leads", params={"question_id": str(question_id), "answer": 2}
     ).json()
     assert [item["contact"] for item in leads["items"]] == ["bia@email.com"]
+    assert leads["items"][0]["answers"] == [{"question_id": str(question_id), "answer": 2}]
     csv = client.get(f"/api/v1/rewards/{reward_id}/leads/export")
     assert csv.headers["content-type"].startswith("text/csv")
     assert "Bia,bia@email.com,Espanhol,Fubá" in csv.text
@@ -169,6 +189,14 @@ def test_rewards_panel(client: TestClient, engine: Engine, mailer: CapturingMail
     gone = client.delete(f"/api/v1/rewards/{reward_id}", headers=_csrf(client))
     assert gone.status_code == 204
     assert client.get(f"/api/v1/rewards/{reward_id}").status_code == 404
+    still = client.get(f"/api/v1/rewards/{reward_id}/leads").json()["items"]
+    assert [item["name"] for item in still] == ["Bia"]
+    lead_url = f"/api/v1/rewards/{reward_id}/leads/{still[0]['id']}"
+    assert ana.delete(lead_url, headers=_csrf(ana)).status_code == 403
+    assert client.delete(lead_url, headers=_csrf(client)).status_code == 204
+    assert client.get(f"/api/v1/rewards/{reward_id}/leads").json()["total"] == 0
+    actions = {item["action"] for item in client.get("/api/v1/audit").json()["items"]}
+    assert {"reward.leads_exported", "reward.lead_deleted"} <= actions
 
 
 def test_rewards_internal(client: TestClient, engine: Engine, mailer: CapturingMailer) -> None:

@@ -9,6 +9,7 @@ from avant_core.rewards.models import RewardLeadFilter
 from avant_core.rewards.services import (
     create_reward,
     delete_reward,
+    delete_reward_lead,
     export_reward_leads,
     get_reward,
     list_reward_ad_units,
@@ -146,10 +147,21 @@ class RewardService:
     def export_leads(
         self, actor: Actor, reward_id: uuid.UUID, lead_filter: RewardLeadFilter
     ) -> str:
-        """O CSV dos contatos."""
+        """O CSV dos contatos; a exportação fica na auditoria."""
         return export_reward_leads(
             self._uows.uow(actor.company_id),
             actor=actor,
             reward_id=reward_id,
             lead_filter=lead_filter,
+            clock=self._clock,
+        )
+
+    def delete_lead(self, actor: Actor, reward_id: uuid.UUID, lead_id: uuid.UUID) -> None:
+        """Apaga um contato (pedido do titular, por exemplo)."""
+        delete_reward_lead(
+            self._uows.uow(actor.company_id),
+            actor=actor,
+            reward_id=reward_id,
+            lead_id=lead_id,
+            clock=self._clock,
         )

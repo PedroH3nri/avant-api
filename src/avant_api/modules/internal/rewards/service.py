@@ -10,6 +10,7 @@ from avant_core.rewards.services import (
     client_reward_metrics,
     create_client_reward,
     delete_client_reward,
+    delete_client_reward_lead,
     export_client_reward_leads,
     get_client_reward,
     list_client_reward_ad_units,
@@ -144,7 +145,21 @@ class ClientRewardService:
     def export_leads(
         self, actor: Actor, reward_id: uuid.UUID, lead_filter: RewardLeadFilter
     ) -> str:
-        """O CSV dos contatos."""
+        """O CSV dos contatos; a exportação fica na auditoria."""
         return export_client_reward_leads(
-            self._uows.trusted_uow(), actor=actor, reward_id=reward_id, lead_filter=lead_filter
+            self._uows.trusted_uow(),
+            actor=actor,
+            reward_id=reward_id,
+            lead_filter=lead_filter,
+            clock=self._clock,
+        )
+
+    def delete_lead(self, actor: Actor, reward_id: uuid.UUID, lead_id: uuid.UUID) -> None:
+        """Apaga um contato (pedido do titular, por exemplo)."""
+        delete_client_reward_lead(
+            self._uows.trusted_uow(),
+            actor=actor,
+            reward_id=reward_id,
+            lead_id=lead_id,
+            clock=self._clock,
         )

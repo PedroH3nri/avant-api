@@ -151,3 +151,14 @@ def export_leads(
 ) -> Response:
     """Os contatos em CSV, com o mesmo filtro da lista."""
     return csv_response(service.export_leads(actor, reward_id, filters), "contatos.csv")
+
+
+@router.delete("/rewards/{reward_id}/leads/{lead_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_lead(
+    reward_id: uuid.UUID,
+    lead_id: uuid.UUID,
+    actor: Actor = Depends(require(LEADS)),
+    service: RewardService = Depends(reward_service),
+) -> None:
+    """Apaga um contato (pedido do titular, por exemplo); fica na auditoria."""
+    service.delete_lead(actor, reward_id, lead_id)

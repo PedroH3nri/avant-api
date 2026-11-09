@@ -1,5 +1,6 @@
 """Leitura dos filtros e resposta do CSV, usadas pelo painel do cliente e pelo interno."""
 
+import uuid
 from datetime import date, timedelta
 
 from avant_core.rewards.models import RewardLeadFilter
@@ -10,11 +11,11 @@ DEFAULT_DAYS = 30
 
 def lead_filter(
     query: str | None = Query(alias="q", default=None, max_length=200),
-    question: int | None = Query(default=None, ge=1, le=5),
+    question_id: uuid.UUID | None = Query(default=None),
     answer: int | None = Query(default=None, ge=0, le=2),
 ) -> RewardLeadFilter:
-    """A busca e o filtro por resposta da lista de contatos."""
-    return RewardLeadFilter(query=query, question=question, answer=answer)
+    """A busca e o filtro por resposta (``question_id`` e ``answer``) da lista de contatos."""
+    return RewardLeadFilter(query=query, question_id=question_id, answer=answer)
 
 
 def period(
