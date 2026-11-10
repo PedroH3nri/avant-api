@@ -35,6 +35,8 @@ from avant_api.modules.loaders.controller import router as loaders
 from avant_api.modules.members.controller import router as members
 from avant_api.modules.mfa.controller import router as mfa
 from avant_api.modules.networks.controller import router as networks
+from avant_api.modules.price_floor_public.controller import router as price_floor_public
+from avant_api.modules.price_rules.controller import router as price_rules
 from avant_api.modules.profile.controller import router as profile
 from avant_api.modules.reports.controller import router as reports
 from avant_api.modules.results.controller import router as results
@@ -84,6 +86,7 @@ def create_app(services: Services | None = None) -> FastAPI:
         sites,
         rewards,
         ad_tags,
+        price_rules,
         loaders,
         reports,
         dashboards,
@@ -101,4 +104,5 @@ def create_app(services: Services | None = None) -> FastAPI:
     app.include_router(key_values)
     app.include_router(reward_public)
     app.include_router(ad_tag_public)
+    app.include_router(price_floor_public)
     return app

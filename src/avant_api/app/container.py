@@ -12,6 +12,7 @@ from avant_core.ports import ImageProcessor, Mailer, PasswordHasher, SecretBox
 from avant_core.shared.clock import Clock, SystemClock
 from sqlalchemy import Engine, create_engine
 
+from avant_api.app.countries import CountryLookup, GeoLiteCountries, NoCountries
 from avant_api.app.events import EventSource, NoEvents, RedisEvents, StreamLimiter
 from avant_api.app.google import GoogleAuth, GoogleOAuth
 from avant_api.app.images import PillowImageProcessor
@@ -76,6 +77,7 @@ class Services:
     rewards: RewardCache = field(default_factory=MemoryRewardCache)
     reward_events: RewardBuffer = field(default_factory=MemoryRewardBuffer)
     page_views: RewardBuffer = field(default_factory=MemoryRewardBuffer)
+    countries: CountryLookup = field(default_factory=NoCountries)
 
     @classmethod
     def build(cls, settings: Settings) -> "Services":
@@ -111,6 +113,9 @@ class Services:
             page_views=RedisRewardBuffer.from_url(settings.redis_url, PAGE_VIEWS_BUFFER)
             if settings.redis_url
             else MemoryRewardBuffer(),
+            countries=GeoLiteCountries(settings.geolite2_country_file)
+            if settings.geolite2_country_file
+            else NoCountries(),
         )
 
     def uow(self, company_id: uuid.UUID) -> SqlAlchemyUnitOfWork:

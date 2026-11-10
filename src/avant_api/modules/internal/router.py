@@ -18,6 +18,7 @@ from avant_api.modules.internal.invoices.controller import router as invoices
 from avant_api.modules.internal.loaders.controller import router as loaders
 from avant_api.modules.internal.mcm.controller import router as mcm
 from avant_api.modules.internal.people.controller import router as people
+from avant_api.modules.internal.price_rules.controller import router as price_rules
 from avant_api.modules.internal.results.controller import router as results
 from avant_api.modules.internal.rewards.controller import router as rewards
 from avant_api.modules.internal.staff.controller import router as staff
@@ -46,6 +47,7 @@ for child in (
     gam_tools,
     rewards,
     ad_tags,
+    price_rules,
     loaders,
 ):
     router.include_router(child)
