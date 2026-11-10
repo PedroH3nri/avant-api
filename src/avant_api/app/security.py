@@ -41,8 +41,16 @@ FETCH_SITE_HEADER = "Sec-Fetch-Site"
 
 # "none" é a pessoa digitando a URL ou abrindo um favorito; o painel só escreve por fetch.
 ALLOWED_FETCH_SITES = frozenset({"same-origin", "none"})
-# Rotas que recebem escrita de outro site: os beacons da g-tag e do reward, sem sessão nem cookie.
-CROSS_SITE_PATHS = frozenset({"/api/admanager/keyvalue", "/api/reward/events", "/api/reward/leads"})
+# Rotas que recebem escrita de outro site: os beacons da g-tag, do reward e da tag do Avant, sem
+# sessão nem cookie.
+CROSS_SITE_PATHS = frozenset(
+    {
+        "/api/admanager/keyvalue",
+        "/api/reward/events",
+        "/api/reward/leads",
+        "/api/tag/page-views",
+    }
+)
 
 
 def check_fetch_site(request: Request) -> None:

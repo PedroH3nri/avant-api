@@ -1,9 +1,12 @@
 """Ad tags e loaders no painel do cliente, no interno e na rota pública contra o Postgres:
 rascunho, publicar, versões, cache por chave, loader em uso e os casos sem permissão."""
 
+import json
 import uuid
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime
 
+from avant_core.ad_tags.enums import AdTagDevice
+from avant_core.ad_tags.models import AdTagHealthDay
 from avant_core.db.uow import SqlAlchemyUnitOfWork
 from avant_core.gam.inventory.models import AdUnit, Site
 from avant_core.gam.networks.enums import ConnectionType
@@ -12,6 +15,8 @@ from fastapi.testclient import TestClient
 from sqlalchemy import Engine
 
 from avant_api.app.ad_tag_cache import ad_tag_cache_key
+from avant_api.app.container import Services
+from avant_api.app.reward_buffer import MemoryRewardBuffer
 from tests.conftest import CapturingMailer
 from tests.test_api import _csrf, _onboard_owner
 from tests.test_internal import _staff
@@ -20,6 +25,13 @@ from tests.test_team import _member_client
 
 NOW = datetime(2026, 11, 10, 12, tzinfo=UTC)
 CONTENT = {"kind": "content", "number": 3, "selector": "article p", "side": "after"}
+
+
+def _page_views(client: TestClient) -> MemoryRewardBuffer:
+    """O buffer em memória das páginas vistas da aplicação de teste."""
+    services: Services = client.app.state.services  # type: ignore[attr-defined]
+    assert isinstance(services.page_views, MemoryRewardBuffer)
+    return services.page_views
 
 
 def _site(engine: Engine, company_id: uuid.UUID) -> uuid.UUID:
@@ -199,3 +211,66 @@ def test_internal_ad_tags_and_loaders(
     units = staff.get(f"/api/v1/internal/sites/{site_id}/ad-tag-units").json()
     assert units[0]["day"] == "2026-10-28"
     assert client.get(f"/api/v1/ad-tags/{tag_id}").json()["live"]["number"] == 1
+    assert staff.get(f"/api/v1/internal/ad-tags/{tag_id}/health").json()["days"] == []
+    assert client.get(f"/api/v1/internal/ad-tags/{tag_id}/health").status_code == 403
+
+
+def test_page_views_go_to_the_buffer_and_health_reads_back(
+    client: TestClient, engine: Engine, mailer: CapturingMailer
+) -> None:
+    me = _onboard_owner(client, engine, mailer)
+    company_id = uuid.UUID(me["active_company_id"])
+    site_id = _site(engine, company_id)
+    created = client.post(
+        "/api/v1/ad-tags",
+        json={"site_id": str(site_id), "name": "Principal"},
+        headers=_csrf(client),
+    )
+    tag = created.json()
+    visitor = TestClient(client.app)
+    page = {
+        "key": tag["key"],
+        "url": "https://blog.com/receitas",
+        "page_view_id": str(uuid.uuid4()),
+        "visitor_id": str(uuid.uuid4()),
+        "session_id": str(uuid.uuid4()),
+        "version": 1,
+        "device": "mobile",
+        "language": "pt-BR",
+        "referrer": None,
+        "visible_ms": 1200,
+        "scroll_percent": 40,
+        "clicked": False,
+        "adblock": False,
+        "id_post": None,
+        "content_hash": "abc",
+        "blocks": [{"type": "Content3", "state": "rendered"}],
+    }
+    origin = {
+        "Origin": "https://blog.com",
+        "Content-Type": "text/plain",
+        "Sec-Fetch-Site": "cross-site",
+    }
+    sent = visitor.post("/api/tag/page-views", content=json.dumps(page), headers=origin)
+    assert sent.status_code == 202
+    assert sent.headers["access-control-allow-origin"] == "https://blog.com"
+    stored = json.loads(_page_views(client).items[-1])
+    assert stored["key"] == tag["key"] and stored["ip"] and stored["received_at"]
+    assert stored["blocks"] == [{"type": "Content3", "state": "rendered"}]
+    broken = visitor.post(
+        "/api/tag/page-views", content=json.dumps({**page, "scroll_percent": 900}), headers=origin
+    )
+    assert broken.status_code == 422 and len(_page_views(client).items) == 1
+    assert visitor.options("/api/tag/page-views", headers=origin).status_code == 204
+
+    with SqlAlchemyUnitOfWork(engine, bypass_rls=True) as uow:
+        seen = datetime.now(UTC)
+        row = AdTagHealthDay(date.today(), 1, "page", AdTagDevice.MOBILE, 3, 0, 0, seen)
+        uow.ad_tag_health.add(company_id, uuid.UUID(tag["id"]), row)
+        uow.commit()
+    health = client.get(f"/api/v1/ad-tags/{tag['id']}/health", params={"days": 30})
+    assert health.status_code == 200, health.text
+    assert health.json()["seen_version"] == 1 and health.json()["days"][0]["page_views"] == 3
+    assert client.get(f"/api/v1/ad-tags/{tag['id']}/health", params={"days": 91}).status_code == 422
+    ana = _member_client(client, mailer, "ana@acai.com")
+    assert ana.get(f"/api/v1/ad-tags/{tag['id']}/health").status_code == 403

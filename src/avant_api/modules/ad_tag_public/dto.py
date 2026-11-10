@@ -1,10 +1,19 @@
 """DTOs da configuração pública da ad tag."""
 
-from avant_core.ad_tags.enums import AdTagBlockKind, AdTagEdge, AdTagRuleMode, AdTagSide
+import uuid
+
+from avant_core.ad_tags.enums import (
+    AdTagBlockKind,
+    AdTagBlockState,
+    AdTagDevice,
+    AdTagEdge,
+    AdTagRuleMode,
+    AdTagSide,
+)
 from avant_core.ad_tags.models import PublicAdTag, PublicAdTagBlock
 from avant_core.loaders.enums import LoaderAdblock, LoaderStyle, LoaderTemplate
 from avant_core.loaders.models import Loader
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 class PublicLoaderOut(BaseModel):
@@ -113,3 +122,28 @@ class PublicAdTagOut(BaseModel):
 class PublicTagOut(BaseModel):
     # Vazio: chave desconhecida, tag pausada, apagada, sem versão no ar ou outro domínio.
     tag: PublicAdTagOut | None
+
+
+class PageViewBlockIn(BaseModel):
+    type: str = Field(max_length=40)
+    state: AdTagBlockState
+
+
+class PageViewIn(BaseModel):
+    # O resumo que o tag.js manda uma vez por página (avant-tag, src/page-views).
+    key: str = Field(max_length=20)
+    url: str = Field(max_length=2000)
+    page_view_id: uuid.UUID
+    visitor_id: uuid.UUID
+    session_id: uuid.UUID
+    version: int | None = Field(default=None, ge=1)
+    device: AdTagDevice
+    language: str | None = Field(default=None, max_length=35)
+    referrer: str | None = Field(default=None, max_length=2000)
+    visible_ms: int = Field(default=0, ge=0, le=24 * 60 * 60 * 1000)
+    scroll_percent: int = Field(default=0, ge=0, le=100)
+    clicked: bool = False
+    adblock: bool = False
+    id_post: str | None = Field(default=None, max_length=64)
+    content_hash: str | None = Field(default=None, max_length=128)
+    blocks: list[PageViewBlockIn] = Field(default_factory=list, max_length=20)
