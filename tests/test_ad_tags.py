@@ -246,7 +246,11 @@ def test_page_views_go_to_the_buffer_and_health_reads_back(
         "content_hash": "abc",
         "blocks": [{"type": "Content3", "state": "rendered"}],
     }
-    origin = {"Origin": "https://blog.com", "Content-Type": "text/plain"}
+    origin = {
+        "Origin": "https://blog.com",
+        "Content-Type": "text/plain",
+        "Sec-Fetch-Site": "cross-site",
+    }
     sent = visitor.post("/api/tag/page-views", content=json.dumps(page), headers=origin)
     assert sent.status_code == 202
     assert sent.headers["access-control-allow-origin"] == "https://blog.com"
