@@ -18,6 +18,7 @@ from avant_core.price_rules.models import (
     PriceRuleDetails,
     PriceRuleHistoryEntry,
     PriceRuleHour,
+    PriceRuleSiteSummary,
     PriceRuleSiteView,
 )
 from pydantic import BaseModel, Field
@@ -30,6 +31,7 @@ class PriceRuleBlockOut(BaseModel):
 
 class PriceRuleSiteOut(BaseModel):
     site_id: uuid.UUID
+    domain: str
     active: bool
     control_percent: int
     # Moeda vista nos números do GAM; vazia até a primeira sincronia.
@@ -45,6 +47,7 @@ class PriceRuleSiteOut(BaseModel):
         settings = view.settings
         return cls(
             site_id=settings.site_id,
+            domain=view.domain,
             active=settings.active,
             control_percent=settings.control_percent,
             currency=settings.currency,
@@ -52,6 +55,35 @@ class PriceRuleSiteOut(BaseModel):
             blocks=[PriceRuleBlockOut(block=item.block, model=item.model) for item in view.blocks],
             available_blocks=list(view.available_blocks),
             updated_at=settings.updated_at,
+        )
+
+
+class PriceRuleSiteSummaryOut(BaseModel):
+    site_id: uuid.UUID
+    domain: str
+    # Só no interno: o nome do cliente dono do site.
+    client: str | None
+    active: bool
+    control_percent: int
+    currency: str | None
+    currency_supported: bool
+    automatic_blocks: int
+    active_rules: int
+
+    @classmethod
+    def of(cls, summary: PriceRuleSiteSummary) -> "PriceRuleSiteSummaryOut":
+        """Monta a linha da lista de sites."""
+        settings = summary.settings
+        return cls(
+            site_id=summary.site.id,
+            domain=summary.site.domain,
+            client=summary.client_name,
+            active=settings.active,
+            control_percent=settings.control_percent,
+            currency=settings.currency,
+            currency_supported=summary.currency_supported,
+            automatic_blocks=summary.automatic_blocks,
+            active_rules=summary.active_rules,
         )
 
 

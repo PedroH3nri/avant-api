@@ -93,6 +93,7 @@ def test_price_rules_panel_internal_and_public_floors(
 
     view = client.get(f"{base}/settings").json()
     assert view["active"] is False and view["control_percent"] == 10
+    assert view["domain"] == "blog.com"
     assert view["available_blocks"] == ["Anchor_Mobile", "Content3"]
     wrong = client.put(
         f"{base}/settings", json={"active": True, "control_percent": 60}, headers=_csrf(client)
@@ -111,6 +112,13 @@ def test_price_rules_panel_internal_and_public_floors(
     listed = client.get(base, params={"country": "BR"}).json()
     assert [item["id"] for item in listed["items"]] == [str(rule_id)]
     details = client.get(f"{base}/{rule_id}").json()
+    sites = client.get("/api/v1/price-rules/sites", params={"q": "blog"}).json()
+    assert [
+        (row["domain"], row["active"], row["automatic_blocks"], row["active_rules"])
+        for row in sites["items"]
+    ] == [("blog.com", True, 1, 1)]
+    assert sites["items"][0]["client"] is None
+    assert ana.get("/api/v1/price-rules/sites").status_code == 403
     assert details["floor_micros"] == 500_000 and details["config"] is None
 
     created = client.post(
@@ -171,6 +179,9 @@ def test_price_rules_panel_internal_and_public_floors(
         f"{internal}/{rule_id}/floor", json={"floor_micros": 500_000}, headers=_csrf(staff)
     )
     assert staff_floor.status_code == 200, staff_floor.text
+    staff_sites = staff.get("/api/v1/internal/price-rules/sites", params={"q": "blog.com"})
+    assert [row["client"] is not None for row in staff_sites.json()["items"]] == [True]
+    assert client.get("/api/v1/internal/price-rules/sites").status_code == 403
     staff_hours = staff.get(f"{internal}/{rule_id}/hours", params=period)
     assert len(staff_hours.json()) == 2
     assert client.get(f"{internal}/{rule_id}/hours", params=period).status_code == 403

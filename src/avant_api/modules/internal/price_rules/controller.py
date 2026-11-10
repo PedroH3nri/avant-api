@@ -22,6 +22,7 @@ from avant_api.modules.internal.price_rules.dto import (
     PriceRuleOut,
     PriceRuleSettingsIn,
     PriceRuleSiteOut,
+    PriceRuleSiteSummaryOut,
     PriceRuleStatusIn,
 )
 from avant_api.modules.internal.price_rules.service import ClientPriceRuleService
@@ -32,6 +33,18 @@ MANAGE = "internal.price_rules.manage"
 BASE = "/sites/{site_id}/price-rules"
 
 router = APIRouter(prefix="/internal", tags=["internal"])
+
+
+@router.get("/price-rules/sites")
+def sites(
+    page: int = Query(default=1, ge=1),
+    query: str | None = Query(default=None, alias="q", max_length=200),
+    actor: Actor = Depends(require_staff(VIEW)),
+    service: ClientPriceRuleService = Depends(client_price_rule_service),
+) -> PageOut[PriceRuleSiteSummaryOut]:
+    """Uma página dos sites, o mais recente primeiro, com a regra ligada ou não, o controle,
+    os blocos com a Automática e as regras ativas; ``q`` busca pelo domínio."""
+    return service.sites(actor, page, query)
 
 
 @router.get(f"{BASE}/settings")
