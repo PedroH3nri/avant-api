@@ -19,9 +19,11 @@ from avant_api.modules.price_rules.dto import (
     PriceRuleDetailsOut,
     PriceRuleFloorIn,
     PriceRuleHistoryOut,
+    PriceRuleHourOut,
     PriceRuleOut,
     PriceRuleSettingsIn,
     PriceRuleSiteOut,
+    PriceRuleSiteSummaryOut,
     PriceRuleStatusIn,
 )
 from avant_api.modules.price_rules.service import PriceRuleService
@@ -32,6 +34,18 @@ MANAGE = "price_rules.manage"
 BASE = "/sites/{site_id}/price-rules"
 
 router = APIRouter(tags=["price-rules"])
+
+
+@router.get("/price-rules/sites")
+def sites(
+    page: int = Query(default=1, ge=1),
+    query: str | None = Query(default=None, alias="q", max_length=200),
+    actor: Actor = Depends(require(VIEW)),
+    service: PriceRuleService = Depends(price_rule_service),
+) -> PageOut[PriceRuleSiteSummaryOut]:
+    """Uma página dos sites, o mais recente primeiro, com a regra ligada ou não, o controle,
+    os blocos com a Automática e as regras ativas; ``q`` busca pelo domínio."""
+    return service.sites(actor, page, query)
 
 
 @router.get(f"{BASE}/settings")
@@ -101,6 +115,20 @@ def history(
 ) -> list[PriceRuleHistoryOut]:
     """As decisões da regra hora a hora no período (até 31 dias), a mais nova primeiro."""
     return service.history(actor, site_id, rule_id, start, end)
+
+
+@router.get(f"{BASE}/{{rule_id}}/hours")
+def hours(
+    site_id: uuid.UUID,
+    rule_id: uuid.UUID,
+    start: date = Query(),
+    end: date = Query(),
+    actor: Actor = Depends(require(VIEW)),
+    service: PriceRuleService = Depends(price_rule_service),
+) -> list[PriceRuleHourOut]:
+    """Os números do GAM da regra hora a hora (até 31 dias, a mais nova primeiro), na moeda
+    da network: requisições, respostas, impressões, receita, PMR e eCPM."""
+    return service.hours(actor, site_id, rule_id, start, end)
 
 
 @router.put(f"{BASE}/{{rule_id}}/config")

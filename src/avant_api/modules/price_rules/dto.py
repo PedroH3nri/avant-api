@@ -17,6 +17,8 @@ from avant_core.price_rules.models import (
     PriceRuleConfigInput,
     PriceRuleDetails,
     PriceRuleHistoryEntry,
+    PriceRuleHour,
+    PriceRuleSiteSummary,
     PriceRuleSiteView,
 )
 from pydantic import BaseModel, Field
@@ -29,6 +31,7 @@ class PriceRuleBlockOut(BaseModel):
 
 class PriceRuleSiteOut(BaseModel):
     site_id: uuid.UUID
+    domain: str
     active: bool
     control_percent: int
     # Moeda vista nos números do GAM; vazia até a primeira sincronia.
@@ -44,6 +47,7 @@ class PriceRuleSiteOut(BaseModel):
         settings = view.settings
         return cls(
             site_id=settings.site_id,
+            domain=view.domain,
             active=settings.active,
             control_percent=settings.control_percent,
             currency=settings.currency,
@@ -51,6 +55,35 @@ class PriceRuleSiteOut(BaseModel):
             blocks=[PriceRuleBlockOut(block=item.block, model=item.model) for item in view.blocks],
             available_blocks=list(view.available_blocks),
             updated_at=settings.updated_at,
+        )
+
+
+class PriceRuleSiteSummaryOut(BaseModel):
+    site_id: uuid.UUID
+    domain: str
+    # Só no interno: o nome do cliente dono do site.
+    client: str | None
+    active: bool
+    control_percent: int
+    currency: str | None
+    currency_supported: bool
+    automatic_blocks: int
+    active_rules: int
+
+    @classmethod
+    def of(cls, summary: PriceRuleSiteSummary) -> "PriceRuleSiteSummaryOut":
+        """Monta a linha da lista de sites."""
+        settings = summary.settings
+        return cls(
+            site_id=summary.site.id,
+            domain=summary.site.domain,
+            client=summary.client_name,
+            active=settings.active,
+            control_percent=settings.control_percent,
+            currency=settings.currency,
+            currency_supported=summary.currency_supported,
+            automatic_blocks=summary.automatic_blocks,
+            active_rules=summary.active_rules,
         )
 
 
@@ -172,4 +205,30 @@ class PriceRuleHistoryOut(BaseModel):
             floor_before_micros=entry.floor_before_micros,
             floor_applied_micros=entry.floor_applied_micros,
             created_at=entry.created_at,
+        )
+
+
+class PriceRuleHourOut(BaseModel):
+    date: date
+    hour: int
+    eligible_requests: int
+    responses_served: int
+    impressions: int
+    revenue_micros: int
+    pmr: float
+    ecpm_micros: int
+
+    @classmethod
+    def of(cls, row: PriceRuleHour) -> "PriceRuleHourOut":
+        """Monta os números do GAM de uma hora da regra."""
+        counts = row.counts
+        return cls(
+            date=row.date,
+            hour=row.hour,
+            eligible_requests=counts.eligible_requests,
+            responses_served=counts.responses_served,
+            impressions=counts.impressions,
+            revenue_micros=counts.revenue_micros,
+            pmr=counts.pmr,
+            ecpm_micros=counts.ecpm_micros,
         )

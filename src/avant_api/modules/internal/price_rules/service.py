@@ -10,6 +10,8 @@ from avant_core.price_rules.services import (
     get_client_price_rule,
     get_client_price_rule_site,
     list_client_price_rule_history,
+    list_client_price_rule_hours,
+    page_client_price_rule_sites,
     page_client_price_rules,
     set_client_price_rule_floor,
     set_client_price_rule_status,
@@ -26,9 +28,11 @@ from avant_api.modules.price_rules.dto import (
     PriceRuleDetailsOut,
     PriceRuleFloorIn,
     PriceRuleHistoryOut,
+    PriceRuleHourOut,
     PriceRuleOut,
     PriceRuleSettingsIn,
     PriceRuleSiteOut,
+    PriceRuleSiteSummaryOut,
     PriceRuleStatusIn,
 )
 from avant_api.modules.price_rules.floor_cache import forget_floors
@@ -43,6 +47,13 @@ class ClientPriceRuleService:
         self._uows = uows
         self._clock = clock
         self._cache = cache
+
+    def sites(self, actor: Actor, page: int, query: str | None) -> PageOut[PriceRuleSiteSummaryOut]:
+        """Uma página dos sites com a situação da regra de preço."""
+        found = page_client_price_rule_sites(
+            self._uows.trusted_uow(), actor=actor, clock=self._clock, query=query, page=page
+        )
+        return page_out(found, PriceRuleSiteSummaryOut.of)
 
     def site(self, actor: Actor, site_id: uuid.UUID) -> PriceRuleSiteOut:
         """A configuração e os blocos do site."""
@@ -117,6 +128,20 @@ class ClientPriceRuleService:
             end=end,
         )
         return [PriceRuleHistoryOut.of(entry) for entry in entries]
+
+    def hours(
+        self, actor: Actor, site_id: uuid.UUID, rule_id: uuid.UUID, start: date, end: date
+    ) -> list[PriceRuleHourOut]:
+        """Os números do GAM da regra hora a hora no período, até 31 dias."""
+        rows = list_client_price_rule_hours(
+            self._uows.trusted_uow(),
+            actor=actor,
+            site_id=site_id,
+            rule_id=rule_id,
+            start=start,
+            end=end,
+        )
+        return [PriceRuleHourOut.of(row) for row in rows]
 
     def update_config(
         self, actor: Actor, site_id: uuid.UUID, rule_id: uuid.UUID, body: PriceRuleConfigIn
