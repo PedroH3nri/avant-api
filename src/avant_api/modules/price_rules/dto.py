@@ -17,6 +17,7 @@ from avant_core.price_rules.models import (
     PriceRuleConfigInput,
     PriceRuleDetails,
     PriceRuleHistoryEntry,
+    PriceRuleHour,
     PriceRuleSiteView,
 )
 from pydantic import BaseModel, Field
@@ -172,4 +173,30 @@ class PriceRuleHistoryOut(BaseModel):
             floor_before_micros=entry.floor_before_micros,
             floor_applied_micros=entry.floor_applied_micros,
             created_at=entry.created_at,
+        )
+
+
+class PriceRuleHourOut(BaseModel):
+    date: date
+    hour: int
+    eligible_requests: int
+    responses_served: int
+    impressions: int
+    revenue_micros: int
+    pmr: float
+    ecpm_micros: int
+
+    @classmethod
+    def of(cls, row: PriceRuleHour) -> "PriceRuleHourOut":
+        """Monta os números do GAM de uma hora da regra."""
+        counts = row.counts
+        return cls(
+            date=row.date,
+            hour=row.hour,
+            eligible_requests=counts.eligible_requests,
+            responses_served=counts.responses_served,
+            impressions=counts.impressions,
+            revenue_micros=counts.revenue_micros,
+            pmr=counts.pmr,
+            ecpm_micros=counts.ecpm_micros,
         )

@@ -19,6 +19,7 @@ from avant_api.modules.price_rules.dto import (
     PriceRuleDetailsOut,
     PriceRuleFloorIn,
     PriceRuleHistoryOut,
+    PriceRuleHourOut,
     PriceRuleOut,
     PriceRuleSettingsIn,
     PriceRuleSiteOut,
@@ -101,6 +102,20 @@ def history(
 ) -> list[PriceRuleHistoryOut]:
     """As decisões da regra hora a hora no período (até 31 dias), a mais nova primeiro."""
     return service.history(actor, site_id, rule_id, start, end)
+
+
+@router.get(f"{BASE}/{{rule_id}}/hours")
+def hours(
+    site_id: uuid.UUID,
+    rule_id: uuid.UUID,
+    start: date = Query(),
+    end: date = Query(),
+    actor: Actor = Depends(require(VIEW)),
+    service: PriceRuleService = Depends(price_rule_service),
+) -> list[PriceRuleHourOut]:
+    """Os números do GAM da regra hora a hora (até 31 dias, a mais nova primeiro), na moeda
+    da network: requisições, respostas, impressões, receita, PMR e eCPM."""
+    return service.hours(actor, site_id, rule_id, start, end)
 
 
 @router.put(f"{BASE}/{{rule_id}}/config")

@@ -121,6 +121,7 @@ def client(engine: Engine, mailer: CapturingMailer) -> Iterator[TestClient]:
             "costs",
             "metrics.mcm_earnings",
             "metrics.exchange_rates",
+            "metrics.gam_key_value_hourly",
             "metrics.gam_key_value_daily",
             "metrics.gam_key_value_daily_detail",
             "metrics.gam_network_daily",

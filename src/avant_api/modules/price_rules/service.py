@@ -9,6 +9,7 @@ from avant_core.price_rules.services import (
     get_price_rule,
     get_price_rule_site,
     list_price_rule_history,
+    list_price_rule_hours,
     page_price_rules,
     set_price_rule_floor,
     set_price_rule_status,
@@ -25,6 +26,7 @@ from avant_api.modules.price_rules.dto import (
     PriceRuleDetailsOut,
     PriceRuleFloorIn,
     PriceRuleHistoryOut,
+    PriceRuleHourOut,
     PriceRuleOut,
     PriceRuleSettingsIn,
     PriceRuleSiteOut,
@@ -115,6 +117,20 @@ class PriceRuleService:
             end=end,
         )
         return [PriceRuleHistoryOut.of(entry) for entry in entries]
+
+    def hours(
+        self, actor: Actor, site_id: uuid.UUID, rule_id: uuid.UUID, start: date, end: date
+    ) -> list[PriceRuleHourOut]:
+        """Os números do GAM da regra hora a hora no período, até 31 dias."""
+        rows = list_price_rule_hours(
+            self._uows.uow(actor.company_id),
+            actor=actor,
+            site_id=site_id,
+            rule_id=rule_id,
+            start=start,
+            end=end,
+        )
+        return [PriceRuleHourOut.of(row) for row in rows]
 
     def update_config(
         self, actor: Actor, site_id: uuid.UUID, rule_id: uuid.UUID, body: PriceRuleConfigIn

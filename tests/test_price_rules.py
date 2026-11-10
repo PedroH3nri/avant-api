@@ -1,15 +1,19 @@
 """Regras de preço no painel do cliente, no interno e na rota pública dos floors contra o
 Postgres: configuração do site, blocos, floor à mão, cache por site e hash e o país pelo IP."""
 
+import os
 import uuid
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime
 
 from avant_core.db.uow import SqlAlchemyUnitOfWork
+from avant_core.metrics.models import GamCounts, GamHourlyMetric
+from avant_core.metrics.services import maintain_key_value_hourly_partitions
 from avant_core.price_rules.catalog import FLOOR_CACHE_KEY
 from avant_core.price_rules.enums import BlockKind
 from avant_core.price_rules.models import PriceRule
+from avant_core.shared.clock import SystemClock
 from fastapi.testclient import TestClient
-from sqlalchemy import Engine
+from sqlalchemy import Engine, create_engine
 
 from avant_api.app.container import Services
 from avant_api.app.countries import FixedCountries
@@ -42,6 +46,39 @@ def _rule(engine: Engine, company_id: uuid.UUID, site_id: uuid.UUID) -> uuid.UUI
         uow.price_rules.add(rule)
         uow.commit()
         return rule.id
+
+
+def _hours(engine: Engine, company_id: uuid.UUID, site_id: uuid.UUID, day: date) -> None:
+    """Duas horas do GAM do hash no Content3 do Brasil, numa partição criada pelo dono."""
+    owner = create_engine(os.environ["AVANT_TEST_MIGRATIONS_URL"])
+    maintain_key_value_hourly_partitions(
+        SqlAlchemyUnitOfWork(owner, bypass_rls=True), clock=SystemClock()
+    )
+    owner.dispose()
+    with SqlAlchemyUnitOfWork(engine, company_id=company_id) as uow:
+        site = uow.sites.get(site_id)
+        assert site is not None and site.network_id is not None
+        network_id = site.network_id
+        rows = [
+            GamHourlyMetric(
+                company_id=company_id,
+                network_id=network_id,
+                date=day,
+                hour=hour,
+                custom_key="content_hash",
+                custom_value=HASH,
+                ad_unit_path="blog.com/Blog_Content3_20261028",
+                country_code="BR",
+                currency="USD",
+                revenue_micros=400_000,
+                counts=GamCounts(impressions=100, eligible_requests=200, responses_served=150),
+                synced_at=NOW,
+                site_id=site_id,
+            )
+            for hour in (8, 9)
+        ]
+        uow.gam_key_value_hourly.replace(network_id, [day], rows)
+        uow.commit()
 
 
 def test_price_rules_panel_internal_and_public_floors(
@@ -113,6 +150,15 @@ def test_price_rules_panel_internal_and_public_floors(
     today = datetime.now(UTC).date().isoformat()
     history = client.get(f"{base}/{rule_id}/history", params={"start": "2026-11-01", "end": today})
     assert [entry["reason"] for entry in history.json()] == ["manual"]
+    _hours(engine, company_id, site_id, datetime.now(UTC).date())
+    period = {"start": today, "end": today}
+    hours = client.get(f"{base}/{rule_id}/hours", params=period).json()
+    assert [(row["hour"], row["eligible_requests"], row["pmr"]) for row in hours] == [
+        (9, 200, 75.0),
+        (8, 200, 75.0),
+    ]
+    assert hours[0]["ecpm_micros"] == 4_000_000
+    assert ana.get(f"{base}/{rule_id}/hours", params=period).status_code == 403
     paused = client.patch(f"{base}/{rule_id}", json={"status": "paused"}, headers=_csrf(client))
     assert paused.json()["status"] == "paused"
     assert visitor.get("/api/tag/prices", params=page).json()["floors"] == {}
@@ -125,3 +171,6 @@ def test_price_rules_panel_internal_and_public_floors(
         f"{internal}/{rule_id}/floor", json={"floor_micros": 500_000}, headers=_csrf(staff)
     )
     assert staff_floor.status_code == 200, staff_floor.text
+    staff_hours = staff.get(f"{internal}/{rule_id}/hours", params=period)
+    assert len(staff_hours.json()) == 2
+    assert client.get(f"{internal}/{rule_id}/hours", params=period).status_code == 403
