@@ -2,6 +2,7 @@
 
 from fastapi import APIRouter
 
+from avant_api.modules.internal.ad_tags.controller import router as ad_tags
 from avant_api.modules.internal.checklist_items.controller import router as checklist_items
 from avant_api.modules.internal.checklists.controller import router as checklists
 from avant_api.modules.internal.client_documents.controller import router as client_documents
@@ -14,6 +15,7 @@ from avant_api.modules.internal.gam_tools.controller import router as gam_tools
 from avant_api.modules.internal.goals.controller import router as goals
 from avant_api.modules.internal.inventory.controller import router as inventory
 from avant_api.modules.internal.invoices.controller import router as invoices
+from avant_api.modules.internal.loaders.controller import router as loaders
 from avant_api.modules.internal.mcm.controller import router as mcm
 from avant_api.modules.internal.people.controller import router as people
 from avant_api.modules.internal.results.controller import router as results
@@ -43,5 +45,7 @@ for child in (
     checklist_items,
     gam_tools,
     rewards,
+    ad_tags,
+    loaders,
 ):
     router.include_router(child)
