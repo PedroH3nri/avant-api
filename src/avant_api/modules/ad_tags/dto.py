@@ -3,11 +3,19 @@
 import uuid
 from datetime import date, datetime
 
-from avant_core.ad_tags.enums import AdTagBlockKind, AdTagEdge, AdTagRuleMode, AdTagSide
+from avant_core.ad_tags.enums import (
+    AdTagBlockKind,
+    AdTagDevice,
+    AdTagEdge,
+    AdTagRuleMode,
+    AdTagSide,
+)
 from avant_core.ad_tags.models import (
     AdTagBlock,
     AdTagDetails,
     AdTagDraft,
+    AdTagHealth,
+    AdTagHealthDay,
     AdTagSettings,
     AdTagUnitDay,
     AdTagVersionDetails,
@@ -200,4 +208,46 @@ class AdTagUnitDayOut(BaseModel):
                 )
                 for unit in day.units
             ],
+        )
+
+
+class AdTagHealthDayOut(BaseModel):
+    day: date
+    version: int
+    # O tipo do bloco (Content3, Anchor...) ou "page" para a página inteira.
+    placement: str
+    device: AdTagDevice
+    page_views: int
+    rendered: int
+    empty: int
+    last_seen_at: datetime
+
+    @classmethod
+    def of(cls, row: AdTagHealthDay) -> "AdTagHealthDayOut":
+        """Monta a linha do dia."""
+        return cls(
+            day=row.day,
+            version=row.version,
+            placement=row.placement,
+            device=row.device,
+            page_views=row.page_views,
+            rendered=row.rendered,
+            empty=row.empty,
+            last_seen_at=row.last_seen_at,
+        )
+
+
+class AdTagHealthOut(BaseModel):
+    # Vazio: a tag ainda não foi vista em nenhum site.
+    last_seen_at: datetime | None
+    seen_version: int | None
+    days: list[AdTagHealthDayOut]
+
+    @classmethod
+    def of(cls, health: AdTagHealth) -> "AdTagHealthOut":
+        """Monta a saúde da tag no período."""
+        return cls(
+            last_seen_at=health.last_seen_at,
+            seen_version=health.seen_version,
+            days=[AdTagHealthDayOut.of(row) for row in health.days],
         )

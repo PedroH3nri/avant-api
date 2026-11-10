@@ -54,13 +54,13 @@ def test_staff_marks_checks_and_writes_notes(
     page = staff.get(BASE, params={"month": MONTH.isoformat(), "q": "acai"}).json()
     (row,) = page["items"]
     assert (row["id"], row["revenue"], row["site"]["domain"]) == (current_id, "900.00", "acai.com")
-    assert row["progress"] == {"done": 0, "total": 13, "complete": False}
+    assert row["progress"] == {"done": 0, "total": 14, "complete": False}
     assert (
         staff.get(BASE, params={"month": MONTH.isoformat(), "state": "done"}).json()["total"] == 0
     )
 
     detail = staff.get(f"{BASE}/{current_id}").json()
-    assert detail["current"] is True and len(detail["rows"]) == 13
+    assert detail["current"] is True and len(detail["rows"]) == 14
     item_id = detail["rows"][0]["item"]["id"]
     marked = staff.put(
         f"{BASE}/{current_id}/items/{item_id}", json={"ok": True}, headers=_csrf(staff)
@@ -97,7 +97,7 @@ def test_staff_marks_checks_and_writes_notes(
     summary = staff.get(f"{BASE}/summary", params={"month": MONTH.isoformat()}).json()
     assert (summary["sites"], summary["done"]) == (1, 0)
     (site,) = staff.get("/api/v1/internal/sites").json()["items"]
-    assert site["checklist"] == {"id": current_id, "done": 1, "total": 13, "complete": False}
+    assert site["checklist"] == {"id": current_id, "done": 1, "total": 14, "complete": False}
 
 
 def test_checklists_need_permission(
@@ -121,14 +121,14 @@ def test_staff_edits_the_item_list(
     staff = _staff(client, engine)
     listed = staff.get(ITEMS)
     assert listed.status_code == 200, listed.text
-    assert len(listed.json()["items"]) == 13
+    assert len(listed.json()["items"]) == 14
 
     created = staff.post(
         ITEMS, json={"name": "Página de anúncios", "kind": "manual"}, headers=_csrf(staff)
     )
     assert created.status_code == 201, created.text
     item = created.json()
-    assert item["position"] == 14
+    assert item["position"] == 15
     blank = staff.post(ITEMS, json={"name": " ", "kind": "manual"}, headers=_csrf(staff))
     assert blank.status_code == 422
     updated = staff.put(
@@ -140,5 +140,5 @@ def test_staff_edits_the_item_list(
     moved = staff.post(f"{ITEMS}/{item['id']}/move", json={"step": -1}, headers=_csrf(staff))
     assert moved.status_code == 200, moved.text
     positions = {entry["id"]: entry["position"] for entry in staff.get(ITEMS).json()["items"]}
-    assert positions[item["id"]] == 13
+    assert positions[item["id"]] == 14
     staff.post(f"{ITEMS}/{item['id']}/move", json={"step": 1}, headers=_csrf(staff))

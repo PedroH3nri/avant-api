@@ -3,6 +3,7 @@
 from avant_api.modules.ad_tags.dto import (
     AdTagActiveIn,
     AdTagCreateIn,
+    AdTagHealthOut,
     AdTagIn,
     AdTagOut,
     AdTagPublishIn,
@@ -13,6 +14,7 @@ from avant_api.modules.ad_tags.dto import (
 __all__ = [
     "AdTagActiveIn",
     "AdTagCreateIn",
+    "AdTagHealthOut",
     "AdTagIn",
     "AdTagOut",
     "AdTagPublishIn",

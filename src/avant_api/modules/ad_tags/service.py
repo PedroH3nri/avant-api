@@ -7,6 +7,7 @@ from avant_core.ad_tags.services import (
     create_ad_tag,
     delete_ad_tag,
     get_ad_tag,
+    get_ad_tag_health,
     list_ad_tag_units,
     list_ad_tag_versions,
     page_ad_tags,
@@ -22,6 +23,7 @@ from avant_api.app.reward_cache import RewardCache
 from avant_api.modules.ad_tags.cache import forget_tag
 from avant_api.modules.ad_tags.dto import (
     AdTagCreateIn,
+    AdTagHealthOut,
     AdTagIn,
     AdTagOut,
     AdTagUnitDayOut,
@@ -87,6 +89,17 @@ class AdTagService:
         )
         forget_tag(self._cache, published.tag.key)
         return AdTagOut.of(published)
+
+    def health(self, actor: Actor, ad_tag_id: uuid.UUID, days: int) -> AdTagHealthOut:
+        """A saúde da tag nos últimos dias."""
+        found = get_ad_tag_health(
+            self._uows.uow(actor.company_id),
+            actor=actor,
+            ad_tag_id=ad_tag_id,
+            clock=self._clock,
+            days=days,
+        )
+        return AdTagHealthOut.of(found)
 
     def versions(self, actor: Actor, ad_tag_id: uuid.UUID) -> list[AdTagVersionOut]:
         """As versões publicadas, a mais nova primeiro."""
