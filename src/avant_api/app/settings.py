@@ -38,6 +38,9 @@ class Settings(BaseSettings):
     # Network da Groone, que entra no arquivo de instalação dos clientes Manage Inventory.
     # Não é segredo: é o mesmo valor que o Genius usa no groone.js.
     gam_groone_network_code: str = "22893970961"
+    # Base GeoLite2 Country (.mmdb) para o país dos floors das regras de preço. Sem ela, a rota
+    # dos floors devolve só o grupo de controle.
+    geolite2_country_file: str | None = None
 
     @model_validator(mode="after")
     def _mail_in_deployed_envs(self) -> "Settings":
