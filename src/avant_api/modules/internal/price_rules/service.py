@@ -11,6 +11,7 @@ from avant_core.price_rules.services import (
     get_client_price_rule_site,
     list_client_price_rule_history,
     list_client_price_rule_hours,
+    page_client_price_rule_sites,
     page_client_price_rules,
     set_client_price_rule_floor,
     set_client_price_rule_status,
@@ -31,6 +32,7 @@ from avant_api.modules.price_rules.dto import (
     PriceRuleOut,
     PriceRuleSettingsIn,
     PriceRuleSiteOut,
+    PriceRuleSiteSummaryOut,
     PriceRuleStatusIn,
 )
 from avant_api.modules.price_rules.floor_cache import forget_floors
@@ -45,6 +47,13 @@ class ClientPriceRuleService:
         self._uows = uows
         self._clock = clock
         self._cache = cache
+
+    def sites(self, actor: Actor, page: int, query: str | None) -> PageOut[PriceRuleSiteSummaryOut]:
+        """Uma página dos sites com a situação da regra de preço."""
+        found = page_client_price_rule_sites(
+            self._uows.trusted_uow(), actor=actor, clock=self._clock, query=query, page=page
+        )
+        return page_out(found, PriceRuleSiteSummaryOut.of)
 
     def site(self, actor: Actor, site_id: uuid.UUID) -> PriceRuleSiteOut:
         """A configuração e os blocos do site."""

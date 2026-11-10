@@ -10,6 +10,7 @@ from avant_api.modules.price_rules.dto import (
     PriceRuleOut,
     PriceRuleSettingsIn,
     PriceRuleSiteOut,
+    PriceRuleSiteSummaryOut,
     PriceRuleStatusIn,
 )
 
@@ -23,5 +24,6 @@ __all__ = [
     "PriceRuleOut",
     "PriceRuleSettingsIn",
     "PriceRuleSiteOut",
+    "PriceRuleSiteSummaryOut",
     "PriceRuleStatusIn",
 ]
