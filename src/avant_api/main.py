@@ -12,6 +12,8 @@ from avant_api.app.middleware import observe
 from avant_api.app.security import check_fetch_site
 from avant_api.app.settings import Settings
 from avant_api.modules.account.controller import router as account
+from avant_api.modules.ad_tag_public.controller import router as ad_tag_public
+from avant_api.modules.ad_tags.controller import router as ad_tags
 from avant_api.modules.alerts.controller import router as alerts
 from avant_api.modules.api_keys.controller import router as api_keys
 from avant_api.modules.audit.controller import router as audit
@@ -29,6 +31,7 @@ from avant_api.modules.health.controller import router as health
 from avant_api.modules.internal.router import router as internal
 from avant_api.modules.invitations.controller import router as invitations
 from avant_api.modules.key_values.controller import router as key_values
+from avant_api.modules.loaders.controller import router as loaders
 from avant_api.modules.members.controller import router as members
 from avant_api.modules.mfa.controller import router as mfa
 from avant_api.modules.networks.controller import router as networks
@@ -80,6 +83,8 @@ def create_app(services: Services | None = None) -> FastAPI:
         networks,
         sites,
         rewards,
+        ad_tags,
+        loaders,
         reports,
         dashboards,
         alerts,
@@ -95,4 +100,5 @@ def create_app(services: Services | None = None) -> FastAPI:
         app.include_router(router, prefix=API_PREFIX)
     app.include_router(key_values)
     app.include_router(reward_public)
+    app.include_router(ad_tag_public)
     return app
