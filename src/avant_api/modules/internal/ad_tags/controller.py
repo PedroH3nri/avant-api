@@ -14,6 +14,7 @@ from avant_api.modules.internal.ad_tags.dependencies import client_ad_tag_servic
 from avant_api.modules.internal.ad_tags.dto import (
     AdTagActiveIn,
     AdTagCreateIn,
+    AdTagHealthOut,
     AdTagIn,
     AdTagOut,
     AdTagPublishIn,
@@ -124,6 +125,17 @@ def restore(
 ) -> AdTagOut:
     """Volta para uma versão antiga, publicada como versão nova."""
     return service.restore(actor, ad_tag_id, number)
+
+
+@router.get("/ad-tags/{ad_tag_id}/health")
+def health(
+    ad_tag_id: uuid.UUID,
+    days: int = Query(default=7, ge=1, le=90),
+    actor: Actor = Depends(require_staff(VIEW)),
+    service: ClientAdTagService = Depends(client_ad_tag_service),
+) -> AdTagHealthOut:
+    """A última vez que a tag foi vista e as páginas e os blocos por dia no período."""
+    return service.health(actor, ad_tag_id, days)
 
 
 @router.get("/sites/{site_id}/ad-tag-units")

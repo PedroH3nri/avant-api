@@ -224,6 +224,8 @@ REWARD_CONFIG = BucketRule(rate=5.0, burst=20, abuse_limit=60, block_seconds=60)
 REWARD_EVENTS = BucketRule(rate=4.0, burst=10, abuse_limit=40, block_seconds=60)
 REWARD_LEADS = BucketRule(rate=0.2, burst=3, abuse_limit=10, block_seconds=300)
 TAG_CONFIG = BucketRule(rate=5.0, burst=20, abuse_limit=60, block_seconds=60)
+# Uma página vista por página: o mesmo IP (NAT, escritório) pode mandar várias por segundo.
+TAG_PAGE_VIEWS = BucketRule(rate=5.0, burst=20, abuse_limit=60, block_seconds=60)
 
 
 @dataclass(frozen=True)

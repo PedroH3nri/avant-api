@@ -28,7 +28,12 @@ from avant_api.app.limits import (
     RedisBucket,
     RedisCounter,
 )
-from avant_api.app.reward_buffer import MemoryRewardBuffer, RedisRewardBuffer, RewardBuffer
+from avant_api.app.reward_buffer import (
+    PAGE_VIEWS_BUFFER,
+    MemoryRewardBuffer,
+    RedisRewardBuffer,
+    RewardBuffer,
+)
 from avant_api.app.reward_cache import MemoryRewardCache, RedisRewardCache, RewardCache
 from avant_api.app.settings import Settings
 from avant_api.app.tasks import CeleryQueue, RecordingQueue, TaskQueue
@@ -70,6 +75,7 @@ class Services:
     key_values: KeyValueBuffer = field(default_factory=MemoryKeyValueBuffer)
     rewards: RewardCache = field(default_factory=MemoryRewardCache)
     reward_events: RewardBuffer = field(default_factory=MemoryRewardBuffer)
+    page_views: RewardBuffer = field(default_factory=MemoryRewardBuffer)
 
     @classmethod
     def build(cls, settings: Settings) -> "Services":
@@ -100,6 +106,9 @@ class Services:
             if settings.redis_url
             else MemoryRewardCache(),
             reward_events=RedisRewardBuffer.from_url(settings.redis_url)
+            if settings.redis_url
+            else MemoryRewardBuffer(),
+            page_views=RedisRewardBuffer.from_url(settings.redis_url, PAGE_VIEWS_BUFFER)
             if settings.redis_url
             else MemoryRewardBuffer(),
         )
