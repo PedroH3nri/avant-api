@@ -24,6 +24,7 @@ from avant_core.price_rules.models import (
     PriceRuleSiteSummary,
     PriceRuleSiteView,
 )
+from avant_core.price_rules.services import kind_of, recommended_model
 from pydantic import BaseModel, Field
 
 
@@ -42,6 +43,8 @@ class PriceRuleSiteOut(BaseModel):
     currency_supported: bool
     blocks: list[PriceRuleBlockOut]
     available_blocks: list[str]
+    # O modelo padrão da tela para cada bloco disponível que recebe regra.
+    recommended_models: dict[str, PriceRuleModel]
     updated_at: datetime
 
     @classmethod
@@ -57,8 +60,20 @@ class PriceRuleSiteOut(BaseModel):
             currency_supported=view.currency_supported,
             blocks=[PriceRuleBlockOut(block=item.block, model=item.model) for item in view.blocks],
             available_blocks=list(view.available_blocks),
+            recommended_models=_recommended_models(view.available_blocks),
             updated_at=settings.updated_at,
         )
+
+
+def _recommended_models(blocks: tuple[str, ...]) -> dict[str, PriceRuleModel]:
+    """O modelo recomendado de cada bloco; o offerwall e os blocos sem tipo ficam de fora."""
+    recommended = {}
+    for block in blocks:
+        kind = kind_of(block)
+        model = recommended_model(kind) if kind is not None else None
+        if model is not None:
+            recommended[block] = model
+    return recommended
 
 
 class PriceRuleSiteSummaryOut(BaseModel):
