@@ -24,7 +24,7 @@ from fastapi import Depends, Request
 from avant_api.app.container import Services
 from avant_api.app.cookies import SessionCookies
 from avant_api.app.errors import CompanyChanged, CsrfFailed, NoActiveCompany, RateLimited
-from avant_api.app.limits import API_KEY
+from avant_api.app.limits import API_KEY, API_KEY_IP
 
 SAFE_METHODS = frozenset({"GET", "HEAD", "OPTIONS"})
 CSRF_HEADER = "X-CSRF-Token"
@@ -143,8 +143,10 @@ def bearer_token(request: Request) -> str | None:
 
 def api_key_actor(request: Request, services: Services, token: str) -> Actor:
     """Autentica a chave de API e aplica o limite de pedidos por chave; a Company Groone não abre
-    por chave, só pela sessão com 2FA."""
-    auth = authenticate_api_key(services.trusted_uow(), token=token, clock=services.clock)
+    por chave, só pela sessão com 2FA. Chave que não confere conta no limite por IP."""
+    ip = request.client.host if request.client else None
+    with services.limiter.attempt((API_KEY_IP, ip), counts=(NotAuthenticated,)):
+        auth = authenticate_api_key(services.trusted_uow(), token=token, clock=services.clock)
     if auth.company.is_internal:
         raise StaffOnly("a Company Groone não abre por chave de API")
     result = services.bucket.take(f"key:{auth.key.id}", API_KEY, time.time())

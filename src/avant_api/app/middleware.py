@@ -32,6 +32,15 @@ SECURITY_HEADERS = {
     "X-Frame-Options": "DENY",
     "Referrer-Policy": "no-referrer",
 }
+# A API só devolve JSON e arquivos para baixar: nada carrega, nada emoldura. A página do
+# Swagger (fora de produção) carrega scripts e fica de fora.
+CONTENT_SECURITY_POLICY = "default-src 'none'; frame-ancestors 'none'"
+
+
+def _is_docs_page(request: Request) -> bool:
+    """Diz se o pedido é da página HTML da documentação, que precisa carregar scripts."""
+    pages = {request.app.docs_url, request.app.swagger_ui_oauth2_redirect_url}
+    return request.url.path in pages - {None}
 
 
 async def observe(
@@ -48,6 +57,8 @@ async def observe(
     LATENCY.labels(request.method, route).observe(elapsed)
     response.headers["X-Request-Id"] = request_id
     response.headers.update(SECURITY_HEADERS)
+    if not _is_docs_page(request):
+        response.headers["Content-Security-Policy"] = CONTENT_SECURITY_POLICY
     # Chaves de API: a dependência deixa o estado do balde para o cabeçalho.
     for name, value in getattr(request.state, "rate_limit", {}).items():
         response.headers[name] = value

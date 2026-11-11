@@ -247,7 +247,9 @@ src/avant_api/
   chave, sair da Empresa e o painel interno são só pela sessão. Cada chave tem um balde de
   2 requisições por segundo com rajada de 20 (`X-RateLimit-Limit` e
   `X-RateLimit-Remaining`); passou, 429 `rate_limited` com `Retry-After`, e mais de 20
-  recusas em um minuto bloqueiam a chave por 30 s. O balde fica no Redis.
+  recusas em um minuto bloqueiam a chave por 30 s. O balde fica no Redis. Chave que não
+  confere conta por IP: 20 em 15 minutos e o IP leva 429 `too_many_attempts` antes de a
+  chave chegar ao banco.
 - **Reward no site** (`modules/reward_public/`, fora de `/api/v1`, sem sessão): o script
   `reward.js` lê `GET /api/reward/v2?url=` (a configuração da página, com o `id` de cada
   pergunta, guardada no Redis em `avant:reward:{domínio}/{caminho}` por 1 hora, ou 5 minutos
@@ -261,7 +263,13 @@ src/avant_api/
 - **Erros**: sempre `{"error": {"code", "message", "details"}}`; o mapa de código para
   status HTTP está em `app/errors.py`.
 - **Logs**: JSON em uma linha por requisição, com `request_id` (também no cabeçalho
-  `X-Request-Id`). Erro inesperado sai com o stack trace.
+  `X-Request-Id`). Erro inesperado sai com o stack trace. O log de acesso leva a rota com
+  `{token}`, nunca o valor, e o log de erro mascara o token do convite no caminho
+  (`/auth/invitations/***`). A chave de API e os cookies nunca vão para o log.
+- **Cabeçalhos**: toda resposta leva `X-Content-Type-Options: nosniff`,
+  `X-Frame-Options: DENY`, `Referrer-Policy: no-referrer` e
+  `Content-Security-Policy: default-src 'none'; frame-ancestors 'none'`, menos a página do
+  Swagger (`/api/docs`, fechada em produção), que carrega scripts.
 
 ## Desenvolvimento
 

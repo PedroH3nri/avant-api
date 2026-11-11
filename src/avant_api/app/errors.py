@@ -13,6 +13,8 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from starlette.exceptions import HTTPException
 
+from avant_api.app.logs import masked_path
+
 log = logging.getLogger("avant.api")
 
 
@@ -223,7 +225,7 @@ def install(app: FastAPI) -> None:
         """Redis fora do ar (limites, chaves de API, relatórios): 503 para tentar de novo."""
         log.warning(
             "redis indisponível",
-            extra={"path": request.url.path, "error": type(exc).__name__},
+            extra={"path": masked_path(request.url.path), "error": type(exc).__name__},
         )
         return JSONResponse(
             error_body("service_unavailable", "serviço indisponível, tente de novo"),
@@ -238,7 +240,7 @@ def install(app: FastAPI) -> None:
             "erro inesperado",
             exc_info=exc,
             extra={
-                "path": request.url.path,
+                "path": masked_path(request.url.path),
                 "request_id": getattr(request.state, "request_id", None),
             },
         )
