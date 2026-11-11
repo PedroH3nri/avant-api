@@ -8,6 +8,7 @@ from fastapi.testclient import TestClient
 from httpx import Response
 from sqlalchemy import Engine
 
+from avant_api.app.tasks import SYNC_NETWORK, RecordingQueue
 from tests.conftest import FINANCE, CapturingMailer
 from tests.test_api import _csrf, _onboard_owner
 from tests.test_client_documents import PDF, _manage_inventory
@@ -15,6 +16,13 @@ from tests.test_costs_results import _marketing_client
 from tests.test_team import _member_client
 
 THIS_MONTH = datetime.now(UTC).date().replace(day=1)
+
+
+def _queue(client: TestClient) -> RecordingQueue:
+    """O fake da fila do worker que a aplicação de teste usa."""
+    queue = client.app.state.services.tasks  # type: ignore[attr-defined]
+    assert isinstance(queue, RecordingQueue)
+    return queue
 
 
 def _assert_denied(response: Response) -> None:
@@ -53,10 +61,13 @@ def test_network_sync_and_disconnect_need_permission(
     ).json()
     finance = _member_client(client, mailer, "ana@acai.com")
     url = f"/api/v1/networks/{network['id']}"
+    syncs_before = [task for task in _queue(client).sent if task[0] == SYNC_NETWORK]
+    status_before = client.get(url).json()["status"]
 
     _assert_denied(finance.post(f"{url}/sync", headers=_csrf(finance)))
     _assert_denied(finance.post(f"{url}/disconnect", headers=_csrf(finance)))
-    assert client.get(url).json()["status"] != "disconnected"
+    assert [task for task in _queue(client).sent if task[0] == SYNC_NETWORK] == syncs_before
+    assert client.get(url).json()["status"] == status_before != "disconnected"
 
 
 def test_member_writes_need_permission(
@@ -64,11 +75,17 @@ def test_member_writes_need_permission(
 ) -> None:
     _onboard_owner(client, engine, mailer)
     finance = _member_client(client, mailer, "ana@acai.com")
+    _member_client(client, mailer, "bia@acai.com")
     members = client.get("/api/v1/members").json()["items"]
-    owner_id = next(
-        member["id"] for member in members if member["user"]["email"] == "dono@acai.com"
+    bia_id = next(member["id"] for member in members if member["user"]["email"] == "bia@acai.com")
+    url = f"/api/v1/members/{bia_id}"
+    granted = client.put(
+        f"{url}/permissions",
+        json={"permissions": [{"permission": "sites.view", "effect": "allow"}]},
+        headers=_csrf(client),
     )
-    url = f"/api/v1/members/{owner_id}"
+    assert granted.status_code == 200, granted.text
+    before = client.get(url).json()
 
     _assert_denied(finance.patch(url, json={"status": "suspended"}, headers=_csrf(finance)))
     _assert_denied(finance.delete(url, headers=_csrf(finance)))
@@ -79,7 +96,13 @@ def test_member_writes_need_permission(
             headers=_csrf(finance),
         )
     )
-    assert len(client.get("/api/v1/members").json()["items"]) == 2
+    after = client.get(url).json()
+    assert after == before
+    assert after["status"] == "active"
+    assert after["permissions"] == [
+        {"permission": "sites.view", "effect": "allow", "expires_at": None}
+    ]
+    assert len(client.get("/api/v1/members").json()["items"]) == 3
 
 
 def test_role_writes_need_permission(
@@ -93,6 +116,11 @@ def test_role_writes_need_permission(
     ).json()
     finance = _member_client(client, mailer, "ana@acai.com")
     body = {"name": "Outro", "permissions": ["sites.view"]}
+    finance_name = next(
+        item["name"]
+        for item in client.get("/api/v1/roles").json()["items"]
+        if item["id"] == str(FINANCE)
+    )
 
     _assert_denied(finance.post("/api/v1/roles", json=body, headers=_csrf(finance)))
     _assert_denied(
@@ -102,8 +130,11 @@ def test_role_writes_need_permission(
     _assert_denied(
         finance.patch(f"/api/v1/roles/{FINANCE}", json={"name": "x"}, headers=_csrf(finance))
     )
-    names = [item["name"] for item in client.get("/api/v1/roles").json()["items"]]
-    assert "Outro" not in names and "Analista" in str(names)
+    roles = {item["id"]: item for item in client.get("/api/v1/roles").json()["items"]}
+    assert "Outro" not in str([item["name"] for item in roles.values()])
+    assert roles[role["id"]]["name"]["pt"] == "Analista"
+    assert roles[role["id"]]["permissions"] == ["sites.view"]
+    assert roles[str(FINANCE)]["name"] == finance_name
 
 
 def test_cost_writes_need_permission(

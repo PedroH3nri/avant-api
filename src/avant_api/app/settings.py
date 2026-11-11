@@ -25,13 +25,15 @@ class Settings(BaseSettings):
     # Sem chave, os e-mails só vão para o log (local e testes).
     resend_api_key: str | None = None
     mail_from: str = "Avant <nao-responda@avant.groone.com>"
-    # Contadores do limite de tentativas. Sem Redis (local e testes), ficam na memória.
-    redis_url: str | None = None
+    # Limites de tentativas, balde das chaves de API, eventos e caches. Obrigatória em todo
+    # ambiente: um limite não pode valer só em staging e produção.
+    redis_url: str
     # Login com Google. Sem as duas, as rotas /auth/google respondem google_unavailable.
     google_oauth_client_id: str | None = None
     google_oauth_client_secret: str | None = None
-    # Fila do avant-worker. Sem ela (local e testes), as tarefas só ficam registradas.
-    celery_broker_url: str | None = None
+    # Fila do avant-worker (RabbitMQ). Obrigatória em todo ambiente: o esqueci a senha só
+    # agenda o envio, e o mesmo caminho vale no local.
+    celery_broker_url: str
     # E-mail da conta de serviço da Groone no Ad Manager, mostrado no guia de conexão.
     # Não é segredo: a chave fica só nos workers da fila gam.
     gam_service_account_email: str = "avant@groone-ads.iam.gserviceaccount.com"
@@ -43,15 +45,14 @@ class Settings(BaseSettings):
     geolite2_country_file: str | None = None
 
     @model_validator(mode="after")
-    def _mail_in_deployed_envs(self) -> "Settings":
-        """Exige Resend, Redis e o broker do Celery em staging e produção."""
+    def _required_services(self) -> "Settings":
+        """Exige Redis e o broker do Celery em todo ambiente, e o Resend em staging e produção."""
+        if not self.redis_url.strip():
+            raise ValueError("REDIS_URL é obrigatória em todo ambiente")
+        if not self.celery_broker_url.strip():
+            raise ValueError("CELERY_BROKER_URL é obrigatória em todo ambiente")
         if self.avant_env in ("staging", "production") and not self.resend_api_key:
             raise ValueError("RESEND_API_KEY é obrigatória em staging e produção")
-        if self.avant_env in ("staging", "production") and not self.redis_url:
-            # Com várias instâncias, contador em memória não limita nada.
-            raise ValueError("REDIS_URL é obrigatória em staging e produção")
-        if self.avant_env in ("staging", "production") and not self.celery_broker_url:
-            raise ValueError("CELERY_BROKER_URL é obrigatória em staging e produção")
         return self
 
     @property

@@ -145,6 +145,11 @@ class Limiter:
         """Monta a chave do contador de uma regra para um sujeito."""
         return f"{self._prefix}:{rule.name}:{subject.lower()}"
 
+    def count(self, rule: Rule, subject: str) -> int:
+        """As falhas contadas de um sujeito na janela atual da regra."""
+        count, _ = self._counter.get(self._key(rule, subject))
+        return count
+
     def check(self, *pairs: tuple[Rule, str | None]) -> None:
         """Antes de tentar: recusa com 429 quem já passou do limite em alguma das chaves."""
         for rule, subject in pairs:

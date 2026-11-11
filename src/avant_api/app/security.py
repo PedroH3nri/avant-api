@@ -143,10 +143,14 @@ def bearer_token(request: Request) -> str | None:
 
 def api_key_actor(request: Request, services: Services, token: str) -> Actor:
     """Autentica a chave de API e aplica o limite de pedidos por chave; a Company Groone não abre
-    por chave, só pela sessão com 2FA. Chave que não confere conta no limite por IP."""
+    por chave, só pela sessão com 2FA. Só a chave que não confere conta no limite por IP."""
     ip = request.client.host if request.client else None
-    with services.limiter.attempt((API_KEY_IP, ip), counts=(NotAuthenticated,)):
+    services.limiter.check((API_KEY_IP, ip))
+    try:
         auth = authenticate_api_key(services.trusted_uow(), token=token, clock=services.clock)
+    except NotAuthenticated:
+        services.limiter.fail((API_KEY_IP, ip))
+        raise
     if auth.company.is_internal:
         raise StaffOnly("a Company Groone não abre por chave de API")
     result = services.bucket.take(f"key:{auth.key.id}", API_KEY, time.time())

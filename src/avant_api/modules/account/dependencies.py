@@ -8,7 +8,13 @@ from avant_api.modules.account.service import AccountService
 
 
 def account_service(services: Services = Depends(get_services)) -> AccountService:
-    """O service da conta com banco, relógio, senhas, segredos, e-mail e limite."""
+    """O service da conta com banco, relógio, senhas, segredos, e-mail, limite e fila de e-mail."""
     return AccountService(
-        services, services.clock, services.hasher, services.box, services.mailer, services.limiter
+        services,
+        services.clock,
+        services.hasher,
+        services.box,
+        services.mailer,
+        services.limiter,
+        services.mail_queue(),
     )

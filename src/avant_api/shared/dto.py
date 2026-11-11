@@ -154,6 +154,7 @@ class AuditOut(BaseModel):
     action: str
     actor_kind: ActorKind
     actor_user_id: uuid.UUID | None
+    actor_api_key_id: uuid.UUID | None
     target_type: str | None
     target_id: uuid.UUID | None
     data: dict[str, object]
@@ -167,6 +168,7 @@ class AuditOut(BaseModel):
             action=entry.action,
             actor_kind=entry.actor_kind,
             actor_user_id=entry.actor_user_id,
+            actor_api_key_id=entry.actor_api_key_id,
             target_type=entry.target_type,
             target_id=entry.target_id,
             data=entry.data,

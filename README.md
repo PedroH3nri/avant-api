@@ -24,7 +24,7 @@ Outros repositórios: avant-core, avant-worker, avant-web, avant-infra.
 | `POST /auth/mfa/setup` e `/confirm` | ativa o 2FA; o confirm devolve os 10 códigos de recuperação | sessão |
 | `POST /auth/mfa/recovery-codes` | gera novos códigos de recuperação | sessão + código |
 | `DELETE /auth/mfa` | desliga o 2FA (só clientes) | sessão + código |
-| `POST /auth/password/forgot` | manda o link de nova senha; responde 202 exista ou não a conta | nenhuma |
+| `POST /auth/password/forgot` | agenda o link de nova senha no worker; responde 202 exista ou não a conta | nenhuma |
 | `POST /auth/password/reset` | nova senha pelo link (com 2FA, pede o código); encerra todas as sessões | nenhuma |
 | `POST /auth/password/change` | troca a senha; encerra as outras sessões | sessão |
 | `GET /auth/sessions` | sessões ativas, com a atual marcada | sessão |
@@ -220,8 +220,14 @@ src/avant_api/
   e o convite continua pendente.
 - **Limite de tentativas**: 5 senhas erradas por e-mail e 20 por IP em 15 minutos no
   login; 20 pedidos por IP em 15 minutos em `/auth/password/*`. Passou, 429
-  `too_many_attempts` com `Retry-After`. Os contadores ficam no Redis (`REDIS_URL`,
-  obrigatória em staging e produção) e, sem ele, na memória do processo.
+  `too_many_attempts` com `Retry-After`. Os contadores ficam no Redis (`REDIS_URL`), em
+  todo ambiente: sem `REDIS_URL` ou sem `CELERY_BROKER_URL` a API não sobe, para nenhum
+  limite valer só em staging e produção. Os testes usam os fakes em memória do `Services`.
+- **Esqueci a senha**: a rota só normaliza o e-mail e agenda
+  `avant.mail.request_password_reset(email)` na fila `mail` (`queue_password_reset` do
+  core, adaptador `TaskMailQueue`), sem ler o banco nem mandar e-mail, para o tempo de
+  resposta não dizer se a conta existe. O worker gera o link e manda o e-mail; o token não
+  passa pela fila. Com o RabbitMQ fora do ar, 503 `queue_unavailable` para qualquer e-mail.
 - **Google**: OpenID Connect com PKCE, tratado aqui (`GOOGLE_OAUTH_CLIENT_ID` e
   `GOOGLE_OAUTH_CLIENT_SECRET`; URI de redirecionamento
   `{APP_BASE_URL}/api/v1/auth/google/callback`). Só entra com Google quem ligou a conta
@@ -232,7 +238,7 @@ src/avant_api/
   e-mails vêm de `avant_core.mail`, o mesmo módulo do worker.
 - **GAM**: a API não fala com o Ad Manager. Conectar, "sincronizar agora" e atribuir uma
   network MCM gravam o pedido e enfileiram `avant.gam.sync_network` no RabbitMQ
-  (`CELERY_BROKER_URL`, obrigatória em staging e produção) depois do commit. Se o
+  (`CELERY_BROKER_URL`, obrigatória em todo ambiente) depois do commit. Se o
   RabbitMQ não responder, a rota não falha: o erro vai para o log e o agendador do worker
   passa pela network no ciclo seguinte. O guia mostra `GAM_SERVICE_ACCOUNT_EMAIL`.
 - **Tempo real**: `GET /events` é um `text/event-stream`. O worker publica
@@ -249,7 +255,9 @@ src/avant_api/
   `X-RateLimit-Remaining`); passou, 429 `rate_limited` com `Retry-After`, e mais de 20
   recusas em um minuto bloqueiam a chave por 30 s. O balde fica no Redis. Chave que não
   confere conta por IP: 20 em 15 minutos e o IP leva 429 `too_many_attempts` antes de a
-  chave chegar ao banco.
+  chave chegar ao banco. Só a falha conta (o limite confere antes da consulta e soma depois
+  do `not_authenticated`), então uma chave válida nunca ocupa vaga do limite do IP; em
+  rajada, chaves erradas em paralelo podem passar um pouco das 20 antes do bloqueio.
 - **Reward no site** (`modules/reward_public/`, fora de `/api/v1`, sem sessão): o script
   `reward.js` lê `GET /api/reward/v2?url=` (a configuração da página, com o `id` de cada
   pergunta, guardada no Redis em `avant:reward:{domínio}/{caminho}` por 1 hora, ou 5 minutos
@@ -269,7 +277,8 @@ src/avant_api/
 - **Cabeçalhos**: toda resposta leva `X-Content-Type-Options: nosniff`,
   `X-Frame-Options: DENY`, `Referrer-Policy: no-referrer` e
   `Content-Security-Policy: default-src 'none'; frame-ancestors 'none'`, menos a página do
-  Swagger (`/api/docs`, fechada em produção), que carrega scripts.
+  Swagger (`/api/docs`, fechada em produção), que carrega scripts. Com a documentação
+  fechada não há exceção: a política vale em todo caminho.
 
 ## Desenvolvimento
 
@@ -295,6 +304,7 @@ Para rodar a API, com o compose do avant-infra no ar:
 
 ```bash
 DATABASE_URL=postgresql+psycopg://avant_app:SENHA@localhost:5432/avant \
+REDIS_URL=redis://localhost:6379/0 CELERY_BROKER_URL=amqp://USUARIO:SENHA@localhost:5672// \
   uv run uvicorn avant_api.main:create_app --factory --reload
 ```
 

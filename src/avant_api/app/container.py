@@ -8,7 +8,7 @@ from avant_core.db.uow import SqlAlchemyUnitOfWork
 from avant_core.identity.security.crypto import FernetSecretBox
 from avant_core.identity.security.passwords import Argon2PasswordHasher
 from avant_core.mail import LogMailer, ResendMailer
-from avant_core.ports import ImageProcessor, Mailer, PasswordHasher, SecretBox
+from avant_core.ports import ImageProcessor, Mailer, MailQueue, PasswordHasher, SecretBox
 from avant_core.shared.clock import Clock, SystemClock
 from sqlalchemy import Engine, create_engine
 
@@ -29,6 +29,7 @@ from avant_api.app.limits import (
     RedisBucket,
     RedisCounter,
 )
+from avant_api.app.mail_queue import TaskMailQueue
 from avant_api.app.reward_buffer import (
     PAGE_VIEWS_BUFFER,
     MemoryRewardBuffer,
@@ -64,6 +65,7 @@ class Services:
     hasher: PasswordHasher
     mailer: Mailer
     box: SecretBox
+    # Os padrões abaixo são os fakes em memória dos testes; o build monta Redis e RabbitMQ.
     limiter: Limiter = field(default_factory=lambda: Limiter(MemoryCounter()))
     # Balde de fichas que limita as chaves de API.
     bucket: Bucket = field(default_factory=MemoryBucket)
@@ -81,7 +83,8 @@ class Services:
 
     @classmethod
     def build(cls, settings: Settings) -> "Services":
-        """Monta banco, Redis, email, Google e fila de tarefas a partir das configurações."""
+        """Monta banco, Redis, email, Google e fila de tarefas a partir das configurações; sem
+        Redis ou sem a fila, as Settings já recusaram a subida."""
         engine = create_engine(settings.database_url, **engine_options(settings))
         return cls(
             settings=settings,
@@ -90,29 +93,15 @@ class Services:
             hasher=Argon2PasswordHasher(),
             mailer=_mailer(settings),
             box=FernetSecretBox(settings.mfa_encryption_key),
-            limiter=Limiter(
-                RedisCounter.from_url(settings.redis_url) if settings.redis_url else MemoryCounter()
-            ),
-            bucket=RedisBucket.from_url(settings.redis_url)
-            if settings.redis_url
-            else MemoryBucket(),
+            limiter=Limiter(RedisCounter.from_url(settings.redis_url)),
+            bucket=RedisBucket.from_url(settings.redis_url),
             google=_google(settings),
-            tasks=CeleryQueue(settings.celery_broker_url)
-            if settings.celery_broker_url
-            else RecordingQueue(),
-            events=RedisEvents(settings.redis_url) if settings.redis_url else NoEvents(),
-            key_values=RedisKeyValueBuffer.from_url(settings.redis_url)
-            if settings.redis_url
-            else MemoryKeyValueBuffer(),
-            rewards=RedisRewardCache.from_url(settings.redis_url)
-            if settings.redis_url
-            else MemoryRewardCache(),
-            reward_events=RedisRewardBuffer.from_url(settings.redis_url)
-            if settings.redis_url
-            else MemoryRewardBuffer(),
-            page_views=RedisRewardBuffer.from_url(settings.redis_url, PAGE_VIEWS_BUFFER)
-            if settings.redis_url
-            else MemoryRewardBuffer(),
+            tasks=CeleryQueue(settings.celery_broker_url),
+            events=RedisEvents(settings.redis_url),
+            key_values=RedisKeyValueBuffer.from_url(settings.redis_url),
+            rewards=RedisRewardCache.from_url(settings.redis_url),
+            reward_events=RedisRewardBuffer.from_url(settings.redis_url),
+            page_views=RedisRewardBuffer.from_url(settings.redis_url, PAGE_VIEWS_BUFFER),
             countries=GeoLiteCountries(settings.geolite2_country_file)
             if settings.geolite2_country_file
             else NoCountries(),
@@ -125,6 +114,10 @@ class Services:
     def trusted_uow(self) -> SqlAlchemyUnitOfWork:
         """Sem RLS: só para login, sessão e aceite de convite pelo token."""
         return SqlAlchemyUnitOfWork(self.engine, bypass_rls=True)
+
+    def mail_queue(self) -> MailQueue:
+        """Os e-mails da conta que saem pela fila do worker, em todo ambiente."""
+        return TaskMailQueue(self.tasks)
 
 
 def _mailer(settings: Settings) -> Mailer:
