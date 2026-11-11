@@ -16,9 +16,9 @@ from avant_core.shared.clock import SystemClock
 from fastapi.testclient import TestClient
 from sqlalchemy import Engine, create_engine
 
+from avant_api.app import price_cascade_cache as service_module
 from avant_api.app.container import Services
 from avant_api.app.countries import FixedCountries
-from avant_api.modules.price_floor_public import service as service_module
 from tests.conftest import CapturingMailer
 from tests.test_ad_tags import CONTENT, _site
 from tests.test_api import _csrf, _onboard_owner
@@ -318,3 +318,14 @@ def test_prices_cascades_empty_when_price_rules_off(
     assert off.status_code == 200, off.text
     response = visitor.get("/api/tag/prices", params={"key": key, "hash": HASH})
     assert response.json() == {"control_percent": None, "floors": {}, "cascades": {}}
+
+
+def test_prices_cascades_cache_not_a_dict_is_a_miss(
+    client: TestClient, engine: Engine, mailer: CapturingMailer
+) -> None:
+    site_id, key, visitor = _cascade_site(client, engine, mailer, "BR")
+    for invalid in ("[]", "null", "5", '"texto"'):
+        _cache(client).values[CASCADE_CACHE_KEY.format(site_id=site_id)] = invalid
+        response = visitor.get("/api/tag/prices", params={"key": key, "hash": HASH})
+        assert response.status_code == 200
+        assert response.json()["cascades"] == {"Anchor_Mobile": ["1.22", "1.13", "1.05"]}

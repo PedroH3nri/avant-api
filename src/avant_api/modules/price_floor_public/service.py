@@ -8,29 +8,21 @@ apaga quando a regra muda à mão. Ligar, desligar e trocar blocos vale em até 
 """
 
 import json
-import logging
 import time
-import uuid
 
-from avant_core.price_rules.catalog import (
-    CASCADE_CACHE_KEY,
-    FLOOR_CACHE_KEY,
-    FLOOR_CACHE_SECONDS,
-)
-from avant_core.price_rules.services import public_price_cascades, public_price_floors
+from avant_core.price_rules.catalog import FLOOR_CACHE_KEY, FLOOR_CACHE_SECONDS
+from avant_core.price_rules.services import public_price_floors
 
 from avant_api.app.countries import CountryLookup
 from avant_api.app.errors import RateLimited
 from avant_api.app.limits import TAG_PRICES, Bucket
 from avant_api.app.ports import UnitOfWorkFactory
-from avant_api.app.reward_cache import RewardCache
+from avant_api.app.price_cascade_cache import safe_site_cascades
+from avant_api.app.reward_cache import EMPTY_TTL_SECONDS, RewardCache
 from avant_api.modules.price_floor_public.dto import PublicPriceFloorsOut
-
-log = logging.getLogger("avant.api.price_floor_public")
 
 TAG_SITE_KEY = "avant:price-floors:tag:{key}"
 NO_SITE = ""
-EMPTY_TTL_SECONDS = 300
 
 
 class PublicPriceFloorService:
@@ -72,31 +64,8 @@ class PublicPriceFloorService:
         return PublicPriceFloorsOut(
             control_percent=stored["control_percent"],
             floors=stored["floors"].get(country, {}),
-            cascades=self._safe_cascades(str(site_id)).get(country, {}),
+            cascades=safe_site_cascades(self._cache, self._uows, str(site_id)).get(country, {}),
         )
-
-    def _cascades(self, site_id: str) -> dict[str, dict[str, list[str]]]:
-        """A escada da Cascata de todos os países do site, do cache ou do banco (e guardada)."""
-        cascade_key = CASCADE_CACHE_KEY.format(site_id=site_id)
-        cached = self._cache.get(cascade_key)
-        if cached is not None:
-            try:
-                stored: dict[str, dict[str, list[str]]] = json.loads(cached)
-                return stored
-            except ValueError:
-                log.warning("escada da Cascata inválida no cache do site %s", site_id)
-        found = public_price_cascades(self._uows.trusted_uow(), site_id=uuid.UUID(site_id))
-        ttl = FLOOR_CACHE_SECONDS if found else EMPTY_TTL_SECONDS
-        self._cache.set(cascade_key, json.dumps(found), ttl)
-        return found
-
-    def _safe_cascades(self, site_id: str) -> dict[str, dict[str, list[str]]]:
-        """A escada da Cascata, ou vazio (e um aviso) quando a busca falha: os floors seguem."""
-        try:
-            return self._cascades(site_id)
-        except Exception:
-            log.warning("falha ao buscar a escada da Cascata do site %s", site_id, exc_info=True)
-            return {}
 
     def _load(self, key: str, content_hash: str) -> tuple[str, str] | None:
         """Lê do banco e guarda o site da tag e os floors do hash; vazio sem regra na tag."""

@@ -113,9 +113,24 @@ class PublicRewardOut(BaseModel):
         )
 
 
+class PublicRewardPriceOut(BaseModel):
+    # Percentual do grupo de controle e, por bloco Rewards*, os três floors da escada do país.
+    control_percent: int
+    cascades: dict[str, list[str]]
+
+
 class PublicPageOut(BaseModel):
     # Vazio: a página não tem reward ativo com ad units para mostrar.
     reward: PublicRewardOut | None
+    # Vazio: as regras de preço do site estão desligadas.
+    price_rules: PublicRewardPriceOut | None = None
+
+
+class CachedPage(BaseModel):
+    # O que o cache guarda por página: o reward e, só para o service, o site e o controle.
+    reward: PublicRewardOut | None
+    site_id: uuid.UUID | None = None
+    control_percent: int | None = None
 
 
 class RewardEventIn(BaseModel):

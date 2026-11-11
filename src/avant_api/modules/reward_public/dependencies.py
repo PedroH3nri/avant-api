@@ -15,6 +15,7 @@ def public_reward_service(services: Services = Depends(get_services)) -> PublicR
         services.rewards,
         services.reward_events,
         services.bucket,
+        services.countries,
         base_url=services.settings.app_base_url,
         groone_network_code=services.settings.gam_groone_network_code,
     )
