@@ -38,6 +38,7 @@ from avant_api.modules.price_rules.dto import (
     PriceRuleStatusIn,
 )
 from avant_api.modules.price_rules.floor_cache import forget_rule, forget_site
+from avant_api.modules.price_rules.service import stored_drop_tiers
 from avant_api.shared.dto import PageOut, page_out
 
 
@@ -166,14 +167,15 @@ class ClientPriceRuleService:
     def update_config(
         self, actor: Actor, site_id: uuid.UUID, rule_id: uuid.UUID, body: PriceRuleConfigIn
     ) -> PriceRuleDetailsOut:
-        """Grava os limites da regra; sem ``drop_tiers`` mantém a queda guardada."""
-        stored = self.get(actor, site_id, rule_id)
+        """Grava os limites da regra; sem ``drop_tiers`` mantém a queda guardada, lida antes em
+        outra transação (o core confere a permissão e o site na gravação)."""
+        stored = None if body.drop_tiers else stored_drop_tiers(self._uows.trusted_uow(), rule_id)
         details = update_client_price_rule_config(
             self._uows.trusted_uow(),
             actor=actor,
             site_id=site_id,
             rule_id=rule_id,
-            data=body.to_core(stored.config.drop_tiers if stored.config else None),
+            data=body.to_core(stored),
             clock=self._clock,
         )
         forget_rule(self._cache, details.rule)

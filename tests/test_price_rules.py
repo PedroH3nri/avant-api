@@ -26,7 +26,7 @@ from avant_api.app.container import Services
 from avant_api.app.countries import FixedCountries
 from tests.conftest import CapturingMailer
 from tests.test_ad_tags import CONTENT, _site
-from tests.test_api import _csrf, _onboard_owner
+from tests.test_api import PASSWORD, _csrf, _onboard_owner
 from tests.test_internal import _staff
 from tests.test_rewards import _cache
 from tests.test_team import _member_client
@@ -582,8 +582,10 @@ def test_automatic_rule_changes_forget_only_the_floors(
     calls = [
         (client, f"{base}/{rule_id}/floor", "put", {"floor_micros": 1_050_000}),
         (client, f"{base}/{rule_id}", "patch", {"status": "paused"}),
+        (client, f"{base}/{rule_id}/config", "put", _config()),
         (staff, f"{internal}/{rule_id}/floor", "put", {"floor_micros": 1_130_000}),
         (staff, f"{internal}/{rule_id}", "patch", {"status": "active"}),
+        (staff, f"{internal}/{rule_id}/config", "put", _config()),
     ]
     for caller, url, verb, body in calls:
         cascade_key, floor_keys = _seed_caches(client, site_id, HASH)
@@ -622,3 +624,39 @@ def test_blocks_and_settings_forget_floors_and_cascades(
     )
     assert refused.status_code == 422
     assert _present(client, cascade_key, floor_keys) == (True, True)
+
+
+def test_config_save_needs_manage_without_view(
+    client: TestClient, engine: Engine, mailer: CapturingMailer
+) -> None:
+    site_id, _, _ = _cascade_site(client, engine, mailer, "BR")
+    base = f"/api/v1/sites/{site_id}/price-rules"
+    rule_id = client.get(base, params={"model": "cascade"}).json()["items"][0]["id"]
+    url = f"{base}/{rule_id}/config"
+    stored = client.put(url, json=_config(drop_tiers=3), headers=_csrf(client))
+    assert stored.json()["config"]["drop_tiers"] == 3
+    role = client.post(
+        "/api/v1/roles",
+        json={"name": "Só edita", "permissions": ["price_rules.manage"], "site_scope": "all"},
+        headers=_csrf(client),
+    )
+    assert role.status_code == 201, role.text
+    invited = client.post(
+        "/api/v1/invitations",
+        json={"email": "edita@acai.com", "role_id": role.json()["id"]},
+        headers=_csrf(client),
+    )
+    assert invited.status_code == 201, invited.text
+    editor = TestClient(client.app)
+    accepted = editor.post(
+        f"/api/v1/auth/invitations/{mailer.sent[-1].token}/accept",
+        json={"name": "Edita", "password": PASSWORD},
+    )
+    assert accepted.status_code == 200, accepted.text
+    assert editor.get(f"{base}/{rule_id}").status_code == 403
+    kept = editor.put(url, json=_config(pmr_floor=45), headers=_csrf(editor))
+    assert kept.status_code == 200, kept.text
+    assert kept.json()["config"]["drop_tiers"] == 3
+    explicit = editor.put(url, json=_config(drop_tiers=1), headers=_csrf(editor))
+    assert explicit.status_code == 200, explicit.text
+    assert explicit.json()["config"]["drop_tiers"] == 1

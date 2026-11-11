@@ -4,6 +4,8 @@ import uuid
 from datetime import date
 
 from avant_core.access.models import Actor
+from avant_core.ports import UnitOfWork
+from avant_core.price_rules.catalog import DEFAULT_DROP_TIERS
 from avant_core.price_rules.enums import PriceRuleModel
 from avant_core.price_rules.services import (
     get_price_rule,
@@ -38,6 +40,13 @@ from avant_api.modules.price_rules.dto import (
 )
 from avant_api.modules.price_rules.floor_cache import forget_rule, forget_site
 from avant_api.shared.dto import PageOut, page_out
+
+
+def stored_drop_tiers(uow: UnitOfWork, rule_id: uuid.UUID) -> int:
+    """A queda em degraus guardada na config da regra, ou o padrão enquanto não há config."""
+    with uow:
+        config = uow.price_rules.get_config(rule_id)
+    return config.drop_tiers if config else DEFAULT_DROP_TIERS
 
 
 class PriceRuleService:
@@ -164,14 +173,19 @@ class PriceRuleService:
     def update_config(
         self, actor: Actor, site_id: uuid.UUID, rule_id: uuid.UUID, body: PriceRuleConfigIn
     ) -> PriceRuleDetailsOut:
-        """Grava os limites da regra; sem ``drop_tiers`` mantém a queda guardada."""
-        stored = self.get(actor, site_id, rule_id)
+        """Grava os limites da regra; sem ``drop_tiers`` mantém a queda guardada, lida antes em
+        outra transação (o core confere a permissão e o site na gravação)."""
+        stored = (
+            None
+            if body.drop_tiers
+            else stored_drop_tiers(self._uows.uow(actor.company_id), rule_id)
+        )
         details = update_price_rule_config(
             self._uows.uow(actor.company_id),
             actor=actor,
             site_id=site_id,
             rule_id=rule_id,
-            data=body.to_core(stored.config.drop_tiers if stored.config else None),
+            data=body.to_core(stored),
             clock=self._clock,
         )
         forget_rule(self._cache, details.rule)
