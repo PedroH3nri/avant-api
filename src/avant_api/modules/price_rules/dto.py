@@ -155,12 +155,17 @@ class PriceRuleConfigOut(BaseModel):
 class PriceRuleDetailsOut(PriceRuleOut):
     # Vazio até a primeira hora do motor.
     config: PriceRuleConfigOut | None
+    tiers_micros: list[int]
 
     @classmethod
     def of_details(cls, details: PriceRuleDetails) -> "PriceRuleDetailsOut":
-        """Monta a regra com os limites."""
+        """Monta a regra com os limites e os degraus da moeda."""
         config = PriceRuleConfigOut.of(details.config) if details.config else None
-        return cls(**PriceRuleOut.of(details.rule).model_dump(), config=config)
+        return cls(
+            **PriceRuleOut.of(details.rule).model_dump(),
+            config=config,
+            tiers_micros=list(details.tiers),
+        )
 
 
 class PriceRuleConfigIn(BaseModel):
@@ -169,7 +174,7 @@ class PriceRuleConfigIn(BaseModel):
     min_eligible_requests: int = Field(ge=0)
     floor_min_micros: int = Field(ge=0)
     floor_max_micros: int = Field(ge=0)
-    step_size: int = Field(ge=1, le=10)
+    step_size: int = Field(ge=1, le=3)
     automatic: bool = False
 
     def to_core(self) -> PriceRuleConfigInput:
