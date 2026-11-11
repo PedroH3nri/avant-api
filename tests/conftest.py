@@ -18,6 +18,7 @@ from avant_core.company.enums import InvitationKind
 from avant_core.db.uow import SqlAlchemyUnitOfWork
 from avant_core.identity.security.crypto import FernetSecretBox
 from avant_core.identity.security.passwords import Argon2PasswordHasher
+from avant_core.identity.services import request_password_reset
 from avant_core.metrics.models import DateRange
 from avant_core.ports import Notice
 from avant_core.schedules.models import ScheduledReportMail
@@ -28,6 +29,7 @@ from sqlalchemy import Engine, create_engine, text
 
 from avant_api.app.container import Services
 from avant_api.app.settings import Settings
+from avant_api.app.tasks import REQUEST_PASSWORD_RESET, RecordingQueue
 from avant_api.main import create_app
 
 APP_URL = os.environ.get("AVANT_TEST_DATABASE_URL")
@@ -70,6 +72,32 @@ class CapturingMailer:
         self.reports.append((to, report))
 
 
+def settings_for_tests(**overrides: object) -> Settings:
+    """Settings dos testes: Redis e fila apontam para endereços que nunca se abrem, porque os
+    testes usam os fakes em memória do Services."""
+    values: dict[str, object] = {
+        "database_url": APP_URL or "",
+        "avant_env": "test",
+        "mfa_encryption_key": "x" * 44,
+        "redis_url": "redis://127.0.0.1:1/0",
+        "celery_broker_url": "amqp://guest:guest@127.0.0.1:1//",
+    }
+    return Settings(**(values | overrides))  # type: ignore[arg-type]
+
+
+def run_password_reset_tasks(client: TestClient) -> None:
+    """Faz o papel do worker: roda os pedidos de nova senha que a API deixou na fila."""
+    services = client.app.state.services  # type: ignore[attr-defined]
+    queue = services.tasks
+    assert isinstance(queue, RecordingQueue)
+    pending = [args for name, args in queue.sent if name == REQUEST_PASSWORD_RESET]
+    queue.sent = [task for task in queue.sent if task[0] != REQUEST_PASSWORD_RESET]
+    for (email,) in pending:
+        request_password_reset(
+            services.trusted_uow(), email=email, clock=services.clock, mailer=services.mailer
+        )
+
+
 @pytest.fixture(scope="session")
 def engine() -> Iterator[Engine]:
     if not (APP_URL and OWNER_URL):
@@ -93,7 +121,7 @@ def mailer() -> CapturingMailer:
 def client(engine: Engine, mailer: CapturingMailer) -> Iterator[TestClient]:
     key = Fernet.generate_key().decode()
     services = Services(
-        settings=Settings(database_url=APP_URL or "", avant_env="test", mfa_encryption_key=key),
+        settings=settings_for_tests(mfa_encryption_key=key),
         engine=engine,
         clock=SystemClock(),
         hasher=Argon2PasswordHasher(),

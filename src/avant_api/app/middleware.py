@@ -38,7 +38,10 @@ CONTENT_SECURITY_POLICY = "default-src 'none'; frame-ancestors 'none'"
 
 
 def _is_docs_page(request: Request) -> bool:
-    """Diz se o pedido é da página HTML da documentação, que precisa carregar scripts."""
+    """Diz se o pedido é da página HTML da documentação, que precisa carregar scripts; com a
+    documentação fechada, não há exceção."""
+    if request.app.docs_url is None:
+        return False
     pages = {request.app.docs_url, request.app.swagger_ui_oauth2_redirect_url}
     return request.url.path in pages - {None}
 

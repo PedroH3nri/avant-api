@@ -5,11 +5,11 @@ from sqlalchemy import create_engine, text
 
 from avant_api.app.container import engine_options
 from avant_api.app.settings import Settings
-from tests.conftest import APP_URL
+from tests.conftest import APP_URL, settings_for_tests
 
 
 def _settings() -> Settings:
-    return Settings(database_url=APP_URL or "", avant_env="test", mfa_encryption_key="x" * 44)
+    return settings_for_tests()
 
 
 def test_pool_is_bounded_and_waits_little() -> None:

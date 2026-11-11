@@ -11,7 +11,7 @@ from avant_core.shared.clock import SystemClock
 from fastapi.testclient import TestClient
 from sqlalchemy import Engine
 
-from tests.conftest import CapturingMailer
+from tests.conftest import CapturingMailer, run_password_reset_tasks
 from tests.test_api import PASSWORD, _csrf, _onboard_owner
 
 
@@ -172,6 +172,7 @@ def test_reset_link_burns_after_five_wrong_codes(
     _onboard_owner(client, engine, mailer)
     _enable(client)
     client.post("/api/v1/auth/password/forgot", json={"email": "dono@acai.com"})
+    run_password_reset_tasks(client)
     token = mailer.resets[-1][1]
     body = {"token": token, "password": "outra-senha-456", "mfa_code": "000000"}
     codes = [

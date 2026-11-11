@@ -63,6 +63,17 @@ def test_swagger_page_keeps_working_without_the_policy(client: TestClient) -> No
     assert docs.headers["X-Frame-Options"] == "DENY"
 
 
+def test_policy_has_no_exception_when_the_docs_are_closed(client: TestClient) -> None:
+    services = client.app.state.services  # type: ignore[attr-defined]
+    production = replace(
+        services, settings=services.settings.model_copy(update={"avant_env": "production"})
+    )
+    closed = TestClient(create_app(production))
+    for path in ("/api/docs", "/docs/oauth2-redirect", "/api/docs/oauth2-redirect"):
+        response = closed.get(path)
+        assert response.headers["Content-Security-Policy"] == CONTENT_SECURITY_POLICY, path
+
+
 def test_masked_path_hides_the_invitation_token() -> None:
     token = "segredo-do-convite"
     assert masked_path(f"/api/v1/auth/invitations/{token}") == "/api/v1/auth/invitations/***"
@@ -125,6 +136,32 @@ def test_invalid_bearer_is_limited_per_ip_before_the_database(
     assert blocked.json()["error"]["code"] == "too_many_attempts"
     assert int(blocked.headers["Retry-After"]) > 0
     assert len(calls) == API_KEY_IP.limit
+
+
+def test_valid_key_never_holds_a_slot_of_the_ip_limit(
+    client: TestClient, engine: Engine, mailer: CapturingMailer, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    _onboard_owner(client, engine, mailer)
+    created = client.post(
+        "/api/v1/api-keys",
+        json={"name": "ERP", "permissions": ["sites.view"]},
+        headers=_csrf(client),
+    ).json()
+    services = client.app.state.services  # type: ignore[attr-defined]
+    seen: list[int] = []
+
+    def counting(*args: Any, **kwargs: Any) -> Any:
+        """Lê o contador do IP enquanto a chave é conferida no banco."""
+        seen.append(services.limiter.count(API_KEY_IP, "testclient"))
+        return authenticate_api_key(*args, **kwargs)
+
+    monkeypatch.setattr(security, "authenticate_api_key", counting)
+    bearer = TestClient(client.app)
+    bearer.headers["Authorization"] = f"Bearer {created['token']}"
+    for _ in range(3):
+        assert bearer.get("/api/v1/sites").status_code == 200
+    assert seen == [0, 0, 0]
+    assert services.limiter.count(API_KEY_IP, "testclient") == 0
 
 
 def test_session_cookie_is_httponly_and_samesite(

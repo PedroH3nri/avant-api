@@ -17,7 +17,7 @@ from sqlalchemy import Engine
 from avant_api.app.errors import GoogleFailed
 from avant_api.app.google import identity_from_id_token
 from avant_api.app.limits import Limiter, MemoryCounter, RedisCounter, Rule
-from tests.conftest import CapturingMailer
+from tests.conftest import CapturingMailer, run_password_reset_tasks
 from tests.test_api import PASSWORD, _csrf, _onboard_owner
 
 NEW = "outra-senha-456"
@@ -35,8 +35,12 @@ def test_forgot_and_reset_password(
 ) -> None:
     _onboard_owner(client, engine, mailer)
     forgot = client.post("/api/v1/auth/password/forgot", json={"email": "ninguem@x.com"})
-    assert forgot.status_code == 202 and mailer.resets == []
+    assert forgot.status_code == 202
+    run_password_reset_tasks(client)
+    assert mailer.resets == []
     assert client.post("/api/v1/auth/password/forgot", json={"email": EMAIL}).status_code == 202
+    assert mailer.resets == []
+    run_password_reset_tasks(client)
     ((to, token),) = mailer.resets
     assert to == EMAIL
 

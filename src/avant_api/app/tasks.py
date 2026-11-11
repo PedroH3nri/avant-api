@@ -16,6 +16,7 @@ SYNC_NETWORK = "avant.gam.sync_network"
 REFRESH_REPORT_PREVIEW = "avant.default.refresh_report_preview"
 CHECK_CHECKLIST = "avant.default.check_checklist"
 RUN_GAM_TOOL = "avant.gam.run_tool"
+REQUEST_PASSWORD_RESET = "avant.mail.request_password_reset"
 
 
 class TaskQueue(Protocol):
@@ -53,7 +54,7 @@ class CeleryQueue:
 
 @dataclass
 class RecordingQueue:
-    """Local e testes: guarda o que seria enfileirado."""
+    """Fake dos testes: guarda o que seria enfileirado."""
 
     sent: list[tuple[str, tuple[Any, ...]]] = field(default_factory=list)
     offline: bool = False

@@ -61,8 +61,12 @@ def test_create_use_and_revoke(client: TestClient, engine: Engine, mailer: Captu
     assert key.get("/api/v1/sites").status_code == 401
     (revoked,) = client.get("/api/v1/api-keys").json()["items"]
     assert revoked["revoked_at"] is not None and revoked["last_used_at"] is not None
-    actions = {e["action"] for e in client.get("/api/v1/audit").json()["items"]}
-    assert {"api_key.created", "api_key.revoked"} <= actions
+    entries = client.get("/api/v1/audit").json()["items"]
+    assert {"api_key.created", "api_key.revoked"} <= {entry["action"] for entry in entries}
+    (by_key,) = [entry for entry in entries if entry["action"] == "api_key.revoked"]
+    assert by_key["actor_kind"] == "api_key" and by_key["actor_api_key_id"] == created["id"]
+    (by_owner,) = [entry for entry in entries if entry["action"] == "api_key.created"]
+    assert by_owner["actor_kind"] == "member" and by_owner["actor_api_key_id"] is None
 
 
 def test_permissions_on_keys(client: TestClient, engine: Engine, mailer: CapturingMailer) -> None:
