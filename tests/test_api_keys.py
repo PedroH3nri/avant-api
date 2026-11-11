@@ -1,15 +1,21 @@
 """Chaves de API contra o Postgres: criar pela sessão, usar pelo Bearer, limites."""
 
 import os
+import secrets
+from datetime import timedelta
 
 import pytest
 import redis
+from avant_core.access.models import ApiKey
+from avant_core.db.uow import SqlAlchemyUnitOfWork
+from avant_core.shared.clock import SystemClock
+from avant_core.shared.tokens import hash_token
 from fastapi.testclient import TestClient
 from sqlalchemy import Engine
 
 from avant_api.app.limits import API_KEY, BucketRule, MemoryBucket, RedisBucket
-from tests.conftest import CapturingMailer
-from tests.test_api import _csrf, _onboard_owner
+from tests.conftest import FINANCE, CapturingMailer, run_password_reset_tasks
+from tests.test_api import PASSWORD, _csrf, _onboard_owner, _owner_invite
 from tests.test_team import _member_client
 
 
@@ -136,3 +142,82 @@ def test_redis_bucket() -> None:
         client.delete(k)
     _exercise(RedisBucket(client, prefix=prefix), "a")
     assert client.ttl(f"{prefix}:a:blocked") > 0
+
+
+def _keys_in_two_companies(
+    client: TestClient, engine: Engine, mailer: CapturingMailer
+) -> list[str]:
+    """O dono da Açaí entra também na Bacuri e tem uma chave em cada Empresa."""
+    _onboard_owner(client, engine, mailer)
+    tokens = [_create(client)["token"]]
+    bacuri = TestClient(client.app)
+    invite = _owner_invite(engine, mailer, "dono@bacuri.com", "Bacuri Sites")
+    opened = bacuri.post(
+        f"/api/v1/auth/invitations/{invite}/accept", json={"name": "Bia", "password": PASSWORD}
+    )
+    assert opened.status_code == 200, opened.text
+    invited = bacuri.post(
+        "/api/v1/invitations",
+        json={"email": "dono@acai.com", "role_id": str(FINANCE)},
+        headers=_csrf(bacuri),
+    )
+    assert invited.status_code == 201, invited.text
+    accepted = client.post(
+        f"/api/v1/auth/invitations/{mailer.sent[-1].token}/accept", json={}, headers=_csrf(client)
+    )
+    assert accepted.status_code == 200, accepted.text
+    tokens.append(_insert_key(engine, opened.json()["active_company_id"], "dono@acai.com"))
+    for key_token in tokens:
+        assert _bearer(client, key_token).get("/api/v1/company").status_code != 401
+    return tokens
+
+
+def _insert_key(engine: Engine, company_id: str, email: str) -> str:
+    """Grava direto no banco uma chave da pessoa na Empresa e devolve o token."""
+    token = "avk_" + secrets.token_urlsafe(32)[:43].ljust(43, "x")
+    now = SystemClock().now()
+    with SqlAlchemyUnitOfWork(engine, bypass_rls=True) as uow:
+        user = uow.users.get_by_email(email)
+        assert user is not None
+        membership = next(
+            membership
+            for membership in uow.memberships.list_for_user(user.id)
+            if str(membership.company_id) == company_id
+        )
+        uow.api_keys.add(
+            ApiKey(
+                company_id=membership.company_id,
+                membership_id=membership.id,
+                name="Bacuri",
+                prefix=token[4:12],
+                secret_hash=hash_token(token),
+                permissions=["reports.view"],
+                created_at=now,
+                expires_at=now + timedelta(days=30),
+            )
+        )
+        uow.commit()
+    return token
+
+
+def test_change_password_revokes_keys_in_every_company(
+    client: TestClient, engine: Engine, mailer: CapturingMailer
+) -> None:
+    tokens = _keys_in_two_companies(client, engine, mailer)
+    body = {"current_password": PASSWORD, "new_password": "outra-senha-456"}
+    changed = client.post("/api/v1/auth/password/change", json=body, headers=_csrf(client))
+    assert changed.status_code == 204, changed.text
+    for key_token in tokens:
+        assert _bearer(client, key_token).get("/api/v1/company").status_code == 401
+
+
+def test_reset_password_revokes_keys_in_every_company(
+    client: TestClient, engine: Engine, mailer: CapturingMailer
+) -> None:
+    tokens = _keys_in_two_companies(client, engine, mailer)
+    client.post("/api/v1/auth/password/forgot", json={"email": "dono@acai.com"})
+    run_password_reset_tasks(client)
+    body = {"token": mailer.resets[-1][1], "password": "outra-senha-456"}
+    assert client.post("/api/v1/auth/password/reset", json=body).status_code == 204
+    for key_token in tokens:
+        assert _bearer(client, key_token).get("/api/v1/company").status_code == 401
