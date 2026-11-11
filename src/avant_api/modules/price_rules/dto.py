@@ -4,6 +4,7 @@ na moeda da network do site (sem conversão). Datas em ISO 8601 UTC."""
 import uuid
 from datetime import date, datetime
 
+from avant_core.price_rules.catalog import DEFAULT_DROP_TIERS
 from avant_core.price_rules.enums import (
     BlockKind,
     PriceRuleAction,
@@ -12,6 +13,8 @@ from avant_core.price_rules.enums import (
     PriceRuleStatus,
 )
 from avant_core.price_rules.models import (
+    CascadeHour,
+    HourlyCounts,
     PriceRule,
     PriceRuleConfig,
     PriceRuleConfigInput,
@@ -102,6 +105,7 @@ class PriceRuleOut(BaseModel):
     content_hash: str
     block: str
     kind: BlockKind
+    model: PriceRuleModel
     country_code: str
     currency: str
     floor_micros: int
@@ -118,6 +122,7 @@ class PriceRuleOut(BaseModel):
             content_hash=rule.content_hash,
             block=rule.block,
             kind=rule.kind,
+            model=rule.model,
             country_code=rule.country_code,
             currency=rule.currency,
             floor_micros=rule.floor_micros,
@@ -134,6 +139,7 @@ class PriceRuleConfigOut(BaseModel):
     floor_min_micros: int
     floor_max_micros: int
     step_size: int
+    drop_tiers: int
     automatic: bool
     updated_at: datetime
 
@@ -147,6 +153,7 @@ class PriceRuleConfigOut(BaseModel):
             floor_min_micros=config.floor_min_micros,
             floor_max_micros=config.floor_max_micros,
             step_size=config.step_size,
+            drop_tiers=config.drop_tiers,
             automatic=config.automatic,
             updated_at=config.updated_at,
         )
@@ -175,11 +182,17 @@ class PriceRuleConfigIn(BaseModel):
     floor_min_micros: int = Field(ge=0)
     floor_max_micros: int = Field(ge=0)
     step_size: int = Field(ge=1, le=3)
+    # Vazio mantém a queda guardada na regra (a Automática ignora).
+    drop_tiers: int | None = Field(None, ge=1, le=3)
     automatic: bool = False
 
-    def to_core(self) -> PriceRuleConfigInput:
-        """Os limites no formato do caso de uso."""
-        return PriceRuleConfigInput(**self.model_dump())
+    def to_core(self, stored_drop_tiers: int | None) -> PriceRuleConfigInput:
+        """Os limites no formato do caso de uso; sem ``drop_tiers`` vale o guardado na regra, e
+        sem config ainda, o padrão."""
+        drop_tiers = self.drop_tiers or stored_drop_tiers or DEFAULT_DROP_TIERS
+        return PriceRuleConfigInput(
+            **self.model_dump(exclude={"drop_tiers"}), drop_tiers=drop_tiers
+        )
 
 
 class PriceRuleStatusIn(BaseModel):
@@ -236,4 +249,39 @@ class PriceRuleHourOut(BaseModel):
             revenue_micros=counts.revenue_micros,
             pmr=counts.pmr,
             ecpm_micros=counts.ecpm_micros,
+        )
+
+
+class CascadeTryOut(BaseModel):
+    eligible_requests: int
+    responses_served: int
+    impressions: int
+    revenue_micros: int
+
+    @classmethod
+    def of(cls, counts: HourlyCounts) -> "CascadeTryOut":
+        """Monta os números de uma tentativa da hora."""
+        return cls(
+            eligible_requests=counts.eligible_requests,
+            responses_served=counts.responses_served,
+            impressions=counts.impressions,
+            revenue_micros=counts.revenue_micros,
+        )
+
+
+class CascadeHourOut(BaseModel):
+    date: date
+    hour: int
+    floor_micros: int
+    # As quatro tentativas, da primeira à quarta.
+    tries: list[CascadeTryOut]
+
+    @classmethod
+    def of(cls, row: CascadeHour) -> "CascadeHourOut":
+        """Monta os números das quatro tentativas de uma hora da regra Cascata."""
+        return cls(
+            date=row.date,
+            hour=row.hour,
+            floor_micros=row.floor_micros,
+            tries=[CascadeTryOut.of(counts) for counts in row.tries],
         )

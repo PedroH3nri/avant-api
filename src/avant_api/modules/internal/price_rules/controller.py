@@ -6,13 +6,16 @@ grava na auditoria do cliente. Os valores vão em micros, na moeda da network do
 
 import uuid
 from datetime import date
+from typing import Literal
 
 from avant_core.access.models import Actor
+from avant_core.price_rules.enums import PriceRuleModel
 from fastapi import APIRouter, Depends, Query
 
 from avant_api.app.security import require_staff
 from avant_api.modules.internal.price_rules.dependencies import client_price_rule_service
 from avant_api.modules.internal.price_rules.dto import (
+    CascadeHourOut,
     PriceRuleBlocksIn,
     PriceRuleConfigIn,
     PriceRuleDetailsOut,
@@ -85,11 +88,13 @@ def index(
     page: int = Query(default=1, ge=1),
     content_hash: str | None = Query(default=None, max_length=64),
     country: str | None = Query(default=None, max_length=2),
+    model: Literal["automatic", "cascade"] | None = Query(default=None),
     actor: Actor = Depends(require_staff(VIEW)),
     service: ClientPriceRuleService = Depends(client_price_rule_service),
 ) -> PageOut[PriceRuleOut]:
-    """Uma página das regras do site, com filtro por hash e país."""
-    return service.page(actor, site_id, page, content_hash, country)
+    """Uma página das regras do site, com filtro por hash, país e modelo."""
+    rule_model = PriceRuleModel(model) if model else None
+    return service.page(actor, site_id, page, content_hash, country, rule_model)
 
 
 @router.get(f"{BASE}/{{rule_id}}")
@@ -128,6 +133,20 @@ def hours(
     """Os números do GAM da regra hora a hora (até 31 dias, a mais nova primeiro), na moeda
     da network: requisições, respostas, impressões, receita, PMR e eCPM."""
     return service.hours(actor, site_id, rule_id, start, end)
+
+
+@router.get(f"{BASE}/{{rule_id}}/cascade-hours")
+def cascade_hours(
+    site_id: uuid.UUID,
+    rule_id: uuid.UUID,
+    start: date = Query(),
+    end: date = Query(),
+    actor: Actor = Depends(require_staff(VIEW)),
+    service: ClientPriceRuleService = Depends(client_price_rule_service),
+) -> list[CascadeHourOut]:
+    """Os números da regra Cascata hora a hora (até 31 dias, a mais nova primeiro), por
+    tentativa: requisições, respostas, impressões e receita; só para regra Cascata."""
+    return service.cascade_hours(actor, site_id, rule_id, start, end)
 
 
 @router.put(f"{BASE}/{{rule_id}}/config")

@@ -25,7 +25,7 @@ def prices(
     content_hash: str = Query(alias="hash", pattern=r"^[A-Za-z0-9_-]{1,64}$"),
     service: PublicPriceFloorService = Depends(public_price_floor_service),
 ) -> PublicPriceFloorsOut:
-    """O grupo de controle e os floors por bloco do hash, no país de quem pede; sem regra na
-    tag, ``control_percent`` vazio."""
+    """O grupo de controle, os floors por bloco do hash e a escada da Cascata do site, no país
+    de quem pede; sem regra na tag, ``control_percent`` vazio."""
     response.headers.update(OPEN_HEADERS)
     return service.floors(key, content_hash, client_address(request))
