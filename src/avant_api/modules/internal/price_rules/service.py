@@ -9,6 +9,7 @@ from avant_core.price_rules.enums import PriceRuleModel
 from avant_core.price_rules.services import (
     get_client_price_rule,
     get_client_price_rule_site,
+    list_client_cascade_rule_hours,
     list_client_price_rule_history,
     list_client_price_rule_hours,
     page_client_price_rule_sites,
@@ -24,6 +25,7 @@ from avant_core.shared.clock import Clock
 from avant_api.app.ports import UnitOfWorkFactory
 from avant_api.app.reward_cache import RewardCache
 from avant_api.modules.price_rules.dto import (
+    CascadeHourOut,
     PriceRuleConfigIn,
     PriceRuleDetailsOut,
     PriceRuleFloorIn,
@@ -35,7 +37,7 @@ from avant_api.modules.price_rules.dto import (
     PriceRuleSiteSummaryOut,
     PriceRuleStatusIn,
 )
-from avant_api.modules.price_rules.floor_cache import forget_floors
+from avant_api.modules.price_rules.floor_cache import forget_rule, forget_site
 from avant_api.shared.dto import PageOut, page_out
 
 
@@ -65,7 +67,7 @@ class ClientPriceRuleService:
     def update_settings(
         self, actor: Actor, site_id: uuid.UUID, body: PriceRuleSettingsIn
     ) -> PriceRuleSiteOut:
-        """Liga ou desliga a regra e grava o percentual do controle."""
+        """Liga ou desliga a regra, grava o controle e apaga o cache dos floors e da escada."""
         view = update_client_price_rule_settings(
             self._uows.trusted_uow(),
             actor=actor,
@@ -74,12 +76,13 @@ class ClientPriceRuleService:
             control_percent=body.control_percent,
             clock=self._clock,
         )
+        forget_site(self._cache, self._uows.trusted_uow(), site_id)
         return PriceRuleSiteOut.of(view)
 
     def update_blocks(
         self, actor: Actor, site_id: uuid.UUID, blocks: dict[str, PriceRuleModel]
     ) -> PriceRuleSiteOut:
-        """Troca os blocos marcados e o modelo de cada um."""
+        """Troca os blocos e o modelo de cada um e apaga o cache dos floors e da escada."""
         view = update_client_price_rule_blocks(
             self._uows.trusted_uow(),
             actor=actor,
@@ -87,6 +90,7 @@ class ClientPriceRuleService:
             blocks=blocks,
             clock=self._clock,
         )
+        forget_site(self._cache, self._uows.trusted_uow(), site_id)
         return PriceRuleSiteOut.of(view)
 
     def page(
@@ -96,6 +100,7 @@ class ClientPriceRuleService:
         page: int,
         content_hash: str | None,
         country_code: str | None,
+        model: PriceRuleModel | None,
     ) -> PageOut[PriceRuleOut]:
         """Uma página das regras do site."""
         found = page_client_price_rules(
@@ -105,6 +110,7 @@ class ClientPriceRuleService:
             page=page,
             content_hash=content_hash,
             country_code=country_code,
+            model=model,
         )
         return page_out(found, PriceRuleOut.of)
 
@@ -143,24 +149,40 @@ class ClientPriceRuleService:
         )
         return [PriceRuleHourOut.of(row) for row in rows]
 
+    def cascade_hours(
+        self, actor: Actor, site_id: uuid.UUID, rule_id: uuid.UUID, start: date, end: date
+    ) -> list[CascadeHourOut]:
+        """Os números da regra Cascata hora a hora, por tentativa, no período, até 31 dias."""
+        rows = list_client_cascade_rule_hours(
+            self._uows.trusted_uow(),
+            actor=actor,
+            site_id=site_id,
+            rule_id=rule_id,
+            start=start,
+            end=end,
+        )
+        return [CascadeHourOut.of(row) for row in rows]
+
     def update_config(
         self, actor: Actor, site_id: uuid.UUID, rule_id: uuid.UUID, body: PriceRuleConfigIn
     ) -> PriceRuleDetailsOut:
-        """Grava os limites da regra."""
+        """Grava os limites da regra; sem ``drop_tiers`` mantém a queda guardada."""
+        stored = self.get(actor, site_id, rule_id)
         details = update_client_price_rule_config(
             self._uows.trusted_uow(),
             actor=actor,
             site_id=site_id,
             rule_id=rule_id,
-            data=body.to_core(),
+            data=body.to_core(stored.config.drop_tiers if stored.config else None),
             clock=self._clock,
         )
+        forget_rule(self._cache, details.rule)
         return PriceRuleDetailsOut.of_details(details)
 
     def set_status(
         self, actor: Actor, site_id: uuid.UUID, rule_id: uuid.UUID, body: PriceRuleStatusIn
     ) -> PriceRuleDetailsOut:
-        """Ativa, pausa ou desliga a regra e apaga o cache dos floors do hash."""
+        """Ativa, pausa ou desliga a regra e apaga o cache que a regra alimenta."""
         details = set_client_price_rule_status(
             self._uows.trusted_uow(),
             actor=actor,
@@ -169,13 +191,13 @@ class ClientPriceRuleService:
             status=body.status,
             clock=self._clock,
         )
-        forget_floors(self._cache, details.rule.site_id, details.rule.content_hash)
+        forget_rule(self._cache, details.rule)
         return PriceRuleDetailsOut.of_details(details)
 
     def set_floor(
         self, actor: Actor, site_id: uuid.UUID, rule_id: uuid.UUID, body: PriceRuleFloorIn
     ) -> PriceRuleDetailsOut:
-        """Troca o floor à mão e apaga o cache dos floors do hash."""
+        """Troca o floor à mão e apaga o cache que a regra alimenta."""
         details = set_client_price_rule_floor(
             self._uows.trusted_uow(),
             actor=actor,
@@ -184,5 +206,5 @@ class ClientPriceRuleService:
             floor_micros=body.floor_micros,
             clock=self._clock,
         )
-        forget_floors(self._cache, details.rule.site_id, details.rule.content_hash)
+        forget_rule(self._cache, details.rule)
         return PriceRuleDetailsOut.of_details(details)

@@ -62,7 +62,8 @@ def page(
     url: str = Query(max_length=2000),
     service: PublicRewardService = Depends(public_reward_service),
 ) -> Response:
-    """A configuração do reward da página da URL; ``{"reward": null}`` quando não há."""
+    """A configuração do reward da página da URL; ``{"reward": null, "price_rules": null}``
+    quando não há."""
     body = service.page(url, client_address(request))
     headers = {**OPEN_CORS, "Cache-Control": CONFIG_CACHE}
     return Response(body, media_type="application/json", headers=headers)
