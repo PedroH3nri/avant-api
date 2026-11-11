@@ -2,6 +2,7 @@
 
 import json
 import logging
+import re
 import sys
 import traceback
 from datetime import UTC, datetime
@@ -9,6 +10,15 @@ from typing import Any
 
 # Campos que o LogRecord sempre tem; o resto veio de extra= e entra no JSON.
 _STANDARD = set(logging.makeLogRecord({}).__dict__) | {"message", "asctime"}
+
+# O token do convite vai no caminho (/auth/invitations/{token}); no log, fica mascarado.
+_INVITATION_TOKEN = re.compile(r"(/auth/invitations/)[^/]+")
+MASK = "***"
+
+
+def masked_path(path: str) -> str:
+    """O caminho do pedido pronto para o log, com o token do convite trocado por ***."""
+    return _INVITATION_TOKEN.sub(rf"\g<1>{MASK}", path)
 
 
 class JsonFormatter(logging.Formatter):

@@ -1,11 +1,23 @@
-"""Endurecimento da API: documentação fechada em produção, cabeçalhos e Redis fora do ar."""
+"""Endurecimento da API: documentação fechada em produção, cabeçalhos, Redis fora do ar,
+cookies da sessão, limite do Bearer por IP e segredos fora do log."""
 
+import logging
 from dataclasses import replace
+from typing import Any
 
+import pytest
+from avant_core.access.services import authenticate_api_key
 from fastapi.testclient import TestClient
+from sqlalchemy import Engine
 
-from avant_api.app.limits import Limiter, RedisCounter
+from avant_api.app import security
+from avant_api.app.limits import API_KEY_IP, Limiter, RedisCounter
+from avant_api.app.logs import JsonFormatter, masked_path
+from avant_api.app.middleware import CONTENT_SECURITY_POLICY
 from avant_api.main import create_app
+from avant_api.modules.auth.dependencies import auth_service
+from tests.conftest import CapturingMailer
+from tests.test_api import PASSWORD, _csrf, _onboard_owner
 
 
 def test_docs_are_closed_in_production(client: TestClient) -> None:
@@ -36,3 +48,117 @@ def test_redis_down_is_a_503_not_a_500(client: TestClient) -> None:
     assert response.status_code == 503
     assert response.json()["error"]["code"] == "service_unavailable"
     assert response.headers["Retry-After"] == "5"
+
+
+def test_every_response_has_the_content_security_policy(client: TestClient) -> None:
+    for response in (client.get("/api/v1/health"), client.get("/api/v1/nada")):
+        assert response.headers["Content-Security-Policy"] == CONTENT_SECURITY_POLICY
+    assert CONTENT_SECURITY_POLICY == "default-src 'none'; frame-ancestors 'none'"
+
+
+def test_swagger_page_keeps_working_without_the_policy(client: TestClient) -> None:
+    docs = client.get("/api/docs")
+    assert docs.status_code == 200 and "text/html" in docs.headers["Content-Type"]
+    assert "Content-Security-Policy" not in docs.headers
+    assert docs.headers["X-Frame-Options"] == "DENY"
+
+
+def test_masked_path_hides_the_invitation_token() -> None:
+    token = "segredo-do-convite"
+    assert masked_path(f"/api/v1/auth/invitations/{token}") == "/api/v1/auth/invitations/***"
+    accept = masked_path(f"/api/v1/auth/invitations/{token}/accept")
+    assert accept == "/api/v1/auth/invitations/***/accept"
+    assert masked_path("/api/v1/invitations/123/resend") == "/api/v1/invitations/123/resend"
+
+
+class _BrokenAuthService:
+    """Service do login que quebra em qualquer chamada, para forçar um 500."""
+
+    def preview_invitation(self, token: str) -> None:
+        """Simula um erro inesperado ao ler o convite."""
+        raise RuntimeError("falha inesperada")
+
+
+def test_unexpected_error_log_hides_the_invitation_token(
+    client: TestClient, caplog: pytest.LogCaptureFixture
+) -> None:
+    token = "tok-" + "s" * 40
+    app = client.app
+    app.dependency_overrides[auth_service] = _BrokenAuthService  # type: ignore[attr-defined]
+    try:
+        with caplog.at_level(logging.INFO):
+            response = TestClient(app, raise_server_exceptions=False).get(
+                f"/api/v1/auth/invitations/{token}"
+            )
+    finally:
+        app.dependency_overrides.clear()  # type: ignore[attr-defined]
+    assert response.status_code == 500
+    (error,) = [record for record in caplog.records if record.getMessage() == "erro inesperado"]
+    assert error.path == "/api/v1/auth/invitations/***"  # type: ignore[attr-defined]
+    assert token not in _rendered(caplog)
+
+
+def _rendered(caplog: pytest.LogCaptureFixture) -> str:
+    """Os registros da API como saem no log de produção (JSON); o httpx é o cliente do teste."""
+    formatter = JsonFormatter()
+    server = [record for record in caplog.records if record.name != "httpx"]
+    return "\n".join(formatter.format(record) for record in server)
+
+
+def test_invalid_bearer_is_limited_per_ip_before_the_database(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    calls: list[str] = []
+
+    def counting(*args: Any, **kwargs: Any) -> Any:
+        """Conta cada consulta da chave no banco."""
+        calls.append(kwargs["token"])
+        return authenticate_api_key(*args, **kwargs)
+
+    monkeypatch.setattr(security, "authenticate_api_key", counting)
+    bearer = TestClient(client.app)
+    bearer.headers["Authorization"] = "Bearer avk_" + "x" * 43
+    codes = [bearer.get("/api/v1/sites").status_code for _ in range(API_KEY_IP.limit)]
+    assert codes == [401] * API_KEY_IP.limit
+    blocked = bearer.get("/api/v1/sites")
+    assert blocked.status_code == 429
+    assert blocked.json()["error"]["code"] == "too_many_attempts"
+    assert int(blocked.headers["Retry-After"]) > 0
+    assert len(calls) == API_KEY_IP.limit
+
+
+def test_session_cookie_is_httponly_and_samesite(
+    client: TestClient, engine: Engine, mailer: CapturingMailer
+) -> None:
+    _onboard_owner(client, engine, mailer)
+    client.post("/api/v1/auth/logout", headers=_csrf(client))
+    login = client.post("/api/v1/auth/login", json={"email": "dono@acai.com", "password": PASSWORD})
+    assert login.status_code == 200
+    cookies = {
+        cookie.split("=")[0]: cookie.lower() for cookie in login.headers.get_list("set-cookie")
+    }
+    assert "httponly" in cookies["avant_session"]
+    assert "samesite=lax" in cookies["avant_session"]
+    assert "httponly" not in cookies["avant_csrf"]
+    assert "samesite=lax" in cookies["avant_csrf"]
+
+
+def test_api_key_never_reaches_the_log(
+    client: TestClient, engine: Engine, mailer: CapturingMailer, caplog: pytest.LogCaptureFixture
+) -> None:
+    _onboard_owner(client, engine, mailer)
+    created = client.post(
+        "/api/v1/api-keys",
+        json={"name": "ERP", "permissions": ["sites.view"]},
+        headers=_csrf(client),
+    )
+    token = created.json()["token"]
+    bearer = TestClient(client.app, raise_server_exceptions=False)
+    bearer.headers["Authorization"] = f"Bearer {token}"
+    with caplog.at_level(logging.INFO):
+        assert bearer.get("/api/v1/sites").status_code == 200
+        assert bearer.get("/api/v1/members").status_code == 403
+        assert bearer.get("/api/v1/nada").status_code == 404
+    assert any(record.getMessage() == "request" for record in caplog.records)
+    rendered = _rendered(caplog)
+    assert token not in rendered and token[4:] not in rendered
