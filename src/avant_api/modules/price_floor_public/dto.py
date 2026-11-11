@@ -8,3 +8,5 @@ class PublicPriceFloorsOut(BaseModel):
     control_percent: int | None = None
     # ``{bloco: valor de groone_prices}``, na moeda da network (``Content3_Mobile: "1.01"``).
     floors: dict[str, str] = {}
+    # ``{bloco: [1º, 2º, 3º]}`` no país de quem pede: a escada de floors da Cascata.
+    cascades: dict[str, list[str]] = {}

@@ -8,8 +8,8 @@ from datetime import UTC, date, datetime
 from avant_core.db.uow import SqlAlchemyUnitOfWork
 from avant_core.metrics.models import GamCounts, GamHourlyMetric
 from avant_core.metrics.services import maintain_key_value_hourly_partitions
-from avant_core.price_rules.catalog import FLOOR_CACHE_KEY
-from avant_core.price_rules.enums import BlockKind
+from avant_core.price_rules.catalog import CASCADE_CACHE_KEY, FLOOR_CACHE_KEY
+from avant_core.price_rules.enums import BlockKind, PriceRuleModel
 from avant_core.price_rules.models import PriceRule
 from avant_core.shared.clock import SystemClock
 from fastapi.testclient import TestClient
@@ -143,12 +143,12 @@ def test_price_rules_panel_internal_and_public_floors(
     page = {"key": key, "hash": HASH}
     floors = visitor.get("/api/tag/prices", params=page)
     assert floors.headers["access-control-allow-origin"] == "*"
-    assert floors.json() == {"control_percent": 10, "floors": {"Content3": "0.50"}}
+    assert floors.json() == {"control_percent": 10, "floors": {"Content3": "0.50"}, "cascades": {}}
     cache_key = FLOOR_CACHE_KEY.format(site_id=site_id, content_hash=HASH)
     assert cache_key in _cache(client).values
     assert visitor.get("/api/tag/prices", params={"key": key, "hash": "x y"}).status_code == 422
     nothing = visitor.get("/api/tag/prices", params={"key": "tg_nada", "hash": HASH})
-    assert nothing.json() == {"control_percent": None, "floors": {}}
+    assert nothing.json() == {"control_percent": None, "floors": {}, "cascades": {}}
 
     manual = client.put(
         f"{base}/{rule_id}/floor", json={"floor_micros": 1_000_000}, headers=_csrf(client)
@@ -186,3 +186,99 @@ def test_price_rules_panel_internal_and_public_floors(
     staff_hours = staff.get(f"{internal}/{rule_id}/hours", params=period)
     assert len(staff_hours.json()) == 2
     assert client.get(f"{internal}/{rule_id}/hours", params=period).status_code == 403
+
+
+def _cascade_rule(
+    engine: Engine, company_id: uuid.UUID, site_id: uuid.UUID, country_code: str
+) -> uuid.UUID:
+    """Uma regra Cascata do Anchor_Mobile no país, em dólar, com o ponto de partida em 1,22."""
+    with SqlAlchemyUnitOfWork(engine, company_id=company_id) as uow:
+        rule = PriceRule(
+            company_id=company_id,
+            site_id=site_id,
+            content_hash="",
+            block="Anchor_Mobile",
+            kind=BlockKind.ANCHOR,
+            country_code=country_code,
+            currency="USD",
+            created_at=NOW,
+            updated_at=NOW,
+            floor_micros=1_220_000,
+            model=PriceRuleModel.CASCADE,
+        )
+        uow.price_rules.add(rule)
+        uow.commit()
+        return rule.id
+
+
+def _cascade_site(
+    client: TestClient, engine: Engine, mailer: CapturingMailer, country_code: str
+) -> tuple[uuid.UUID, str, TestClient]:
+    """Site em dólar com a regra ligada, o Anchor_Mobile em Cascata, a tag no ar e o visitante no
+    Brasil."""
+    me = _onboard_owner(client, engine, mailer)
+    company_id = uuid.UUID(me["active_company_id"])
+    site_id = _site(engine, company_id)
+    base = f"/api/v1/sites/{site_id}/price-rules"
+    client.put(
+        f"{base}/settings", json={"active": True, "control_percent": 10}, headers=_csrf(client)
+    )
+    blocks = client.put(
+        f"{base}/blocks", json={"blocks": {"Anchor_Mobile": "cascade"}}, headers=_csrf(client)
+    )
+    assert blocks.status_code == 200, blocks.text
+    with SqlAlchemyUnitOfWork(engine, company_id=company_id) as uow:
+        settings = uow.price_rule_settings.get(site_id)
+        assert settings is not None
+        settings.currency = "USD"
+        uow.commit()
+    _cascade_rule(engine, company_id, site_id, country_code)
+    created = client.post(
+        "/api/v1/ad-tags",
+        json={"site_id": str(site_id), "name": "Principal"},
+        headers=_csrf(client),
+    )
+    tag_id, key = created.json()["id"], created.json()["key"]
+    draft = {"blocks": [CONTENT], "settings": {"price_rules": True}}
+    client.put(
+        f"/api/v1/ad-tags/{tag_id}",
+        json={"name": "Principal", "draft": draft},
+        headers=_csrf(client),
+    )
+    client.post(f"/api/v1/ad-tags/{tag_id}/publish", json={}, headers=_csrf(client))
+    services: Services = client.app.state.services  # type: ignore[attr-defined]
+    services.countries = FixedCountries({"testclient": "BR"})
+    return site_id, key, TestClient(client.app)
+
+
+def test_prices_returns_cascade_ladder_for_country(
+    client: TestClient, engine: Engine, mailer: CapturingMailer
+) -> None:
+    _, key, visitor = _cascade_site(client, engine, mailer, "BR")
+    response = visitor.get("/api/tag/prices", params={"key": key, "hash": HASH})
+    assert response.json()["cascades"] == {"Anchor_Mobile": ["1.22", "1.13", "1.05"]}
+    assert response.json()["floors"] == {}
+
+
+def test_prices_cascades_empty_without_rule_in_country(
+    client: TestClient, engine: Engine, mailer: CapturingMailer
+) -> None:
+    site_id, key, visitor = _cascade_site(client, engine, mailer, "MX")
+    response = visitor.get("/api/tag/prices", params={"key": key, "hash": HASH})
+    assert response.json()["cascades"] == {}
+    assert CASCADE_CACHE_KEY.format(site_id=site_id) in _cache(client).values
+
+
+def test_prices_cascades_cached_per_site(
+    client: TestClient, engine: Engine, mailer: CapturingMailer
+) -> None:
+    site_id, key, visitor = _cascade_site(client, engine, mailer, "BR")
+    first = visitor.get("/api/tag/prices", params={"key": key, "hash": HASH})
+    assert first.json()["cascades"] == {"Anchor_Mobile": ["1.22", "1.13", "1.05"]}
+    assert CASCADE_CACHE_KEY.format(site_id=site_id) in _cache(client).values
+    base = f"/api/v1/sites/{site_id}/price-rules"
+    client.put(
+        f"{base}/blocks", json={"blocks": {"Anchor_Mobile": "automatic"}}, headers=_csrf(client)
+    )
+    other = visitor.get("/api/tag/prices", params={"key": key, "hash": "ffffffffffffffff"})
+    assert other.json()["cascades"] == {"Anchor_Mobile": ["1.22", "1.13", "1.05"]}

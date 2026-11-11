@@ -1,16 +1,22 @@
 """Service da rota pública dos floors: cache por site e content_hash e o país pelo IP.
 
-Duas chaves no Redis (o mesmo do reward): ``avant:price-floors:tag:{chave}`` guarda o site da
-tag (vazio quando a tag não leva regra) e ``avant:price-floors:{site}:{hash}`` guarda o controle
-e os floors de todos os países do hash. O worker apaga a segunda quando o floor muda; o painel
+Três chaves no Redis (o mesmo do reward): ``avant:price-floors:tag:{chave}`` guarda o site da
+tag (vazio quando a tag não leva regra), ``avant:price-floors:{site}:{hash}`` guarda o controle
+e os floors de todos os países do hash e ``avant:price-cascades:{site}`` guarda a escada da
+Cascata de todos os países do site. O worker apaga a segunda quando o floor muda; o painel
 apaga quando a regra muda à mão. Ligar, desligar e trocar blocos vale em até 1 hora.
 """
 
 import json
 import time
+import uuid
 
-from avant_core.price_rules.catalog import FLOOR_CACHE_KEY, FLOOR_CACHE_SECONDS
-from avant_core.price_rules.services import public_price_floors
+from avant_core.price_rules.catalog import (
+    CASCADE_CACHE_KEY,
+    FLOOR_CACHE_KEY,
+    FLOOR_CACHE_SECONDS,
+)
+from avant_core.price_rules.services import public_price_cascades, public_price_floors
 
 from avant_api.app.countries import CountryLookup
 from avant_api.app.errors import RateLimited
@@ -54,17 +60,31 @@ class PublicPriceFloorService:
                 FLOOR_CACHE_KEY.format(site_id=site_id, content_hash=content_hash)
             )
         if cached is None:
-            cached = self._load(key, content_hash)
-            if cached is None:
+            loaded = self._load(key, content_hash)
+            if loaded is None:
                 return PublicPriceFloorsOut()
+            site_id, cached = loaded
         stored = json.loads(cached)
         country = (self._countries.country_code(client) or "").upper()
         return PublicPriceFloorsOut(
             control_percent=stored["control_percent"],
             floors=stored["floors"].get(country, {}),
+            cascades=self._cascades(str(site_id)).get(country, {}),
         )
 
-    def _load(self, key: str, content_hash: str) -> str | None:
+    def _cascades(self, site_id: str) -> dict[str, dict[str, list[str]]]:
+        """A escada da Cascata de todos os países do site, do cache ou do banco (e guardada)."""
+        cascade_key = CASCADE_CACHE_KEY.format(site_id=site_id)
+        cached = self._cache.get(cascade_key)
+        if cached is not None:
+            stored: dict[str, dict[str, list[str]]] = json.loads(cached)
+            return stored
+        found = public_price_cascades(self._uows.trusted_uow(), site_id=uuid.UUID(site_id))
+        ttl = FLOOR_CACHE_SECONDS if found else EMPTY_TTL_SECONDS
+        self._cache.set(cascade_key, json.dumps(found), ttl)
+        return found
+
+    def _load(self, key: str, content_hash: str) -> tuple[str, str] | None:
         """Lê do banco e guarda o site da tag e os floors do hash; vazio sem regra na tag."""
         found = public_price_floors(self._uows.trusted_uow(), key=key, content_hash=content_hash)
         site_key = TAG_SITE_KEY.format(key=key)
@@ -76,4 +96,4 @@ class PublicPriceFloorService:
         ttl = FLOOR_CACHE_SECONDS if found.floors else EMPTY_TTL_SECONDS
         self._cache.set(site_key, str(found.site_id), FLOOR_CACHE_SECONDS)
         self._cache.set(floors_key, value, ttl)
-        return value
+        return str(found.site_id), value
