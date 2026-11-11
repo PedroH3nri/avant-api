@@ -18,6 +18,18 @@ from avant_api.app.reward_cache import EMPTY_TTL_SECONDS, RewardCache
 log = logging.getLogger("avant.api.price_cascade_cache")
 
 
+def is_cascade_shape(value: object) -> bool:
+    """Confere o formato país, bloco, lista de textos; qualquer outro valor é lixo no cache."""
+    return isinstance(value, dict) and all(
+        isinstance(blocks, dict)
+        and all(
+            isinstance(ladder, list) and all(isinstance(label, str) for label in ladder)
+            for ladder in blocks.values()
+        )
+        for blocks in value.values()
+    )
+
+
 def site_cascades(
     cache: RewardCache, uows: UnitOfWorkFactory, site_id: str
 ) -> dict[str, dict[str, list[str]]]:
@@ -29,7 +41,7 @@ def site_cascades(
             stored = json.loads(cached)
         except ValueError:
             stored = None
-        if isinstance(stored, dict):
+        if is_cascade_shape(stored):
             return cast("dict[str, dict[str, list[str]]]", stored)
         log.warning("escada da Cascata inválida no cache do site %s", site_id)
     found = public_price_cascades(uows.trusted_uow(), site_id=uuid.UUID(site_id))

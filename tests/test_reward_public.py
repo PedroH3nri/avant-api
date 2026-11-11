@@ -26,6 +26,7 @@ from tests.test_rewards import NOW, _body, _cache, _site
 
 PAGE = "https://www.blog.com/receitas/bolo?utm_source=x"
 ORIGIN = {"Origin": "https://blog.com"}
+EMPTY_PAGE = {"reward": None, "price_rules": None}
 
 
 def _buffer(client: TestClient) -> MemoryRewardBuffer:
@@ -42,10 +43,10 @@ def test_public_config_is_cached_and_cleared(
     site_id = _site(engine, uuid.UUID(me["active_company_id"]))
     visitor = TestClient(client.app)
     empty = visitor.get("/api/reward/v2", params={"url": PAGE})
-    assert empty.status_code == 200 and empty.json() == {"reward": None}
+    assert empty.status_code == 200 and empty.json() == EMPTY_PAGE
     assert empty.headers["access-control-allow-origin"] == "*"
     key = reward_cache_key("blog.com", "receitas/bolo")
-    assert json.loads(_cache(client).values[key]) == {"reward": None}
+    assert json.loads(_cache(client).values[key]) == EMPTY_PAGE
 
     created = client.post("/api/v1/rewards", json=_body(site_id), headers=_csrf(client)).json()
     client.put(
@@ -70,10 +71,8 @@ def test_public_config_is_cached_and_cleared(
 
     client.patch(f"/api/v1/rewards/{created['id']}", json={"active": False}, headers=_csrf(client))
     assert key not in _cache(client).values
-    assert visitor.get("/api/reward/v2", params={"url": PAGE}).json() == {"reward": None}
-    assert visitor.get("/api/reward/v2", params={"url": "javascript:alert(1)"}).json() == {
-        "reward": None
-    }
+    assert visitor.get("/api/reward/v2", params={"url": PAGE}).json() == EMPTY_PAGE
+    assert visitor.get("/api/reward/v2", params={"url": "javascript:alert(1)"}).json() == EMPTY_PAGE
 
 
 def test_icon_route_has_the_ip_limit(client: TestClient) -> None:
@@ -207,6 +206,8 @@ def test_reward_page_has_cascade_for_rewards_block(
     body = visitor.get("/api/reward/v2", params={"url": PAGE}).json()
     assert body["reward"] is not None
     assert body["price_rules"] == {"control_percent": 10, "cascades": {"Rewards_Mobile": LADDER}}
+    header = visitor.get("/api/reward/v2", params={"url": PAGE}).headers["cache-control"]
+    assert header.startswith("private")
     assert CASCADE_CACHE_KEY.format(site_id=site_id) in _cache(client).values
     assert "site_id" not in body["reward"] and "site_id" not in body
     again = visitor.get("/api/reward/v2", params={"url": PAGE}).json()
@@ -233,7 +234,7 @@ def test_reward_page_price_rules_null_when_site_off(
 
 def test_reward_page_without_reward_stays_empty(client: TestClient) -> None:
     visitor = TestClient(client.app)
-    assert visitor.get("/api/reward/v2", params={"url": PAGE}).json() == {"reward": None}
+    assert visitor.get("/api/reward/v2", params={"url": PAGE}).json() == EMPTY_PAGE
 
 
 def test_reward_page_survives_cascade_failure(
@@ -279,3 +280,18 @@ def test_reward_page_survives_price_rules_failure(
     assert body["reward"] is not None and body["price_rules"] is None
     assert "falha ao ler a regra de preço" in caplog.text
     assert reward_cache_key("blog.com", "receitas/bolo") not in _cache(client).values
+
+
+def test_reward_page_ignores_malformed_cascade_cache(
+    client: TestClient, engine: Engine, mailer: CapturingMailer
+) -> None:
+    site_id, visitor = _cascade_reward(client, engine, mailer)
+    for invalid in (
+        '{"BR": 5}',
+        '{"BR": {"Rewards_Mobile": 5}}',
+        '{"BR": {"Rewards_Mobile": [1]}}',
+    ):
+        _cache(client).values[CASCADE_CACHE_KEY.format(site_id=site_id)] = invalid
+        response = visitor.get("/api/reward/v2", params={"url": PAGE})
+        assert response.status_code == 200
+        assert response.json()["price_rules"]["cascades"] == {"Rewards_Mobile": LADDER}

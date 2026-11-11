@@ -49,7 +49,7 @@ from avant_api.modules.reward_public.dto import (
 log = logging.getLogger("avant.api.reward_public")
 
 DAY_ZONE = ZoneInfo("America/Sao_Paulo")
-NO_REWARD = PublicPageOut(reward=None).model_dump_json(exclude={"price_rules"})
+NO_REWARD = PublicPageOut(reward=None).model_dump_json()
 REWARD_BLOCK_PREFIX = "Rewards"
 
 

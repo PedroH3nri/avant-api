@@ -19,7 +19,7 @@ from avant_api.shared.http import image_response
 
 PREFIX = "/api/reward"
 MAX_BODY = 16 * 1024
-CONFIG_CACHE = "public, max-age=60"
+CONFIG_CACHE = "private, max-age=60"
 OPEN_CORS = {"Access-Control-Allow-Origin": "*"}
 CORS = {
     "Access-Control-Allow-Credentials": "true",
