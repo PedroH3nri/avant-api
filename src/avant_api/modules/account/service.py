@@ -10,6 +10,7 @@ from avant_core.identity.errors import (
     InvalidMfaCode,
     InvalidToken,
     MfaAttemptsExceeded,
+    MfaLocked,
 )
 from avant_core.identity.services import (
     Authenticated,
@@ -58,7 +59,7 @@ class AccountService:
 
     def reset_password(self, body: ResetPasswordIn, ip: str | None) -> None:
         """Troca a senha pelo link e encerra todas as sessões; link e código errados contam."""
-        failures = (InvalidToken, InvalidMfaCode, MfaAttemptsExceeded)
+        failures = (InvalidToken, InvalidMfaCode, MfaAttemptsExceeded, MfaLocked)
         with self._limiter.attempt((PASSWORD_IP, ip), counts=failures):
             reset_password(
                 self._uows.trusted_uow(),
