@@ -5,11 +5,13 @@ esvazia a cada minuto (``avant_api.app.reward_buffer``). O dia do evento é o de
 """
 
 import json
+import logging
 import time
 import uuid
 from datetime import datetime
 from zoneinfo import ZoneInfo
 
+from avant_core.ports import UnitOfWork
 from avant_core.rewards.enums import RewardLeadKind
 from avant_core.rewards.models import RewardIcon
 from avant_core.rewards.services import (
@@ -23,9 +25,11 @@ from avant_core.rewards.services import (
 )
 from avant_core.shared.clock import Clock
 
+from avant_api.app.countries import CountryLookup
 from avant_api.app.errors import RateLimited
 from avant_api.app.limits import REWARD_CONFIG, REWARD_EVENTS, REWARD_LEADS, Bucket, BucketRule
 from avant_api.app.ports import UnitOfWorkFactory
+from avant_api.app.price_cascade_cache import safe_site_cascades
 from avant_api.app.reward_buffer import RewardBuffer
 from avant_api.app.reward_cache import (
     EMPTY_TTL_SECONDS,
@@ -34,14 +38,28 @@ from avant_api.app.reward_cache import (
     reward_cache_key,
 )
 from avant_api.modules.reward_public.dto import (
+    CachedPage,
     PublicPageOut,
     PublicRewardOut,
+    PublicRewardPriceOut,
     RewardEventsIn,
     RewardLeadIn,
 )
 
+log = logging.getLogger("avant.api.reward_public")
+
 DAY_ZONE = ZoneInfo("America/Sao_Paulo")
 NO_REWARD = PublicPageOut(reward=None).model_dump_json()
+REWARD_BLOCK_PREFIX = "Rewards"
+
+
+def public_control_percent(uow: UnitOfWork, site_id: uuid.UUID) -> int | None:
+    """O percentual de controle das regras de preço do site, ou vazio com a regra desligada."""
+    with uow:
+        settings = uow.price_rule_settings.get(site_id)
+        if settings is None or not settings.active:
+            return None
+        return settings.control_percent
 
 
 class PublicRewardService:
@@ -54,6 +72,7 @@ class PublicRewardService:
         cache: RewardCache,
         buffer: RewardBuffer,
         bucket: Bucket,
+        countries: CountryLookup,
         *,
         base_url: str,
         groone_network_code: str,
@@ -63,6 +82,7 @@ class PublicRewardService:
         self._cache = cache
         self._buffer = buffer
         self._bucket = bucket
+        self._countries = countries
         self._base_url = base_url.rstrip("/")
         self._groone_network_code = groone_network_code
 
@@ -74,15 +94,48 @@ class PublicRewardService:
             return NO_REWARD
         key = reward_cache_key(*parsed)
         cached = self._cache.get(key)
-        if cached is not None:
-            return cached
+        if cached is None:
+            cached = self._load_page(url, key)
+        return self._answer(cached, client)
+
+    def _load_page(self, url: str, key: str) -> str:
+        """Lê a página do banco e guarda; a leitura da regra de preço que falha não é guardada."""
         found = public_reward(
             self._uows.trusted_uow(), url=url, groone_network_code=self._groone_network_code
         )
-        reward = None if found is None else PublicRewardOut.of(found, self._base_url)
-        body = PublicPageOut(reward=reward).model_dump_json()
-        self._cache.set(key, body, TTL_SECONDS if reward else EMPTY_TTL_SECONDS)
+        if found is None:
+            self._cache.set(key, NO_REWARD, EMPTY_TTL_SECONDS)
+            return NO_REWARD
+        site_id = found.reward.site_id
+        reward = PublicRewardOut.of(found, self._base_url)
+        try:
+            control_percent = public_control_percent(self._uows.trusted_uow(), site_id)
+        except Exception:
+            log.warning("falha ao ler a regra de preço do site %s", site_id, exc_info=True)
+            return CachedPage(reward=reward).model_dump_json()
+        entry = CachedPage(reward=reward, site_id=site_id, control_percent=control_percent)
+        body = entry.model_dump_json()
+        self._cache.set(key, body, TTL_SECONDS)
         return body
+
+    def _answer(self, cached: str, client: str) -> str:
+        """A resposta pública: o reward da página e a escada do país de quem pede."""
+        entry = CachedPage.model_validate_json(cached)
+        if entry.reward is None:
+            return NO_REWARD
+        price_rules = None
+        if entry.site_id is not None and entry.control_percent is not None:
+            country = (self._countries.country_code(client) or "").upper()
+            ladders = safe_site_cascades(self._cache, self._uows, str(entry.site_id))
+            price_rules = PublicRewardPriceOut(
+                control_percent=entry.control_percent,
+                cascades={
+                    block: ladder
+                    for block, ladder in ladders.get(country, {}).items()
+                    if block.startswith(REWARD_BLOCK_PREFIX)
+                },
+            )
+        return PublicPageOut(reward=entry.reward, price_rules=price_rules).model_dump_json()
 
     def icon(self, reward_id: uuid.UUID, client: str) -> RewardIcon:
         """O ícone em imagem do reward, com o mesmo limite por IP da configuração."""
