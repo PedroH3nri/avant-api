@@ -7,6 +7,7 @@ from datetime import UTC, date, datetime
 
 import pytest
 from avant_core.db.uow import SqlAlchemyUnitOfWork
+from avant_core.gam.inventory.models import AdUnit
 from avant_core.metrics.models import GamCounts, GamHourlyMetric
 from avant_core.metrics.services import maintain_key_value_hourly_partitions
 from avant_core.price_rules.catalog import CASCADE_CACHE_KEY, FLOOR_CACHE_KEY
@@ -283,10 +284,10 @@ def test_prices_cascades_cached_per_site(
     first = visitor.get("/api/tag/prices", params={"key": key, "hash": HASH})
     assert first.json()["cascades"] == {"Anchor_Mobile": ["1.22", "1.13", "1.05"]}
     assert CASCADE_CACHE_KEY.format(site_id=site_id) in _cache(client).values
-    base = f"/api/v1/sites/{site_id}/price-rules"
-    client.put(
-        f"{base}/blocks", json={"blocks": {"Anchor_Mobile": "automatic"}}, headers=_csrf(client)
-    )
+    with SqlAlchemyUnitOfWork(engine, bypass_rls=True) as uow:
+        for rule in uow.price_rules.list_for_site(site_id):
+            rule.floor_micros = 2_000_000
+        uow.commit()
     other = visitor.get("/api/tag/prices", params={"key": key, "hash": "ffffffffffffffff"})
     assert other.json()["cascades"] == {"Anchor_Mobile": ["1.22", "1.13", "1.05"]}
 
@@ -439,17 +440,53 @@ def test_model_filter_and_field_on_rules(
     assert [item["model"] for item in staff_cascade] == ["cascade"]
 
 
-def test_blocks_reject_automatic_on_anchor(
+def _offerwall_unit(engine: Engine, site_id: uuid.UUID) -> None:
+    """Põe um bloco Offerwall no site, que não recebe regra."""
+    with SqlAlchemyUnitOfWork(engine, bypass_rls=True) as uow:
+        site = uow.sites.get(site_id)
+        assert site is not None and site.network_id is not None
+        name = "Blog_Offerwall_20261028"
+        uow.ad_units.add(
+            AdUnit(
+                site.company_id,
+                site.network_id,
+                "t9",
+                name,
+                NOW,
+                ad_unit_code=name,
+                site_id=site_id,
+            )
+        )
+        uow.commit()
+
+
+def test_blocks_accept_both_models_and_recommend_one(
     client: TestClient, engine: Engine, mailer: CapturingMailer
 ) -> None:
     site_id, _, _ = _cascade_site(client, engine, mailer, "BR")
-    response = client.put(
-        f"/api/v1/sites/{site_id}/price-rules/blocks",
-        json={"blocks": {"Anchor_Mobile": "automatic"}},
-        headers=_csrf(client),
-    )
-    assert response.status_code == 422
-    assert "error" in response.json()
+    _offerwall_unit(engine, site_id)
+    staff = _staff(client, engine)
+    bases = [
+        (client, f"/api/v1/sites/{site_id}/price-rules"),
+        (staff, f"/api/v1/internal/sites/{site_id}/price-rules"),
+    ]
+    for caller, base in bases:
+        view = caller.get(f"{base}/settings").json()
+        assert view["available_blocks"] == ["Anchor_Mobile", "Content3", "Offerwall"]
+        assert view["recommended_models"] == {"Anchor_Mobile": "cascade", "Content3": "automatic"}
+        swapped = {"Anchor_Mobile": "automatic", "Content3": "cascade"}
+        saved = caller.put(f"{base}/blocks", json={"blocks": swapped}, headers=_csrf(caller))
+        assert saved.status_code == 200, saved.text
+        assert saved.json()["blocks"] == [
+            {"block": "Anchor_Mobile", "model": "automatic"},
+            {"block": "Content3", "model": "cascade"},
+        ]
+        assert saved.json()["recommended_models"] == view["recommended_models"]
+        refused = caller.put(
+            f"{base}/blocks", json={"blocks": {"Offerwall": "automatic"}}, headers=_csrf(caller)
+        )
+        assert refused.status_code == 422
+        assert "error" in refused.json()
 
 
 def _config(**changes: object) -> dict[str, object]:
@@ -616,10 +653,11 @@ def test_blocks_and_settings_forget_floors_and_cascades(
         response = caller.put(url, json=body, headers=_csrf(caller))
         assert response.status_code == 200, (url, response.text)
         assert _present(client, cascade_key, floor_keys) == (False, False), url
+    _offerwall_unit(engine, site_id)
     cascade_key, floor_keys = _seed_caches(client, site_id, HASH)
     refused = client.put(
         f"{base}/blocks",
-        json={"blocks": {"Anchor_Mobile": "automatic"}},
+        json={"blocks": {"Offerwall": "automatic"}},
         headers=_csrf(client),
     )
     assert refused.status_code == 422
