@@ -5,6 +5,7 @@ import os
 import uuid
 from datetime import UTC, date, datetime
 
+import pytest
 from avant_core.db.uow import SqlAlchemyUnitOfWork
 from avant_core.metrics.models import GamCounts, GamHourlyMetric
 from avant_core.metrics.services import maintain_key_value_hourly_partitions
@@ -17,6 +18,7 @@ from sqlalchemy import Engine, create_engine
 
 from avant_api.app.container import Services
 from avant_api.app.countries import FixedCountries
+from avant_api.modules.price_floor_public import service as service_module
 from tests.conftest import CapturingMailer
 from tests.test_ad_tags import CONTENT, _site
 from tests.test_api import _csrf, _onboard_owner
@@ -282,3 +284,37 @@ def test_prices_cascades_cached_per_site(
     )
     other = visitor.get("/api/tag/prices", params={"key": key, "hash": "ffffffffffffffff"})
     assert other.json()["cascades"] == {"Anchor_Mobile": ["1.22", "1.13", "1.05"]}
+
+
+def test_prices_cascade_failure_keeps_floors(
+    client: TestClient, engine: Engine, mailer: CapturingMailer, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    site_id, key, visitor = _cascade_site(client, engine, mailer, "BR")
+
+    def broken(*args: object, **kwargs: object) -> dict[str, dict[str, list[str]]]:
+        """Simula a falha do banco na busca da escada."""
+        raise RuntimeError("banco fora")
+
+    monkeypatch.setattr(service_module, "public_price_cascades", broken)
+    response = visitor.get("/api/tag/prices", params={"key": key, "hash": HASH})
+    assert response.status_code == 200
+    assert response.json() == {"control_percent": 10, "floors": {}, "cascades": {}}
+    assert CASCADE_CACHE_KEY.format(site_id=site_id) not in _cache(client).values
+    _cache(client).values[CASCADE_CACHE_KEY.format(site_id=site_id)] = "{quebrado"
+    monkeypatch.undo()
+    again = visitor.get("/api/tag/prices", params={"key": key, "hash": HASH})
+    assert again.json()["cascades"] == {"Anchor_Mobile": ["1.22", "1.13", "1.05"]}
+
+
+def test_prices_cascades_empty_when_price_rules_off(
+    client: TestClient, engine: Engine, mailer: CapturingMailer
+) -> None:
+    site_id, key, visitor = _cascade_site(client, engine, mailer, "BR")
+    off = client.put(
+        f"/api/v1/sites/{site_id}/price-rules/settings",
+        json={"active": False, "control_percent": 10},
+        headers=_csrf(client),
+    )
+    assert off.status_code == 200, off.text
+    response = visitor.get("/api/tag/prices", params={"key": key, "hash": HASH})
+    assert response.json() == {"control_percent": None, "floors": {}, "cascades": {}}
