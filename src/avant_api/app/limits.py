@@ -1,5 +1,5 @@
-"""Limites: tentativas nas rotas sem sessão (login, esqueci a senha, redefinir) e
-requisições por chave de API.
+"""Limites: tentativas nas rotas sem sessão (login, esqueci a senha, redefinir), chaves de
+API que não conferem (por IP) e requisições por chave de API.
 
 Tentativas: janela fixa; cada chave conta as que falharam e zera sozinha no fim da janela.
 Com ``attempt``, a tentativa é reservada antes (INCR atômico) e devolvida se não falhar, para
@@ -35,6 +35,8 @@ PASSWORD_IP = Rule("password:ip", 20, 15 * 60)
 PASSWORD_CHANGE = Rule("password:change", 5, 15 * 60)
 # Códigos do 2FA no segundo passo do login, por IP; por pessoa, quem trava é o core.
 MFA_IP = Rule("mfa:ip", 20, 15 * 60)
+# Chave de API que não confere, por IP: passou do limite, a chave nem chega ao banco.
+API_KEY_IP = Rule("api_key:ip", 20, 15 * 60)
 
 
 class Counter(Protocol):
