@@ -120,6 +120,7 @@ def test_price_rules_panel_internal_and_public_floors(
     assert sites["items"][0]["client"] is None
     assert ana.get("/api/v1/price-rules/sites").status_code == 403
     assert details["floor_micros"] == 500_000 and details["config"] is None
+    assert details["tiers_micros"][0] == 500_000 and len(details["tiers_micros"]) == 200
 
     created = client.post(
         "/api/v1/ad-tags",
