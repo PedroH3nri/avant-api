@@ -2,12 +2,14 @@
 API que não conferem (por IP) e requisições por chave de API.
 
 Tentativas: janela fixa; cada chave conta as que falharam e zera sozinha no fim da janela.
-Com ``attempt``, a tentativa é reservada antes (INCR atômico) e devolvida se não falhar, para
-uma rajada em paralelo não passar do limite.
+Com ``attempt``, a tentativa é reservada antes e devolvida se não falhar, para uma rajada em
+paralelo não passar do limite. A reserva confere e soma todas as chaves de uma vez (um script
+Lua no Redis): uma recusa não mexe em nenhuma chave, nem por um instante.
 Chaves de API: balde de fichas (2 por segundo, rajada de 20).
 Em staging e produção os contadores ficam no Redis, valendo para todas as instâncias.
 """
 
+import logging
 import math
 import threading
 import time
@@ -19,6 +21,8 @@ from typing import Protocol
 import redis
 
 from avant_api.app.errors import TooManyAttempts
+
+log = logging.getLogger("avant.api")
 
 
 @dataclass(frozen=True)
@@ -46,6 +50,13 @@ class Counter(Protocol):
 
     def incr(self, key: str, window_seconds: int) -> tuple[int, int]:
         """Soma uma tentativa, abrindo a janela se for a primeira; devolve como get."""
+        ...
+
+    def reserve(self, entries: list[tuple[str, int, int]]) -> int:
+        """Confere e soma uma tentativa em cada (chave, limite, janela), tudo ou nada.
+
+        Devolve 0 quando reservou, ou os segundos de espera da primeira chave no limite.
+        """
         ...
 
     def decr(self, key: str) -> None:
@@ -79,6 +90,21 @@ class MemoryCounter:
             self._data[key] = (count + 1, until)
             return count + 1, math.ceil(until - now)
 
+    def reserve(self, entries: list[tuple[str, int, int]]) -> int:
+        """Confere todas as chaves e só soma se nenhuma estiver no limite, sob a mesma trava."""
+        with self._lock:
+            now = time.monotonic()
+            for key, limit, _ in entries:
+                count, until = self._data.get(key, (0, 0.0))
+                if until > now and count >= limit:
+                    return max(math.ceil(until - now), 1)
+            for key, _, window_seconds in entries:
+                count, until = self._data.get(key, (0, 0.0))
+                if until <= now:
+                    count, until = 0, now + window_seconds
+                self._data[key] = (count + 1, until)
+            return 0
+
     def decr(self, key: str) -> None:
         """Devolve uma tentativa reservada, sem passar de zero."""
         with self._lock:
@@ -100,10 +126,27 @@ return 0
 """
 
 
+# KEYS: as chaves. ARGV: limite e janela de cada chave, em pares. Confere todas antes de somar.
+_RESERVE = """
+for index, key in ipairs(KEYS) do
+  local count = tonumber(redis.call('GET', key) or '0')
+  if count >= tonumber(ARGV[index * 2 - 1]) then
+    return math.max(redis.call('TTL', key), 1)
+  end
+end
+for index, key in ipairs(KEYS) do
+  redis.call('INCR', key)
+  if redis.call('TTL', key) < 0 then redis.call('EXPIRE', key, ARGV[index * 2]) end
+end
+return 0
+"""
+
+
 class RedisCounter:
     def __init__(self, client: redis.Redis) -> None:
         self._redis = client
         self._decr = client.register_script(_DECR)
+        self._reserve = client.register_script(_RESERVE)
 
     @classmethod
     def from_url(cls, url: str) -> "RedisCounter":
@@ -126,6 +169,12 @@ class RedisCounter:
         pipeline.ttl(key)
         count, _, ttl = pipeline.execute()
         return int(count), max(int(ttl), 0)
+
+    def reserve(self, entries: list[tuple[str, int, int]]) -> int:
+        """Confere e soma todas as chaves num script Lua atômico; 0 quando reservou."""
+        keys = [key for key, _, _ in entries]
+        args = [value for _, limit, window in entries for value in (limit, window)]
+        return int(self._reserve(keys=keys, args=args))
 
     def decr(self, key: str) -> None:
         """Devolve uma tentativa reservada, sem passar de zero."""
@@ -172,17 +221,18 @@ class Limiter:
     def reserve(self, *pairs: tuple[Rule, str | None]) -> None:
         """Conta a tentativa já, de forma atômica, e recusa com 429 quem passou do limite.
 
-        A recusa não conta: devolve tudo o que reservou, para um IP no limite não gastar o e-mail.
+        A recusa não conta em nenhuma chave, para um IP no limite não gastar o e-mail.
         """
-        reserved: list[tuple[Rule, str | None]] = []
-        for rule, subject in pairs:
-            if subject is None:
-                continue
-            count, left = self._counter.incr(self._key(rule, subject), rule.window_seconds)
-            reserved.append((rule, subject))
-            if count > rule.limit:
-                self.release(*reserved)
-                raise TooManyAttempts(retry_after=max(left, 1))
+        entries = [
+            (self._key(rule, subject), rule.limit, rule.window_seconds)
+            for rule, subject in pairs
+            if subject is not None
+        ]
+        if not entries:
+            return
+        retry_after = self._counter.reserve(entries)
+        if retry_after:
+            raise TooManyAttempts(retry_after=retry_after)
 
     def release(self, *pairs: tuple[Rule, str | None]) -> None:
         """Devolve a tentativa reservada em cada regra com sujeito."""
@@ -204,7 +254,14 @@ class Limiter:
             raise
         finally:
             if not failed:
-                self.release(*pairs)
+                self._release_quietly(*pairs)
+
+    def _release_quietly(self, *pairs: tuple[Rule, str | None]) -> None:
+        """Devolve a tentativa; se o Redis falhar, só registra, para não estragar a resposta."""
+        try:
+            self.release(*pairs)
+        except redis.RedisError:
+            log.warning("limite: não deu para devolver a tentativa reservada", exc_info=True)
 
 
 # --- Chaves de API: balde de fichas -----------------------------------------------------

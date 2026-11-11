@@ -180,3 +180,23 @@ def test_reset_link_burns_after_five_wrong_codes(
         for _ in range(5)
     ]
     assert codes == ["invalid_mfa_code"] * 4 + ["mfa_attempts_exceeded"]
+
+
+def test_wrong_reset_codes_spend_the_ip_limit(
+    client: TestClient, engine: Engine, mailer: CapturingMailer
+) -> None:
+    _onboard_owner(client, engine, mailer)
+    _enable(client)
+    codes: list[str] = []
+    with TestClient(client.app, client=("203.0.113.9", 50000)) as other:
+        for _ in range(4):
+            other.post("/api/v1/auth/password/forgot", json={"email": "dono@acai.com"})
+            run_password_reset_tasks(client)
+            token = mailer.resets[-1][1]
+            body = {"token": token, "password": "outra-senha-456", "mfa_code": "000000"}
+            for _ in range(5):
+                r = other.post("/api/v1/auth/password/reset", json=body)
+                codes.append(r.json()["error"]["code"])
+    assert codes[:5] == ["invalid_mfa_code"] * 4 + ["mfa_attempts_exceeded"]
+    assert codes[5:16] == ["mfa_locked"] * 11
+    assert codes[16:] == ["too_many_attempts"] * 4

@@ -3,11 +3,12 @@
 import csv
 import io
 import time
+from dataclasses import replace
 from datetime import date
 from decimal import Decimal
 
 from avant_core.identity.enums import Locale
-from avant_core.metrics.enums import MetricSource
+from avant_core.metrics.enums import CompareMode, MetricSource
 from avant_core.metrics.models import DateRange, Period, QueryDefinition, QueryResult
 from avant_core.metrics.models.result_row import ResultRow
 from openpyxl import load_workbook
@@ -47,3 +48,17 @@ def test_xlsx_with_the_row_limit_is_fast() -> None:
     started = time.perf_counter()
     to_xlsx(_result(10_000), DEFINITION, Locale.EN, {"custom.soma": "Soma"})
     assert time.perf_counter() - started < 3
+
+
+def test_compare_header_follows_the_mode() -> None:
+    expected = {
+        (CompareMode.PREVIOUS, Locale.PT): "Receita (período anterior)",
+        (CompareMode.LAST_YEAR, Locale.PT): "Receita (ano anterior)",
+        (CompareMode.CUSTOM, Locale.PT): "Receita (comparação)",
+        (CompareMode.LAST_YEAR, Locale.EN): "Revenue (last year)",
+        (CompareMode.CUSTOM, Locale.ES): "Ingresos (comparación)",
+    }
+    for (mode, locale), label in expected.items():
+        definition = replace(DEFINITION, compare=mode)
+        header = next(csv.reader(io.StringIO(to_csv(_result(1), definition, locale, NAMES))))
+        assert header[3] == label, (mode, locale)

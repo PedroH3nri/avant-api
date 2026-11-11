@@ -8,6 +8,7 @@ import uuid
 from urllib.parse import parse_qs, urlparse
 
 import pytest
+import redis
 from avant_core.identity.services import GoogleIdentity
 from avant_core.mail import render_notice, render_password_reset
 from avant_core.ports import Notice
@@ -282,3 +283,64 @@ def test_redis_limiter() -> None:
     _refused_attempt_round(
         Limiter(RedisCounter.from_url(os.environ["AVANT_TEST_REDIS_URL"]), f"teste:{uuid.uuid4()}")
     )
+
+
+class _BrokenReleaseCounter(MemoryCounter):
+    """Contador cujo Redis cai na hora de devolver a tentativa."""
+
+    def decr(self, key: str) -> None:
+        """Falha como um Redis fora do ar."""
+        raise redis.ConnectionError("fora do ar")
+
+
+def test_release_failure_does_not_break_a_good_attempt() -> None:
+    limiter = Limiter(_BrokenReleaseCounter())
+    rule = Rule("tentativa", 2, 60)
+    with limiter.attempt((rule, "a"), counts=(KeyError,)):
+        pass
+    with pytest.raises(ValueError), limiter.attempt((rule, "a"), counts=(KeyError,)):
+        raise ValueError
+
+
+class _SpyCounter(MemoryCounter):
+    """Contador que anota as chamadas de incr e decr."""
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.single_calls: list[str] = []
+
+    def incr(self, key: str, window_seconds: int) -> tuple[int, int]:
+        """Anota e soma."""
+        self.single_calls.append(f"incr:{key}")
+        return super().incr(key, window_seconds)
+
+    def decr(self, key: str) -> None:
+        """Anota e devolve."""
+        self.single_calls.append(f"decr:{key}")
+        super().decr(key)
+
+
+def test_refused_reserve_never_touches_the_other_keys() -> None:
+    counter = _SpyCounter()
+    limiter = Limiter(counter)
+    email, ip = Rule("email", 5, 60), Rule("ip", 1, 60)
+    limiter.reserve((ip, "a"))
+    with pytest.raises(Exception, match="muitas tentativas"):
+        limiter.reserve((email, "e"), (ip, "a"))
+    assert counter.single_calls == []
+    assert limiter.count(email, "e") == 0 and limiter.count(ip, "a") == 1
+
+
+@pytest.mark.skipif(
+    not os.environ.get("AVANT_TEST_REDIS_URL"), reason="defina AVANT_TEST_REDIS_URL"
+)
+def test_redis_decr_without_key_creates_nothing() -> None:
+    client = redis.Redis.from_url(os.environ["AVANT_TEST_REDIS_URL"])
+    counter = RedisCounter(client)
+    key = f"teste:{uuid.uuid4()}"
+    counter.decr(key)
+    assert client.exists(key) == 0 and counter.get(key) == (0, 0)
+    counter.incr(key, 1)
+    time.sleep(1.1)
+    counter.decr(key)
+    assert client.exists(key) == 0 and counter.get(key) == (0, 0)
