@@ -101,6 +101,7 @@ def settings_for_tests(**overrides: object) -> Settings:
         "redis_url": "redis://127.0.0.1:1/0",
         "celery_broker_url": "amqp://guest:guest@127.0.0.1:1//",
         "resend_api_key": "re_teste",
+        "forwarded_allow_ips": "127.0.0.1",
     }
     return Settings(**(values | overrides))  # type: ignore[arg-type]
 

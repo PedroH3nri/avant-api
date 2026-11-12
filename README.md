@@ -289,11 +289,21 @@ src/avant_api/
   (`/auth/invitations/***`). A chave de API e os cookies nunca vão para o log.
 - **Cabeçalhos**: toda resposta leva `X-Content-Type-Options: nosniff`,
   `X-Frame-Options: DENY`, `Referrer-Policy: no-referrer` e
-  `Content-Security-Policy: default-src 'none'; frame-ancestors 'none'`, menos a página do
-  Swagger (`/api/docs`) quando ela é entregue, que carrega scripts. O Swagger e o
+  `Content-Security-Policy: default-src 'none'; frame-ancestors 'none'`. A página do Swagger
+  (`/api/docs`), quando é entregue, leva uma política própria (`DOCS_CONTENT_SECURITY_POLICY` em
+  `app/middleware.py`): `script-src 'self'`, `connect-src 'self'`, `frame-ancestors 'none'` e
+  nenhum script inline. O Swagger UI não vem de CDN: o `swagger-ui-dist` 5.34.0 está copiado em
+  `modules/api_docs/swagger_ui/` (conferido pelo `integrity` do npm ao copiar) e sai por
+  `/api/docs/assets/{arquivo}`, com o SHA-256 de cada arquivo conferido na subida
+  (`swagger_assets.py`; arquivo alterado, a API não sobe) e `integrity` (SRI) na página. Para
+  atualizar, troque os arquivos e os SHA-256 juntos. O Swagger, os arquivos dele e o
   `/api/v1/openapi.json` (que lista também as rotas internas) têm a mesma regra em todo
   ambiente: só a sessão da equipe Groone, com a Company Groone ativa e o 2FA verificado;
   quem não é recebe o erro de sempre (401, `staff_only` ou `mfa_required`), com a política.
+- **Proxy**: o uvicorn só aceita `X-Forwarded-For` de `FORWARDED_ALLOW_IPS` (endereços ou redes
+  do nginx do compose, separados por vírgula). A variável é obrigatória em todo ambiente e não
+  aceita `*`: o IP do cliente sustenta os limites por IP. Sem ela, a API não sobe. No
+  desenvolvimento, sem proxy na frente, use `127.0.0.1`.
 
 ## Desenvolvimento
 

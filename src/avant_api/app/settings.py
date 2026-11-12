@@ -1,5 +1,6 @@
 """Configuração por variáveis de ambiente. Os valores reais ficam só nas VMs."""
 
+import ipaddress
 from typing import Literal
 
 from pydantic import Field, model_validator
@@ -49,6 +50,10 @@ class Settings(BaseSettings):
     # Base GeoLite2 Country (.mmdb) para o país dos floors das regras de preço. Sem ela, a rota
     # dos floors devolve só o grupo de controle.
     geolite2_country_file: str | None = None
+    # Endereços ou redes do proxy (o nginx do compose) de quem o uvicorn aceita o X-Forwarded-For;
+    # o uvicorn lê a mesma variável. Obrigatória em todo ambiente e sem "*": o IP do cliente
+    # sustenta os limites de tentativas.
+    forwarded_allow_ips: str = Field(min_length=1)
     # Processos do uvicorn no contêiner (a mesma variável que o uvicorn lê).
     web_concurrency: int = 1
     # Modo multiprocesso do prometheus_client: cada processo grava aqui e o /metrics soma todos.
@@ -67,4 +72,17 @@ class Settings(BaseSettings):
             raise ValueError("PROMETHEUS_MULTIPROC_DIR é obrigatória com WEB_CONCURRENCY > 1")
         if not self.resend_api_key.strip():
             raise ValueError("RESEND_API_KEY é obrigatória em todo ambiente")
+        _check_proxy_addresses(self.forwarded_allow_ips)
         return self
+
+
+def _check_proxy_addresses(addresses: str) -> None:
+    """Aceita só endereços ou redes IP separados por vírgula; recusa "*" e o que não é IP."""
+    entries = [entry.strip() for entry in addresses.split(",")]
+    for entry in entries:
+        try:
+            ipaddress.ip_network(entry, strict=False)
+        except ValueError:
+            raise ValueError(
+                f"FORWARDED_ALLOW_IPS aceita só endereços ou redes do proxy, não {entry!r}"
+            ) from None
