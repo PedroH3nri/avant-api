@@ -151,6 +151,31 @@ def test_sequential_jpeg_with_many_scans_has_the_progressive_limit() -> None:
         assert result.size == (256, 256)
 
 
+def _after_first_segment(jpeg: bytes, extra: bytes) -> bytes:
+    """O JPEG com ``extra`` depois do primeiro segmento (o APP0), como no arquivo adulterado."""
+    end = 4 + int.from_bytes(jpeg[4:6], "big")
+    return jpeg[:end] + extra + jpeg[end:]
+
+
+def test_irregular_jpeg_fails_closed_to_the_progressive_limit() -> None:
+    processor = PillowImageProcessor()
+    tampered = _after_first_segment(_three_scans(), b"\x00")
+    with Image.open(BytesIO(tampered)) as opened:
+        assert opened.size == (3500, 2600)
+    with pytest.raises(InvalidImage, match="pixels demais"):
+        processor.square_webp(tampered, 256)
+    photo = _jpeg(4032, 3024)
+    for irregular in (
+        _after_first_segment(photo, b"\x00"),
+        photo[: len(photo) // 2],
+        photo[:-2],
+    ):
+        with pytest.raises(InvalidImage):
+            processor.square_webp(irregular, 256)
+    with Image.open(BytesIO(processor.square_webp(photo, 256))) as result:
+        assert result.size == (256, 256)
+
+
 def _striped_logo(width: int, height: int, mode: str) -> bytes:
     """Uma logo PNG com listras verticais de 4 px, para medir a nitidez depois de reduzir."""
     image = Image.new("RGB", (width, height), (255, 255, 255))

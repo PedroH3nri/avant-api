@@ -14,14 +14,14 @@ from sqlalchemy import Engine, text
 from avant_api.app import security
 from avant_api.app.limits import API_KEY_IP, Limiter, RedisCounter
 from avant_api.app.logs import JsonFormatter, masked_path
-from avant_api.app.middleware import CONTENT_SECURITY_POLICY
+from avant_api.app.middleware import CONTENT_SECURITY_POLICY, DOCS_CONTENT_SECURITY_POLICY
 from avant_api.main import create_app
 from avant_api.modules.auth.dependencies import auth_service
 from tests.conftest import CapturingMailer, browser
 from tests.test_api import PASSWORD, _csrf, _onboard_owner
 from tests.test_internal import _staff
 
-DOCS_PATHS = ("/api/docs", "/api/v1/openapi.json")
+DOCS_PATHS = ("/api/docs", "/api/v1/openapi.json", "/api/docs/assets/swagger-ui-bundle.js")
 
 
 @pytest.mark.parametrize("env", ["local", "production"])
@@ -43,7 +43,7 @@ def test_docs_only_for_the_groone_session_with_2fa(
     staff = browser(app, cookies=_staff(client, engine).cookies)
     page = staff.get("/api/docs")
     assert page.status_code == 200 and "text/html" in page.headers["Content-Type"]
-    assert "Content-Security-Policy" not in page.headers
+    assert page.headers["Content-Security-Policy"] == DOCS_CONTENT_SECURITY_POLICY
     assert page.headers["X-Frame-Options"] == "DENY"
     schema = staff.get("/api/v1/openapi.json")
     assert schema.status_code == 200 and "/api/v1/internal/clients" in schema.json()["paths"]

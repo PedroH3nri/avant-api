@@ -3,8 +3,9 @@
 Um PNG de 2 MB pode declarar dezenas de megapixels: o teto é 8 MP. O JPEG comum vai até 24 MP e
 é lido já reduzido, então foto de celular passa; o progressivo fica nos 8 MP, e o comum com mais
 de uma varredura (``jpegtran -scans``) conta como progressivo, porque também fica todo na
-memória. A imagem é reduzida pelo lado menor antes de virar RGBA e no máximo duas conversões
-rodam ao mesmo tempo em cada processo.
+memória. JPEG irregular (byte solto entre segmentos, truncado) também fica nos 8 MP. A imagem
+é reduzida pelo lado menor antes de virar RGBA e no máximo duas conversões rodam ao mesmo tempo
+em cada processo.
 """
 
 import threading
@@ -22,7 +23,11 @@ WEBP_QUALITY = 90
 # O lado menor é reduzido até este múltiplo do lado final antes do corte, para não converter tudo.
 SHRINK_FACTOR = 4
 
-# Marcadores do JPEG: começo da varredura, fim da imagem e os que não têm tamanho.
+# Marcadores do JPEG: prefixo, zero de enchimento, começo da varredura, fim da imagem e os que
+# não têm tamanho; o tamanho de um segmento conta os próprios 2 bytes.
+MARKER_PREFIX = 0xFF
+STUFFED_ZERO = 0x00
+SEGMENT_LENGTH_SIZE = 2
 START_OF_SCAN = 0xDA
 END_OF_IMAGE = 0xD9
 STANDALONE_MARKERS = frozenset({0x01, *range(0xD0, 0xD8)})
@@ -77,31 +82,34 @@ def _check_jpeg_size(source: Image.Image, content: bytes) -> None:
 
 
 def _has_many_scans(content: bytes) -> bool:
-    """Percorre os segmentos do fluxo principal e diz se há mais de um SOS antes do EOI; a
-    miniatura do EXIF fica dentro do APP1 e é pulada pelo tamanho do segmento."""
+    """Diz se há mais de um SOS antes do EOI no fluxo principal (a miniatura do EXIF fica no APP1
+    e é pulada); falha fechada: byte fora de lugar, tamanho inválido ou sem EOI contam como mais."""
     scans = 0
     position = 2
     while position + 1 < len(content):
-        if content[position] != 0xFF:
-            return False
+        if content[position] != MARKER_PREFIX:
+            return True
         marker = content[position + 1]
-        position += 2
-        if marker == 0xFF:
-            position -= 1
+        if marker == MARKER_PREFIX:
+            position += 1
             continue
+        position += 2
         if marker == END_OF_IMAGE:
             return False
         if marker in STANDALONE_MARKERS:
             continue
-        if position + 2 > len(content):
-            return False
-        position += int.from_bytes(content[position : position + 2], "big")
+        if marker == STUFFED_ZERO or position + 2 > len(content):
+            return True
+        length = int.from_bytes(content[position : position + 2], "big")
+        if length < SEGMENT_LENGTH_SIZE:
+            return True
+        position += length
         if marker == START_OF_SCAN:
             scans += 1
             if scans > 1:
                 return True
             position = _end_of_scan_data(content, position)
-    return False
+    return True
 
 
 def _end_of_scan_data(content: bytes, position: int) -> int:

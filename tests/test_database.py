@@ -14,6 +14,10 @@ from tests.conftest import OWNER_URL, settings_for_tests
 POSTGRES_MAX_CONNECTIONS = 200
 RESERVED_CONNECTIONS = 10
 API_COLORS = 2
+# WEB_CONCURRENCY da imagem (Dockerfile), fixo aqui para o teste não depender do ambiente.
+API_PROCESSES_PER_COLOR = 2
+API_POOL_SIZE = 10
+API_MAX_OVERFLOW = 5
 WORKER_PROCESSES = 4 + 2
 WORKER_POOL_SIZE = 5
 WORKER_MAX_OVERFLOW = 0
@@ -61,12 +65,13 @@ def test_database_url_cannot_override_the_timeouts() -> None:
 
 def test_default_numbers_fit_the_connection_budget() -> None:
     settings = settings_for_tests()
+    assert (settings.db_pool_size, settings.db_max_overflow) == (API_POOL_SIZE, API_MAX_OVERFLOW)
     services = [
         ServiceConnections(
             name="api",
-            processes=API_COLORS * settings.web_concurrency,
-            pool_size=settings.db_pool_size,
-            max_overflow=settings.db_max_overflow,
+            processes=API_COLORS * API_PROCESSES_PER_COLOR,
+            pool_size=API_POOL_SIZE,
+            max_overflow=API_MAX_OVERFLOW,
         ),
         ServiceConnections(
             name="worker",
@@ -78,7 +83,7 @@ def test_default_numbers_fit_the_connection_budget() -> None:
     total = check_connection_budget(
         services, max_connections=POSTGRES_MAX_CONNECTIONS, reserved=RESERVED_CONNECTIONS
     )
-    assert total == 60
+    assert total == 90
 
 
 def test_every_connection_has_the_timeouts_and_the_service_name(engine: Engine) -> None:

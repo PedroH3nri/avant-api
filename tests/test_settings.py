@@ -26,6 +26,7 @@ def test_api_does_not_start_without_redis_or_queue_in_any_env(env: str) -> None:
         "database_url": "postgresql://x",
         "mfa_encryption_key": "k",
         "resend_api_key": "re_teste",
+        "forwarded_allow_ips": "127.0.0.1",
     }
     with pytest.raises(ValidationError, match="redis_url"):
         Settings(**base, celery_broker_url=BROKER)  # type: ignore[arg-type]
@@ -57,6 +58,7 @@ REQUIRED_ENVIRONMENT = {
     "REDIS_URL": REDIS,
     "CELERY_BROKER_URL": BROKER,
     "RESEND_API_KEY": "re_teste",
+    "FORWARDED_ALLOW_IPS": "172.30.0.10",
 }
 
 
@@ -68,3 +70,20 @@ def test_empty_variable_stops_the_api(variable: str, monkeypatch: pytest.MonkeyP
         Settings()
     monkeypatch.setenv(variable, REQUIRED_ENVIRONMENT[variable])
     Settings()
+
+
+@pytest.mark.parametrize("env", ["local", "test", "staging", "production"])
+def test_proxy_addresses_are_required_and_never_everyone(env: str) -> None:
+    for refused in ("*", "127.0.0.1,*", "nginx", "", " "):
+        with pytest.raises(ValidationError):
+            settings_for_tests(avant_env=env, forwarded_allow_ips=refused)
+    accepted = settings_for_tests(avant_env=env, forwarded_allow_ips="172.30.0.0/24, ::1")
+    assert accepted.forwarded_allow_ips == "172.30.0.0/24, ::1"
+
+
+def test_api_does_not_start_without_the_proxy_addresses(monkeypatch: pytest.MonkeyPatch) -> None:
+    for name, value in REQUIRED_ENVIRONMENT.items():
+        monkeypatch.setenv(name, value)
+    monkeypatch.delenv("FORWARDED_ALLOW_IPS")
+    with pytest.raises(ValidationError, match="forwarded_allow_ips"):
+        Settings()
