@@ -8,6 +8,7 @@ from avant_core.shared.clock import Clock
 from avant_api.app.ports import UnitOfWorkFactory
 from avant_api.modules.internal.staff.dto import StaffInviteIn
 from avant_api.shared.dto import InvitationOut, MemberOut, PageOut, page_out
+from avant_api.shared.invitations import invitation_mail
 
 
 class StaffService:
@@ -28,13 +29,14 @@ class StaffService:
         return [MemberOut.of(view) for view in staff_options(self._uows.trusted_uow(), actor=actor)]
 
     def invite(self, actor: Actor, body: StaffInviteIn) -> InvitationOut:
-        """Convida alguém para a equipe Groone com um papel interno."""
-        invitation = invite_staff(
-            self._uows.trusted_uow(),
-            actor=actor,
-            email=body.email,
-            role_id=body.role_id,
-            clock=self._clock,
-            mailer=self._mailer,
-        )
+        """Convida alguém para a equipe Groone com um papel interno; e-mail que não sai: 503."""
+        with invitation_mail():
+            invitation = invite_staff(
+                self._uows.trusted_uow(),
+                actor=actor,
+                email=body.email,
+                role_id=body.role_id,
+                clock=self._clock,
+                mailer=self._mailer,
+            )
         return InvitationOut.of(invitation)

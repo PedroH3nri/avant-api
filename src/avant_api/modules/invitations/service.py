@@ -15,6 +15,7 @@ from avant_core.shared.clock import Clock
 from avant_api.app.ports import UnitOfWorkFactory
 from avant_api.modules.invitations.dto import InviteIn
 from avant_api.shared.dto import InvitationOut, PageOut, page_out
+from avant_api.shared.invitations import invitation_mail
 
 
 class InvitationService:
@@ -31,26 +32,29 @@ class InvitationService:
         return page_out(found, InvitationOut.of)
 
     def invite(self, actor: Actor, body: InviteIn) -> InvitationOut:
-        """Convida alguém para a equipe da Empresa ativa."""
-        invitation = invite_member(
-            self._uows.uow(actor.company_id),
-            actor=actor,
-            email=body.email,
-            role_id=body.role_id,
-            clock=self._clock,
-            mailer=self._mailer,
-        )
+        """Convida alguém para a equipe da Empresa ativa; se o e-mail não sai, o convite fica
+        pendente e a resposta é 503."""
+        with invitation_mail():
+            invitation = invite_member(
+                self._uows.uow(actor.company_id),
+                actor=actor,
+                email=body.email,
+                role_id=body.role_id,
+                clock=self._clock,
+                mailer=self._mailer,
+            )
         return InvitationOut.of(invitation)
 
     def resend(self, actor: Actor, invitation_id: uuid.UUID) -> InvitationOut:
-        """Token novo e mais 1 dia; o link anterior para de valer."""
-        invitation = resend_invitation(
-            self._uows.uow(actor.company_id),
-            actor=actor,
-            invitation_id=invitation_id,
-            clock=self._clock,
-            mailer=self._mailer,
-        )
+        """Token novo e mais 1 dia; o link anterior para de valer. E-mail que não sai: 503."""
+        with invitation_mail():
+            invitation = resend_invitation(
+                self._uows.uow(actor.company_id),
+                actor=actor,
+                invitation_id=invitation_id,
+                clock=self._clock,
+                mailer=self._mailer,
+            )
         return InvitationOut.of(invitation)
 
     def cancel(self, actor: Actor, invitation_id: uuid.UUID) -> None:

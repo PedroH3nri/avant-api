@@ -21,7 +21,7 @@ from avant_core.identity.security.crypto import FernetSecretBox
 from avant_core.identity.security.passwords import Argon2PasswordHasher
 from avant_core.identity.services import request_password_reset
 from avant_core.metrics.models import DateRange
-from avant_core.ports import Notice
+from avant_core.ports import MailNotSent, Notice
 from avant_core.schedules.models import ScheduledReportMail
 from avant_core.shared.clock import SystemClock
 from cryptography.fernet import Fernet
@@ -67,10 +67,13 @@ class CapturingMailer:
     notices: list[tuple[str, Notice]] = field(default_factory=list)
     alerts: list[tuple[str, AlertMail]] = field(default_factory=list)
     reports: list[tuple[str, ScheduledReportMail]] = field(default_factory=list)
+    invitations_fail: bool = False
 
     def send_invitation(
         self, *, to: str, token: str, kind: InvitationKind, company_name: str | None, locale: str
     ) -> None:
+        if self.invitations_fail:
+            raise MailNotSent("o e-mail de convite não saiu")
         self.sent.append(Sent(to, token, kind))
 
     def send_password_reset(self, *, to: str, token: str, locale: str) -> None:

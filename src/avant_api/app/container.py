@@ -2,15 +2,16 @@
 
 import uuid
 from dataclasses import dataclass
-from typing import Any
 
+from avant_core.db.app_role import ensure_app_role_is_restricted
+from avant_core.db.engine import EngineSettings, new_engine
 from avant_core.db.uow import SqlAlchemyUnitOfWork
 from avant_core.identity.security.crypto import FernetSecretBox
 from avant_core.identity.security.passwords import Argon2PasswordHasher
 from avant_core.mail import ResendMailer
 from avant_core.ports import ImageProcessor, Mailer, MailQueue, PasswordHasher, SecretBox
 from avant_core.shared.clock import Clock, SystemClock
-from sqlalchemy import Engine, create_engine
+from sqlalchemy import Engine
 
 from avant_api.app.countries import CountryLookup, GeoLiteCountries, NoCountries
 from avant_api.app.events import EventSource, RedisEvents, StreamLimiter
@@ -24,21 +25,33 @@ from avant_api.app.reward_cache import RedisRewardCache, RewardCache
 from avant_api.app.settings import Settings
 from avant_api.app.tasks import CeleryQueue, TaskQueue
 
+APPLICATION_NAME = "avant-api"
 
-def engine_options(settings: Settings) -> dict[str, Any]:
-    """Pool contado (o total por processo cabe no max_connections) e prazo em toda consulta e em
-    toda transação parada, mandados na conexão."""
-    timeouts = (
-        f"-c statement_timeout={settings.db_statement_timeout_ms} "
-        f"-c idle_in_transaction_session_timeout={settings.db_idle_in_transaction_timeout_ms}"
+
+def engine_settings(settings: Settings) -> EngineSettings:
+    """Pool e prazos do engine da API, lidos das settings; o core recusa zero e o que passa
+    dos tetos."""
+    return EngineSettings(
+        application_name=APPLICATION_NAME,
+        pool_size=settings.db_pool_size,
+        max_overflow=settings.db_max_overflow,
+        pool_timeout_seconds=settings.db_pool_timeout_seconds,
+        pool_recycle_seconds=settings.db_pool_recycle_seconds,
+        statement_timeout_ms=settings.db_statement_timeout_ms,
+        idle_in_transaction_timeout_ms=settings.db_idle_in_transaction_timeout_ms,
+        lock_timeout_ms=settings.db_lock_timeout_ms,
     )
-    return {
-        "pool_size": settings.db_pool_size,
-        "max_overflow": settings.db_max_overflow,
-        "pool_timeout": settings.db_pool_timeout_seconds,
-        "pool_pre_ping": True,
-        "connect_args": {"options": timeouts},
-    }
+
+
+def restricted_engine(settings: Settings) -> Engine:
+    """Monta o engine e recusa a subida se o papel do banco puder ignorar o RLS."""
+    engine = new_engine(settings.database_url, engine_settings(settings))
+    try:
+        ensure_app_role_is_restricted(engine)
+    except Exception:
+        engine.dispose()
+        raise
+    return engine
 
 
 @dataclass
@@ -69,12 +82,11 @@ class Services:
 
     @classmethod
     def build(cls, settings: Settings) -> "Services":
-        """Monta banco, Redis, email, Google e fila de tarefas a partir das configurações; sem
-        Redis ou sem a fila, as Settings já recusaram a subida."""
-        engine = create_engine(settings.database_url, **engine_options(settings))
+        """Monta banco, Redis, email, Google e fila a partir das configurações; sem Redis ou sem a
+        fila as Settings recusam a subida, e com papel do banco que ignora o RLS também."""
         return cls(
             settings=settings,
-            engine=engine,
+            engine=restricted_engine(settings),
             clock=SystemClock(),
             hasher=Argon2PasswordHasher(),
             mailer=_mailer(settings),

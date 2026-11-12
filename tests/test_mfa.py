@@ -14,6 +14,8 @@ from sqlalchemy import Engine
 from tests.conftest import CapturingMailer, browser, run_password_reset_tasks
 from tests.test_api import PASSWORD, _csrf, _onboard_owner
 
+MFA_FIRST_LOCK_SECONDS = 15 * 60
+
 
 def _now_code(secret: str) -> str:
     return totp.code_at(secret, totp.step_at(SystemClock().now()))
@@ -152,6 +154,9 @@ def test_wrong_codes_lock_the_person(
     _password_login(client)
     r = client.post("/api/v1/auth/mfa/verify", json={"code": _now_code(secret)})
     assert r.status_code == 429 and r.json()["error"]["code"] == "mfa_locked"
+    retry_after = int(r.headers["Retry-After"])
+    assert 0 < retry_after <= MFA_FIRST_LOCK_SECONDS
+    assert r.json()["error"]["details"] == {"retry_after": retry_after}
 
 
 def test_new_recovery_codes_send_a_notice(

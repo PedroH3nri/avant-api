@@ -218,7 +218,17 @@ src/avant_api/
   português, inglês ou espanhol conforme o idioma da pessoa. A chave é obrigatória em todo
   ambiente (sem ela a API não sobe) e nenhum e-mail nem link com token vai para o log. Em
   desenvolvimento, use uma chave de teste do Resend ou um destino escolhido de propósito. Falha no envio vai para o log e para `avant_mail_failures_total`,
-  e o convite continua pendente.
+  e o convite continua pendente: o core levanta `MailNotSent` e as rotas de convite (equipe,
+  reenvio, convite de dono, reenvio do convite de dono e equipe Groone) respondem 503
+  `invitation_mail_not_sent`, "O convite foi salvo, mas o e-mail não saiu. Tente reenviar."
+- **Banco**: o engine sai do `new_engine` do core com `EngineSettings` (`application_name`
+  `avant-api`), lidas de `DB_POOL_SIZE`, `DB_MAX_OVERFLOW`, `DB_POOL_TIMEOUT_SECONDS`,
+  `DB_POOL_RECYCLE_SECONDS`, `DB_STATEMENT_TIMEOUT_MS`, `DB_IDLE_IN_TRANSACTION_TIMEOUT_MS` e
+  `DB_LOCK_TIMEOUT_MS`, com os mesmos padrões em todo ambiente; zero ou acima dos tetos do core,
+  a API não sobe. Na subida, `ensure_app_role_is_restricted` recusa o papel que ignora o RLS
+  (superusuário, `BYPASSRLS` ou dono de tabela). As respostas em streaming (SSE e downloads) não
+  seguram conexão do pool, e `tests/test_database.py` confere a conta das conexões
+  (`check_connection_budget`) com os números padrão.
 - **Limite de tentativas**: 5 senhas erradas por e-mail e 20 por IP em 15 minutos no
   login; 20 pedidos por IP em 15 minutos em `/auth/password/*`. Passou, 429
   `too_many_attempts` com `Retry-After`. Os contadores ficam no Redis (`REDIS_URL`), em
@@ -229,7 +239,8 @@ src/avant_api/
   `avant.mail.request_password_reset(email)` na fila `mail` (`queue_password_reset` do
   core, adaptador `TaskMailQueue`), sem ler o banco nem mandar e-mail, para o tempo de
   resposta não dizer se a conta existe. O worker gera o link e manda o e-mail; o token não
-  passa pela fila. Com o RabbitMQ fora do ar, 503 `queue_unavailable` para qualquer e-mail.
+  passa pela fila; o e-mail vai mascarado (`argsrepr="('***',)"`) no cabeçalho da mensagem e no
+  evento `task-sent`. Com o RabbitMQ fora do ar, 503 `queue_unavailable` para qualquer e-mail.
 - **Google**: OpenID Connect com PKCE, tratado aqui (`GOOGLE_OAUTH_CLIENT_ID` e
   `GOOGLE_OAUTH_CLIENT_SECRET`; URI de redirecionamento
   `{APP_BASE_URL}/api/v1/auth/google/callback`). Só entra com Google quem ligou a conta
