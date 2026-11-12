@@ -43,14 +43,22 @@ class Settings(BaseSettings):
     # Base GeoLite2 Country (.mmdb) para o país dos floors das regras de preço. Sem ela, a rota
     # dos floors devolve só o grupo de controle.
     geolite2_country_file: str | None = None
+    # Processos do uvicorn no contêiner (a mesma variável que o uvicorn lê).
+    web_concurrency: int = 1
+    # Modo multiprocesso do prometheus_client: cada processo grava aqui e o /metrics soma todos.
+    # Obrigatório com mais de um processo, senão cada coleta cai num processo qualquer.
+    prometheus_multiproc_dir: str | None = None
 
     @model_validator(mode="after")
     def _required_services(self) -> "Settings":
-        """Exige Redis e o broker do Celery em todo ambiente, e o Resend em staging e produção."""
+        """Exige Redis e o broker do Celery em todo ambiente, o diretório das métricas com vários
+        processos e o Resend em staging e produção."""
         if not self.redis_url.strip():
             raise ValueError("REDIS_URL é obrigatória em todo ambiente")
         if not self.celery_broker_url.strip():
             raise ValueError("CELERY_BROKER_URL é obrigatória em todo ambiente")
+        if self.web_concurrency > 1 and not self.prometheus_multiproc_dir:
+            raise ValueError("PROMETHEUS_MULTIPROC_DIR é obrigatória com WEB_CONCURRENCY > 1")
         if self.avant_env in ("staging", "production") and not self.resend_api_key:
             raise ValueError("RESEND_API_KEY é obrigatória em staging e produção")
         return self

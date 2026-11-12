@@ -12,7 +12,7 @@ Outros repositórios: avant-core, avant-worker, avant-web, avant-infra.
 | --- | --- | --- |
 | `GET /health` | o processo está de pé | nenhuma |
 | `GET /ready` | o banco responde | nenhuma |
-| `GET /metrics` | Prometheus; bloqueado no nginx | rede interna |
+| `GET /metrics` | Prometheus; bloqueado no nginx. Com `WEB_CONCURRENCY` > 1, `PROMETHEUS_MULTIPROC_DIR` é obrigatória (a imagem já traz `/tmp/avant-metrics`, limpo a cada subida) e a resposta soma todos os processos | rede interna |
 | `POST /auth/login` | e-mail e senha; abre a sessão | nenhuma |
 | `POST /auth/logout` | encerra a sessão | sessão |
 | `GET /auth/me` | pessoa, Empresas, Empresa ativa e permissões | sessão |
