@@ -6,13 +6,10 @@ Com ``attempt``, a tentativa é reservada antes e devolvida se não falhar, para
 paralelo não passar do limite. A reserva confere e soma todas as chaves de uma vez (um script
 Lua no Redis): uma recusa não mexe em nenhuma chave, nem por um instante.
 Chaves de API: balde de fichas (2 por segundo, rajada de 20).
-Em staging e produção os contadores ficam no Redis, valendo para todas as instâncias.
+Os contadores ficam no Redis em todo ambiente, valendo para todas as instâncias.
 """
 
 import logging
-import math
-import threading
-import time
 from collections.abc import Iterator
 from contextlib import contextmanager
 from dataclasses import dataclass
@@ -66,56 +63,6 @@ class Counter(Protocol):
     def delete(self, key: str) -> None:
         """Zera o contador."""
         ...
-
-
-class MemoryCounter:
-    def __init__(self) -> None:
-        self._data: dict[str, tuple[int, float]] = {}
-        self._lock = threading.Lock()
-
-    def get(self, key: str) -> tuple[int, int]:
-        """Devolve as tentativas na janela e os segundos que faltam para ela acabar."""
-        with self._lock:
-            count, until = self._data.get(key, (0, 0.0))
-            left = until - time.monotonic()
-            return (count, math.ceil(left)) if left > 0 else (0, 0)
-
-    def incr(self, key: str, window_seconds: int) -> tuple[int, int]:
-        """Soma uma tentativa, abrindo a janela se for a primeira; devolve como get."""
-        with self._lock:
-            count, until = self._data.get(key, (0, 0.0))
-            now = time.monotonic()
-            if until <= now:
-                count, until = 0, now + window_seconds
-            self._data[key] = (count + 1, until)
-            return count + 1, math.ceil(until - now)
-
-    def reserve(self, entries: list[tuple[str, int, int]]) -> int:
-        """Confere todas as chaves e só soma se nenhuma estiver no limite, sob a mesma trava."""
-        with self._lock:
-            now = time.monotonic()
-            for key, limit, _ in entries:
-                count, until = self._data.get(key, (0, 0.0))
-                if until > now and count >= limit:
-                    return max(math.ceil(until - now), 1)
-            for key, _, window_seconds in entries:
-                count, until = self._data.get(key, (0, 0.0))
-                if until <= now:
-                    count, until = 0, now + window_seconds
-                self._data[key] = (count + 1, until)
-            return 0
-
-    def decr(self, key: str) -> None:
-        """Devolve uma tentativa reservada, sem passar de zero."""
-        with self._lock:
-            count, until = self._data.get(key, (0, 0.0))
-            if count > 0:
-                self._data[key] = (count - 1, until)
-
-    def delete(self, key: str) -> None:
-        """Zera o contador."""
-        with self._lock:
-            self._data.pop(key, None)
 
 
 # Devolve uma tentativa só se a chave ainda existe, para não criar chave sem prazo.
@@ -306,39 +253,6 @@ class Bucket(Protocol):
     def take(self, subject: str, rule: BucketRule, now: float) -> BucketResult:
         """Tira uma ficha do balde do sujeito, ou diz quanto esperar."""
         ...
-
-
-class MemoryBucket:
-    """Para desenvolvimento e testes: cada processo tem o seu."""
-
-    def __init__(self) -> None:
-        self._tokens: dict[str, tuple[float, float]] = {}
-        self._denied: dict[str, tuple[int, float]] = {}
-        self._blocked: dict[str, float] = {}
-        self._lock = threading.Lock()
-
-    def take(self, subject: str, rule: BucketRule, now: float) -> BucketResult:
-        """Tira uma ficha do balde do sujeito, ou diz quanto esperar."""
-        with self._lock:
-            until = self._blocked.get(subject, 0.0)
-            if until > now:
-                return BucketResult(False, 0, math.ceil(until - now))
-            tokens, ts = self._tokens.get(subject, (float(rule.burst), now))
-            tokens = min(float(rule.burst), tokens + (now - ts) * rule.rate)
-            if tokens >= 1:
-                self._tokens[subject] = (tokens - 1, now)
-                return BucketResult(True, math.floor(tokens - 1), 0)
-            self._tokens[subject] = (tokens, now)
-            count, start = self._denied.get(subject, (0, now))
-            if now - start >= 60:
-                count, start = 0, now
-            count += 1
-            self._denied[subject] = (count, start)
-            if count > rule.abuse_limit:
-                self._blocked[subject] = now + rule.block_seconds
-                self._denied.pop(subject, None)
-                return BucketResult(False, 0, rule.block_seconds)
-            return BucketResult(False, 0, math.ceil((1 - tokens) / rule.rate))
 
 
 # KEYS: fichas, recusas no minuto, bloqueio. ARGV: agora, taxa, rajada, limite, bloqueio.

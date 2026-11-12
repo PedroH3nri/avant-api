@@ -9,8 +9,9 @@ from avant_core.gam.networks.enums import Delegation
 from fastapi.testclient import TestClient
 from sqlalchemy import Engine
 
-from avant_api.app.tasks import SYNC_NETWORK, RecordingQueue
-from tests.conftest import CapturingMailer
+from avant_api.app.tasks import SYNC_NETWORK
+from tests.conftest import CapturingMailer, browser
+from tests.fakes import RecordingQueue
 from tests.test_api import PASSWORD, _csrf, _onboard_owner, _owner_invite
 from tests.test_internal import _staff
 from tests.test_mfa import _enable
@@ -25,7 +26,7 @@ def _queue(client: TestClient) -> RecordingQueue:
 
 def _second_owner(client: TestClient, engine: Engine, mailer: CapturingMailer) -> TestClient:
     token = _owner_invite(engine, mailer, "dono@outra.com", "Outra")
-    other = TestClient(client.app)
+    other = browser(client.app)
     r = other.post(
         f"/api/v1/auth/invitations/{token}/accept",
         json={"name": "Outro", "password": PASSWORD},
@@ -101,7 +102,7 @@ def test_networks_need_permission(
     ):
         r = ana.request(method, path, json={"network_code": "1"}, headers=_csrf(ana))
         assert r.status_code == 403 and r.json()["error"]["code"] == "permission_denied"
-    assert TestClient(client.app).get("/api/v1/networks").status_code == 401
+    assert browser(client.app).get("/api/v1/networks").status_code == 401
 
 
 def test_internal_registers_the_network_of_a_client(
@@ -190,7 +191,7 @@ def _clients_viewer(client: TestClient, staff: TestClient, mailer: CapturingMail
         headers=_csrf(staff),
     )
     assert invited.status_code == 201, invited.text
-    viewer = TestClient(client.app)
+    viewer = browser(client.app)
     accepted = viewer.post(
         f"/api/v1/auth/invitations/{mailer.sent[-1].token}/accept",
         json={"name": "Leitura", "password": PASSWORD},

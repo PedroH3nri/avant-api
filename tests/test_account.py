@@ -17,8 +17,10 @@ from sqlalchemy import Engine
 
 from avant_api.app.errors import GoogleFailed
 from avant_api.app.google import identity_from_id_token
-from avant_api.app.limits import Limiter, MemoryCounter, RedisCounter, Rule
-from tests.conftest import CapturingMailer, run_password_reset_tasks
+from avant_api.app.limits import Limiter, RedisCounter, Rule
+from avant_api.modules.google.redirects import GoogleRedirects
+from tests.conftest import CapturingMailer, browser, run_password_reset_tasks, settings_for_tests
+from tests.fakes import MemoryCounter
 from tests.test_api import PASSWORD, _csrf, _onboard_owner
 
 NEW = "outra-senha-456"
@@ -61,7 +63,7 @@ def test_change_password_and_sessions(
 ) -> None:
     _onboard_owner(client, engine, mailer)
     # Com IP de verdade: a coluna inet volta como IPv4Address e precisa virar texto.
-    with TestClient(client.app, client=("203.0.113.7", 50000)) as other:
+    with browser(client.app, client=("203.0.113.7", 50000)) as other:
         assert (
             other.post(
                 "/api/v1/auth/login", json={"email": EMAIL, "password": PASSWORD}
@@ -344,3 +346,13 @@ def test_redis_decr_without_key_creates_nothing() -> None:
     time.sleep(1.1)
     counter.decr(key)
     assert client.exists(key) == 0 and counter.get(key) == (0, 0)
+
+
+def test_google_flow_cookie_is_always_secure() -> None:
+    redirects = GoogleRedirects(settings_for_tests(avant_env="local"))
+    going = redirects.to_google("https://accounts.google.com/o/oauth2/v2/auth", "fluxo")
+    coming = redirects.back("/entrar")
+    for response in (going, coming):
+        (cookie,) = response.headers.getlist("set-cookie")
+        assert cookie.startswith("__Secure-avant_google=") and "Secure" in cookie
+        assert "Path=/api/v1/auth/google" in cookie and "HttpOnly" in cookie

@@ -6,7 +6,7 @@ from avant_core.ports import Notice
 from fastapi.testclient import TestClient
 from sqlalchemy import Engine
 
-from tests.conftest import CapturingMailer
+from tests.conftest import CapturingMailer, browser
 from tests.test_api import PASSWORD, _csrf, _onboard_owner
 from tests.test_internal import _staff
 from tests.test_mfa import _enable
@@ -28,7 +28,7 @@ def _agent(client: TestClient, staff: TestClient, mailer: CapturingMailer) -> Te
         headers=_csrf(staff),
     )
     assert invited.status_code == 201, invited.text
-    agent = TestClient(client.app)
+    agent = browser(client.app)
     accepted = agent.post(
         f"/api/v1/auth/invitations/{mailer.sent[-1].token}/accept",
         json={"name": "Bruno", "password": PASSWORD},

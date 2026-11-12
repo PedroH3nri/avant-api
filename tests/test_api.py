@@ -15,7 +15,6 @@ from fastapi.testclient import TestClient
 from sqlalchemy import Engine, text
 
 from avant_api.app.cookies import SessionCookies
-from avant_api.app.settings import Settings
 from tests.conftest import FINANCE, CapturingMailer
 
 PASSWORD = "senha-forte-123"
@@ -63,7 +62,7 @@ def _owner_invite(
 
 
 def _csrf(client: TestClient) -> dict[str, str]:
-    return {"X-CSRF-Token": client.cookies["avant_csrf"]}
+    return {"X-CSRF-Token": client.cookies["__Host-avant_csrf"]}
 
 
 def _onboard_owner(client: TestClient, engine: Engine, mailer: CapturingMailer) -> dict:  # type: ignore[type-arg]
@@ -96,7 +95,7 @@ def test_owner_onboarding_and_login(
     assert me["companies"][0]["is_owner"] is True
     assert me["companies"][0]["is_internal"] is False
     assert me["permissions"] == ["*"] and me["site_scope"] == "all"
-    assert client.cookies.get("avant_session")
+    assert client.cookies.get("__Host-avant_session")
 
     assert client.post("/api/v1/auth/logout", headers=_csrf(client)).status_code == 204
     assert client.get("/api/v1/auth/me").status_code == 401
@@ -144,7 +143,7 @@ def test_writes_without_a_session_from_another_site_are_refused(
     for site in ("cross-site", "same-site"):
         refused = client.post("/api/v1/auth/login", json=login, headers={"Sec-Fetch-Site": site})
         assert refused.status_code == 403 and refused.json()["error"]["code"] == "csrf_failed"
-    assert "avant_session" not in client.cookies
+    assert "__Host-avant_session" not in client.cookies
     same = client.post("/api/v1/auth/login", json=login, headers={"Sec-Fetch-Site": "same-origin"})
     assert same.status_code == 200, same.text
     accept = client.post(
@@ -180,17 +179,9 @@ def test_every_write_route_refuses_another_site(client: TestClient) -> None:
     assert unchecked == []
 
 
-def test_deployed_cookies_use_the_host_prefix() -> None:
-    local = Settings.model_construct(avant_env="local")
-    assert (local.session_cookie, local.csrf_cookie) == ("avant_session", "avant_csrf")
-    deployed = Settings.model_construct(avant_env="production")
-    assert deployed.session_cookie == "__Host-avant_session"
-    assert deployed.csrf_cookie == "__Host-avant_csrf"
-
-
-def test_closing_deployed_cookies_keeps_them_secure() -> None:
+def test_cookies_are_always_secure_with_the_host_prefix() -> None:
     response = Response()
-    SessionCookies(Settings.model_construct(avant_env="production"), SystemClock()).close(response)
+    SessionCookies(SystemClock()).close(response)
     removals = response.headers.getlist("set-cookie")
     assert [cookie.split("=")[0] for cookie in removals] == [
         "__Host-avant_session",

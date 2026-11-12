@@ -15,7 +15,7 @@ from avant_core.shared.clock import SystemClock
 from fastapi.testclient import TestClient
 from sqlalchemy import Engine
 
-from tests.conftest import CapturingMailer
+from tests.conftest import CapturingMailer, browser
 from tests.test_api import PASSWORD, _csrf, _onboard_owner
 from tests.test_internal import _staff
 from tests.test_mfa import _enable
@@ -159,7 +159,7 @@ def test_start_my_commission_team_discount_and_issue(
     )
     assert late.status_code == 422
 
-    owner = TestClient(client.app)
+    owner = browser(client.app)
     _onboard_owner(owner, engine, mailer)
     assert owner.get("/api/v1/internal/commissions").status_code == 403
     assert owner.get("/api/v1/internal/commissions/me").status_code == 403
@@ -220,7 +220,7 @@ def _support(client: TestClient, staff: TestClient, mailer: CapturingMailer) -> 
         headers=_csrf(staff),
     )
     assert invited.status_code == 201, invited.text
-    support = TestClient(client.app)
+    support = browser(client.app)
     accepted = support.post(
         f"/api/v1/auth/invitations/{mailer.sent[-1].token}/accept",
         json={"name": "Suporte", "password": PASSWORD},
@@ -423,7 +423,7 @@ def test_staff_without_the_permissions_and_sessions_without_2fa_are_refused(
         headers=_csrf(staff),
     )
     assert invited.status_code == 201, invited.text
-    plain = TestClient(client.app)
+    plain = browser(client.app)
     accepted = plain.post(
         f"/api/v1/auth/invitations/{mailer.sent[-1].token}/accept",
         json={"name": "Sem", "password": PASSWORD},

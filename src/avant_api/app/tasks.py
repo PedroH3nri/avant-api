@@ -5,7 +5,6 @@ no banco o que a rota acabou de gravar.
 """
 
 import logging
-from dataclasses import dataclass, field
 from typing import Any, Protocol
 
 from celery import Celery
@@ -49,20 +48,4 @@ class CeleryQueue:
             log.exception("não foi possível enfileirar a tarefa", extra={"task": name})
             return False
         log.info("tarefa enfileirada", extra={"task": name})
-        return True
-
-
-@dataclass
-class RecordingQueue:
-    """Fake dos testes: guarda o que seria enfileirado."""
-
-    sent: list[tuple[str, tuple[Any, ...]]] = field(default_factory=list)
-    offline: bool = False
-
-    def send(self, name: str, *args: Any) -> bool:
-        """Guarda a tarefa em memória, para os testes conferirem; ``offline`` simula a fila fora do
-        ar."""
-        if self.offline:
-            return False
-        self.sent.append((name, args))
         return True

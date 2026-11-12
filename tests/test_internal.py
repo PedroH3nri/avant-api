@@ -11,7 +11,7 @@ from avant_core.shared.tokens import hash_token
 from fastapi.testclient import TestClient
 from sqlalchemy import Engine, text
 
-from tests.conftest import CapturingMailer
+from tests.conftest import CapturingMailer, browser
 from tests.test_api import PASSWORD, _csrf, _onboard_owner
 from tests.test_mfa import _enable
 from tests.test_team import _member_client
@@ -26,7 +26,7 @@ def _staff(client: TestClient, engine: Engine) -> TestClient:
         hasher=Argon2PasswordHasher(),
         clock=SystemClock(),
     )
-    staff = TestClient(client.app)
+    staff = browser(client.app)
     r = staff.post("/api/v1/auth/login", json={"email": "admin@groone.com", "password": PASSWORD})
     assert r.status_code == 200 and r.json()["me"]["mfa_setup_required"] is True
     assert [c["is_internal"] for c in r.json()["me"]["companies"]] == [True]
@@ -74,7 +74,7 @@ def test_internal_clients(client: TestClient, engine: Engine, mailer: CapturingM
         f"/api/v1/internal/owner-invitations/{invitation_id}/resend", headers=_csrf(staff)
     )
     assert r.status_code == 200
-    owner = TestClient(client.app)
+    owner = browser(client.app)
     accepted = owner.post(
         f"/api/v1/auth/invitations/{mailer.sent[-1].token}/accept",
         json={"name": "Dono", "password": PASSWORD},
@@ -237,7 +237,7 @@ def test_groone_routes_need_the_session_with_2fa(
             )
         )
         uow.commit()
-    key = TestClient(client.app)
+    key = browser(client.app)
     key.headers["Authorization"] = f"Bearer {token}"
     refused = key.get("/api/v1/invitations")
     assert refused.status_code == 403 and refused.json()["error"]["code"] == "staff_only"

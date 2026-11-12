@@ -12,7 +12,7 @@ from fastapi.testclient import TestClient
 from openpyxl import load_workbook
 from sqlalchemy import Engine
 
-from tests.conftest import FINANCE, CapturingMailer
+from tests.conftest import FINANCE, CapturingMailer, browser
 from tests.test_api import PASSWORD, _csrf, _onboard_owner, _owner_invite
 from tests.test_reports import YESTERDAY, _metrics
 from tests.test_team import _member_client
@@ -275,7 +275,7 @@ def test_private_and_other_company_reports_are_404_on_every_route(
         "/api/v1/reports", json=_report(visibility="private"), headers=_csrf(client)
     ).json()
 
-    other = TestClient(client.app)
+    other = browser(client.app)
     token = _owner_invite(engine, mailer, "dono@outra.com", "Outra")
     other.post(
         f"/api/v1/auth/invitations/{token}/accept", json={"name": "Outro", "password": PASSWORD}
@@ -380,7 +380,8 @@ def test_chart_options_keep_metric_styles(
 def test_pinned_reports_and_preview_refresh(
     client: TestClient, engine: Engine, mailer: CapturingMailer
 ) -> None:
-    from avant_api.app.tasks import REFRESH_REPORT_PREVIEW, RecordingQueue
+    from avant_api.app.tasks import REFRESH_REPORT_PREVIEW
+    from tests.fakes import RecordingQueue
 
     me = _onboard_owner(client, engine, mailer)
     queue = client.app.state.services.tasks  # type: ignore[attr-defined]

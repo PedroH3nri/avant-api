@@ -10,7 +10,8 @@ WEB_LOGIN = "/entrar"
 WEB_MFA = "/entrar/2fa"
 WEB_ACCOUNT = "/configuracoes/conta"
 
-GOOGLE_COOKIE = "avant_google"
+# Sempre Secure, em todo ambiente; o caminho não é "/", por isso o prefixo é __Secure-.
+GOOGLE_COOKIE = "__Secure-avant_google"
 GOOGLE_COOKIE_PATH = "/api/v1/auth/google"
 GOOGLE_COOKIE_TTL = 600
 
@@ -30,7 +31,7 @@ class GoogleRedirects:
             max_age=GOOGLE_COOKIE_TTL,
             path=GOOGLE_COOKIE_PATH,
             httponly=True,
-            secure=self._settings.cookie_secure,
+            secure=True,
             samesite="lax",
         )
         return redirect
@@ -44,5 +45,7 @@ class GoogleRedirects:
         redirect = RedirectResponse(
             url + (f"?{urlencode(query)}" if query else ""), status_code=302
         )
-        redirect.delete_cookie(GOOGLE_COOKIE, path=GOOGLE_COOKIE_PATH)
+        redirect.delete_cookie(
+            GOOGLE_COOKIE, path=GOOGLE_COOKIE_PATH, secure=True, httponly=True, samesite="lax"
+        )
         return redirect
