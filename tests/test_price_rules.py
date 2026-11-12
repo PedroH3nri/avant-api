@@ -556,16 +556,19 @@ def test_history_serialises_cascade_reasons(
                     floor_before_micros=1_220_000,
                     floor_applied_micros=1_220_000,
                     created_at=today,
+                    data_date=today.date() if hour == 0 else None,
+                    data_hour=7 if hour == 0 else None,
                 )
             )
         uow.commit()
     period = {"start": today.date().isoformat(), "end": today.date().isoformat()}
     history = client.get(f"{base}/{rule_id}/history", params=period)
-    assert sorted(entry["reason"] for entry in history.json()) == [
-        "fills_first",
-        "fills_late",
-        "no_new_data",
-    ]
+    by_reason = {entry["reason"]: entry for entry in history.json()}
+    assert sorted(by_reason) == ["fills_first", "fills_late", "no_new_data"]
+    assert by_reason["fills_first"]["data_date"] == today.date().isoformat()
+    assert by_reason["fills_first"]["data_hour"] == 7
+    assert by_reason["no_new_data"]["data_date"] is None
+    assert by_reason["no_new_data"]["data_hour"] is None
 
 
 def _seed_caches(client: TestClient, site_id: uuid.UUID, *hashes: str) -> tuple[str, list[str]]:

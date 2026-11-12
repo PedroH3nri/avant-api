@@ -1,7 +1,7 @@
 # Graph Report - avant-api  (2026-11-12)
 
 ## Corpus Check
-- 385 files · ~124,656 words
+- 385 files · ~124,704 words
 - Verdict: corpus is large enough that graph structure adds value.
 - Unclassified: 12 file(s) not represented in the graph (top: (none) 7, .ttf 2, .toml 1)
 
@@ -11,7 +11,7 @@
 - Token cost: 0 input · 0 output
 
 ## Graph Freshness
-- Built from commit: `a8e1798e`
+- Built from commit: `9c39eab6`
 - Run `git rev-parse HEAD` and compare to check if the graph is stale.
 - Run `graphify update .` after code changes (no API cost).
 
@@ -779,7 +779,7 @@ Nodes (3): _scaling_client(), test_client_owner_cannot_list_client_networks_or_s
 _Questions this graph is uniquely positioned to answer:_
 
 - **Why does `UnitOfWorkFactory` connect `UnitOfWorkFactory` to `contracts/controller.py`, `.__init__`, `roles/controller.py`, `DashboardService`, `Actor`, `RewardCache`, `.__init__`, `.__init__`, `_month`, `SiteService`, `.trusted_uow`, `.uow`, `inventory/dto.py`, `modules/ad_tags/dto.py`, `api_keys/controller.py`, `GoalService`, `SiteChecklistService`, `CustomMetricService`, `.update`, `PageOut`, `goals/controller.py`, `AdTagOut`, `mfa/controller.py`, `fastapi`, `ReportService`, `RewardService`, `sites/service.py`, `networks/controller.py`, `PublicAdTagService`, `reports/service.py`, `UserOut`, `mcm/controller.py`, `ClientService`, `modules/loaders/controller.py`, `internal/loaders/service.py`, `AdTagService`, `Services`, `client_documents/controller.py`, `.runs`, `networks/service.py`, `PriceRuleService`, `Services`, `profile/controller.py`, `download`, `MemberService`, `tasks/controller.py`, `clients`, `CompanyService`, `commissions/controller.py`, `google/controller.py`, `avant_core_access_models`, `goals/service.py`, `auth/controller.py`, `TaskQueue`, `.__init__`, `ContractService`, `AdTagOut`, `checklists/controller.py`, `reward_cache.py`, `ClientPriceRuleService`, `image`, `Actor`, `.__init__`, `.__init__`, `pydantic`, `.__init__`, `test_redis_buffer_follows_the_worker_contract`, `google/controller.py`, `InvoiceService`, `gam_tools/service.py`, `CommissionService`, `.__init__`, `.__init__`, `UserOut`, `reward_public/dto.py`, `clients/controller.py`?**
-  _High betweenness centrality (0.098) - this node is a cross-community bridge._
+  _High betweenness centrality (0.094) - this node is a cross-community bridge._
 - **Are the 183 inferred relationships involving `CapturingMailer` (e.g. with `test_change_password_and_sessions()` and `test_change_password_attempts_are_limited()`) actually correct?**
   _`CapturingMailer` has 183 INFERRED edges - model-reasoned connections that need verification._
 - **What connects `avant-api` to the rest of the system?**
@@ -787,7 +787,7 @@ _Questions this graph is uniquely positioned to answer:_
 - **Should `PublicRewardService` be split into smaller, more focused modules?**
   _Cohesion score 0.14461538461538462 - nodes in this community are weakly interconnected._
 - **Why does `PageOut` connect `api_keys/controller.py` to `contracts/controller.py`, `roles/controller.py`, `DashboardService`, `Actor`, `RewardCache`, `clients/controller.py`, `SiteService`, `_month`, `.trusted_uow`, `.uow`, `ContractOut`, `modules/ad_tags/dto.py`, `inventory/dto.py`, `GoalService`, `SiteChecklistService`, `.update`, `PageOut`, `goals/controller.py`, `AdTagOut`, `RewardService`, `sites/service.py`, `networks/controller.py`, `PriceRuleSiteOut`, `UserOut`, `mcm/controller.py`, `ClientService`, `modules/loaders/controller.py`, `internal/loaders/service.py`, `AdTagService`, `Services`, `.runs`, `PriceRuleService`, `shared/dto.py`, `Services`, `gam_tools/controller.py`, `get`, `modules/loaders/controller.py`, `tasks/controller.py`, `MemberService`, `modules/rewards/controller.py`, `avant_core_access_models`, `checklists/controller.py`, `goals/service.py`, `ContractService`, `Actor`, `reports/service.py`, `ClientLoaderService`, `AdTagOut`, `checklists/controller.py`, `sites/controller.py`, `reward_cache.py`, `ClientPriceRuleService`, `image`, `checklists`, `Actor`, `PriceRuleDetailsOut`, `Actor`, `InvoiceService`, `page_out`, `gam_tools/service.py`, `UserOut`, `_contract_fields`, `clients/controller.py`, `GamToolNetworkOut`?**
-  _High betweenness centrality (0.081) - this node is a cross-community bridge._
+  _High betweenness centrality (0.082) - this node is a cross-community bridge._
 - **Are the 79 inferred relationships involving `PageOut` (e.g. with `index()` and `AdTagService`) actually correct?**
   _`PageOut` has 79 INFERRED edges - model-reasoned connections that need verification._
 - **Should `roles/controller.py` be split into smaller, more focused modules?**

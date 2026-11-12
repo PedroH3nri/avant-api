@@ -3,6 +3,7 @@ na moeda da network do site (sem conversão). Datas em ISO 8601 UTC."""
 
 import uuid
 from datetime import date, datetime
+from datetime import date as calendar_date
 
 from avant_core.price_rules.catalog import DEFAULT_DROP_TIERS
 from avant_core.price_rules.enums import (
@@ -226,6 +227,8 @@ class PriceRuleHistoryOut(BaseModel):
     floor_before_micros: int
     floor_applied_micros: int
     created_at: datetime
+    data_date: calendar_date | None
+    data_hour: int | None
 
     @classmethod
     def of(cls, entry: PriceRuleHistoryEntry) -> "PriceRuleHistoryOut":
@@ -238,6 +241,8 @@ class PriceRuleHistoryOut(BaseModel):
             floor_before_micros=entry.floor_before_micros,
             floor_applied_micros=entry.floor_applied_micros,
             created_at=entry.created_at,
+            data_date=entry.data_date,
+            data_hour=entry.data_hour,
         )
 
 
