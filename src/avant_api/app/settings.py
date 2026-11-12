@@ -2,7 +2,7 @@
 
 from typing import Literal
 
-from pydantic import model_validator
+from pydantic import Field, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -24,17 +24,17 @@ class Settings(BaseSettings):
     app_base_url: str = "http://localhost:8080"
     # Obrigatória em todo ambiente: nenhum e-mail (nem o link com token) vai para o log. Em
     # desenvolvimento, uma chave do Resend de teste ou com destino escolhido de propósito.
-    resend_api_key: str
+    resend_api_key: str = Field(min_length=1)
     mail_from: str = "Avant <nao-responda@avant.groone.com>"
     # Limites de tentativas, balde das chaves de API, eventos e caches. Obrigatória em todo
     # ambiente: um limite não pode valer só em staging e produção.
-    redis_url: str
+    redis_url: str = Field(min_length=1)
     # Login com Google. Sem as duas, as rotas /auth/google respondem google_unavailable.
     google_oauth_client_id: str | None = None
     google_oauth_client_secret: str | None = None
     # Fila do avant-worker (RabbitMQ). Obrigatória em todo ambiente: o esqueci a senha só
     # agenda o envio, e o mesmo caminho vale no local.
-    celery_broker_url: str
+    celery_broker_url: str = Field(min_length=1)
     # E-mail da conta de serviço da Groone no Ad Manager, mostrado no guia de conexão.
     # Não é segredo: a chave fica só nos workers da fila gam.
     gam_service_account_email: str = "avant@groone-ads.iam.gserviceaccount.com"
