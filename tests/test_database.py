@@ -36,12 +36,6 @@ def test_engine_settings_come_from_the_settings() -> None:
     )
 
 
-def test_engine_settings_are_the_same_in_every_environment() -> None:
-    environments = ("local", "test", "staging", "production")
-    found = {engine_settings(settings_for_tests(avant_env=name)) for name in environments}
-    assert len(found) == 1
-
-
 @pytest.mark.parametrize(
     "override",
     [

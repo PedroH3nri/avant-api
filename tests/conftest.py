@@ -96,10 +96,10 @@ def settings_for_tests(**overrides: object) -> Settings:
     testes usam os fakes em memória do Services."""
     values: dict[str, object] = {
         "database_url": APP_URL or "",
-        "avant_env": "test",
         "mfa_encryption_key": "x" * 44,
         "redis_url": "redis://127.0.0.1:1/0",
         "celery_broker_url": "amqp://guest:guest@127.0.0.1:1//",
+        "mail_transport": "resend",
         "resend_api_key": "re_teste",
         "forwarded_allow_ips": "127.0.0.1",
     }

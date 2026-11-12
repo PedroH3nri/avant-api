@@ -214,13 +214,19 @@ src/avant_api/
   só uma pré-sessão de 5 minutos. A equipe Groone sem 2FA recebe `mfa_required` (403) em
   tudo menos `/auth/me`, `/auth/logout` e `/auth/mfa/*`. O segredo é cifrado com
   `MFA_ENCRYPTION_KEY`.
-- **E-mail**: os convites saem pelo Resend (`RESEND_API_KEY`, remetente em `MAIL_FROM`), em
-  português, inglês ou espanhol conforme o idioma da pessoa. A chave é obrigatória em todo
-  ambiente (sem ela a API não sobe) e nenhum e-mail nem link com token vai para o log. Em
-  desenvolvimento, use uma chave de teste do Resend ou um destino escolhido de propósito. Falha no envio vai para o log e para `avant_mail_failures_total`,
+- **E-mail**: os convites saem pelo transporte de `MAIL_TRANSPORT`, obrigatória e sem padrão:
+  `resend` (as VMs, com `RESEND_API_KEY`) ou `smtp` (o Mailpit do compose local, com
+  `SMTP_URL`). O mailer sai do `build_mailer` do core, sem olhar o ambiente; o remetente vem de
+  `MAIL_FROM` e o texto sai em português, inglês ou espanhol conforme o idioma da pessoa. Sem o
+  transporte ou sem a configuração dele, a API não sobe, e nenhum e-mail nem link com token vai
+  para o log. Falha no envio vai para o log e para `avant_mail_failures_total`,
   e o convite continua pendente: o core levanta `MailNotSent` e as rotas de convite (equipe,
   reenvio, convite de dono, reenvio do convite de dono e equipe Groone) respondem 503
   `invitation_mail_not_sent`, "O convite foi salvo, mas o e-mail não saiu. Tente reenviar."
+- **Subida**: variável que falta ou está inválida encerra a subida com
+  `configuração da API incompleta: <NOMES>`, só com os nomes; o erro do pydantic, que traz os
+  valores das outras variáveis (a senha da `DATABASE_URL`, por exemplo), não aparece. Não há
+  `AVANT_ENV`: nenhuma regra muda pelo nome do ambiente.
 - **Banco**: o engine sai do `new_engine` do core com `EngineSettings` (`application_name`
   `avant-api`), lidas de `DB_POOL_SIZE`, `DB_MAX_OVERFLOW`, `DB_POOL_TIMEOUT_SECONDS`,
   `DB_POOL_RECYCLE_SECONDS`, `DB_STATEMENT_TIMEOUT_MS`, `DB_IDLE_IN_TRANSACTION_TIMEOUT_MS` e
