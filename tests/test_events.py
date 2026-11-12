@@ -154,3 +154,19 @@ def test_metrics_updates_reach_who_sees_reports() -> None:
     source = ListEvents([_event("metrics.updated", network_id="n1")])
     chunks = asyncio.run(_collect(source, {"reports.view"}))
     assert 'event: metrics.updated\ndata: {"network_id": "n1"}\n\n' in chunks
+
+
+def test_events_route_refuses_above_the_cap(
+    client: TestClient, engine: Engine, mailer: CapturingMailer
+) -> None:
+    me = _onboard_owner(client, engine, mailer)
+    services = client.app.state.services  # type: ignore[attr-defined]
+    services.events = ListEvents([])
+    user_id = uuid.UUID(me["user"]["id"])
+    for _ in range(EVENT_STREAMS_PER_USER):
+        services.stream_limiter.acquire(user_id)
+    refused = client.get("/api/v1/events")
+    assert refused.status_code == 429 and refused.json()["error"]["code"] == "too_many_attempts"
+    assert refused.headers["Retry-After"] == "30"
+    services.stream_limiter.release(user_id)
+    assert client.get("/api/v1/events").status_code == 200
