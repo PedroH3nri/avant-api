@@ -58,10 +58,10 @@ def _account(tasks: RecordingQueue) -> AccountService:
     )
 
 
-def _services(env: str) -> Services:
+def _services() -> Services:
     """Serviços cujo banco não abre: qualquer consulta derrubaria o pedido."""
     return memory_services(
-        settings=settings_for_tests(avant_env=env, database_url=NO_DATABASE),
+        settings=settings_for_tests(database_url=NO_DATABASE),
         engine=create_engine(NO_DATABASE),
         clock=SystemClock(),
         hasher=None,
@@ -123,9 +123,8 @@ def test_queue_down_is_a_503_for_everyone() -> None:
         assert refused.value.retry_after == MAIL_QUEUE_RETRY_AFTER
 
 
-@pytest.mark.parametrize("env", ["local", "test", "staging", "production"])
-def test_forgot_route_queues_without_database_or_mail_in_every_env(env: str) -> None:
-    services = _services(env)
+def test_forgot_route_queues_without_database_or_mail() -> None:
+    services = _services()
     app = browser(create_app(services))
     answers = [
         app.post("/api/v1/auth/password/forgot", json={"email": email}) for email in (EMAIL, NOBODY)

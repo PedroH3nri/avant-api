@@ -10,7 +10,7 @@ from avant_api.app.container import Services
 from avant_api.app.logs import configure_logging
 from avant_api.app.middleware import observe
 from avant_api.app.security import check_fetch_site
-from avant_api.app.settings import Settings
+from avant_api.app.settings import load_settings
 from avant_api.modules.account.controller import router as account
 from avant_api.modules.ad_tag_public.controller import router as ad_tag_public
 from avant_api.modules.ad_tags.controller import router as ad_tags
@@ -55,7 +55,7 @@ def create_app(services: Services | None = None) -> FastAPI:
     """Monta a aplicação FastAPI com serviços, rotas, erros e middleware."""
     if services is None:
         configure_logging()
-        services = Services.build(Settings())
+        services = Services.build(load_settings())
     # A documentação padrão do FastAPI fica desligada: o Swagger e o OpenAPI são rotas do
     # módulo api_docs, só para a equipe Groone com 2FA, em todo ambiente.
     app = FastAPI(

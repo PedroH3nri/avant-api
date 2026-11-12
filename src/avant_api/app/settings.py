@@ -1,16 +1,27 @@
-"""Configuração por variáveis de ambiente. Os valores reais ficam só nas VMs."""
+"""Configuração por variáveis de ambiente. Os valores reais ficam só nas VMs. A mesma regra vale
+em todo ambiente: nenhuma configuração muda de comportamento pelo nome do ambiente."""
 
 import ipaddress
+import logging
 from typing import Literal
 
-from pydantic import Field, model_validator
+from pydantic import Field, ValidationError, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+log = logging.getLogger("avant.api")
+
+
+class InvalidVariables(ValueError):
+    """Variáveis que faltam ou estão inválidas; leva só os nomes, nunca os valores."""
+
+    def __init__(self, names: list[str]) -> None:
+        super().__init__(f"variáveis faltando ou inválidas: {', '.join(names)}")
+        self.names = names
 
 
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(extra="ignore")
 
-    avant_env: Literal["local", "test", "staging", "production"] = "local"
     # Papel avant_app: sem BYPASSRLS e sem ser dono das tabelas.
     database_url: str
     # Pool e prazos do engine (avant_core.db.engine.EngineSettings): os mesmos em todo ambiente,
@@ -28,9 +39,13 @@ class Settings(BaseSettings):
     # Chave Fernet dos segredos de 2FA. Trocar a chave invalida todos os 2FA ativos.
     mfa_encryption_key: str
     app_base_url: str = "http://localhost:8080"
-    # Obrigatória em todo ambiente: nenhum e-mail (nem o link com token) vai para o log. Em
-    # desenvolvimento, uma chave do Resend de teste ou com destino escolhido de propósito.
-    resend_api_key: str = Field(min_length=1)
+    # Transporte dos e-mails, sem padrão: ``resend`` (VMs) ou ``smtp`` (o Mailpit no local).
+    # Nenhum e-mail nem link com token vai para o log.
+    mail_transport: Literal["resend", "smtp"]
+    # Obrigatória com MAIL_TRANSPORT=resend.
+    resend_api_key: str | None = None
+    # Obrigatória com MAIL_TRANSPORT=smtp: ``smtps://`` com TLS, ``smtp://`` só na mesma rede.
+    smtp_url: str | None = None
     mail_from: str = "Avant <nao-responda@avant.groone.com>"
     # Limites de tentativas, balde das chaves de API, eventos e caches. Obrigatória em todo
     # ambiente: um limite não pode valer só em staging e produção.
@@ -62,27 +77,52 @@ class Settings(BaseSettings):
 
     @model_validator(mode="after")
     def _required_services(self) -> "Settings":
-        """Exige Redis, o broker do Celery e o Resend em todo ambiente, e o diretório das
-        métricas com vários processos."""
-        if not self.redis_url.strip():
-            raise ValueError("REDIS_URL é obrigatória em todo ambiente")
-        if not self.celery_broker_url.strip():
-            raise ValueError("CELERY_BROKER_URL é obrigatória em todo ambiente")
+        """Exige Redis, o broker do Celery, a configuração do transporte de e-mail e o proxy em
+        todo ambiente, e o diretório das métricas com vários processos."""
+        required = {
+            "REDIS_URL": self.redis_url,
+            "CELERY_BROKER_URL": self.celery_broker_url,
+            "RESEND_API_KEY": self.resend_api_key if self.mail_transport == "resend" else "-",
+            "SMTP_URL": self.smtp_url if self.mail_transport == "smtp" else "-",
+        }
+        invalid = [name for name, value in required.items() if not (value or "").strip()]
         if self.web_concurrency > 1 and not self.prometheus_multiproc_dir:
-            raise ValueError("PROMETHEUS_MULTIPROC_DIR é obrigatória com WEB_CONCURRENCY > 1")
-        if not self.resend_api_key.strip():
-            raise ValueError("RESEND_API_KEY é obrigatória em todo ambiente")
-        _check_proxy_addresses(self.forwarded_allow_ips)
+            invalid.append("PROMETHEUS_MULTIPROC_DIR")
+        if not _are_proxy_addresses(self.forwarded_allow_ips):
+            invalid.append("FORWARDED_ALLOW_IPS")
+        if invalid:
+            raise InvalidVariables(invalid)
         return self
 
 
-def _check_proxy_addresses(addresses: str) -> None:
-    """Aceita só endereços ou redes IP separados por vírgula; recusa "*" e o que não é IP."""
-    entries = [entry.strip() for entry in addresses.split(",")]
-    for entry in entries:
-        try:
-            ipaddress.ip_network(entry, strict=False)
-        except ValueError:
-            raise ValueError(
-                f"FORWARDED_ALLOW_IPS aceita só endereços ou redes do proxy, não {entry!r}"
-            ) from None
+def _are_proxy_addresses(addresses: str) -> bool:
+    """Diz se são só endereços ou redes IP separados por vírgula; "*" e nome de host não."""
+    try:
+        for entry in addresses.split(","):
+            ipaddress.ip_network(entry.strip(), strict=False)
+    except ValueError:
+        return False
+    return True
+
+
+def invalid_variable_names(error: ValidationError) -> list[str]:
+    """Os nomes das variáveis do erro de validação, sem os valores que o pydantic traz junto."""
+    names: set[str] = set()
+    for detail in error.errors():
+        if detail["loc"]:
+            names.add(str(detail["loc"][0]).upper())
+        cause = detail.get("ctx", {}).get("error")
+        if isinstance(cause, InvalidVariables):
+            names.update(cause.names)
+    return sorted(names)
+
+
+def load_settings() -> Settings:
+    """Lê as Settings do ambiente; se falta ou está errada alguma variável, encerra a subida com
+    os nomes, sem os valores (o erro do pydantic traz as outras variáveis, com segredos)."""
+    try:
+        return Settings()
+    except ValidationError as error:
+        names = ", ".join(invalid_variable_names(error))
+        log.critical("configuração da API incompleta", extra={"variables": names})
+        raise SystemExit(f"configuração da API incompleta: {names}") from None

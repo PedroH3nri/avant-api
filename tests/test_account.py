@@ -349,7 +349,7 @@ def test_redis_decr_without_key_creates_nothing() -> None:
 
 
 def test_google_flow_cookie_is_always_secure() -> None:
-    redirects = GoogleRedirects(settings_for_tests(avant_env="local"))
+    redirects = GoogleRedirects(settings_for_tests())
     going = redirects.to_google("https://accounts.google.com/o/oauth2/v2/auth", "fluxo")
     coming = redirects.back("/entrar")
     for response in (going, coming):

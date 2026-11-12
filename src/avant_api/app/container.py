@@ -8,7 +8,7 @@ from avant_core.db.engine import EngineSettings, new_engine
 from avant_core.db.uow import SqlAlchemyUnitOfWork
 from avant_core.identity.security.crypto import FernetSecretBox
 from avant_core.identity.security.passwords import Argon2PasswordHasher
-from avant_core.mail import ResendMailer
+from avant_core.mail import build_mailer
 from avant_core.ports import ImageProcessor, Mailer, MailQueue, PasswordHasher, SecretBox
 from avant_core.shared.clock import Clock, SystemClock
 from sqlalchemy import Engine
@@ -121,11 +121,14 @@ class Services:
 
 
 def _mailer(settings: Settings) -> Mailer:
-    """O Resend, em todo ambiente: nenhum e-mail nem link com token vai para o log."""
-    return ResendMailer(
-        api_key=settings.resend_api_key,
+    """O mailer do MAIL_TRANSPORT (Resend ou SMTP), montado pelo core sem olhar o ambiente:
+    nenhum e-mail nem link com token vai para o log."""
+    return build_mailer(
+        transport=settings.mail_transport,
         sender=settings.mail_from,
         base_url=settings.app_base_url,
+        resend_api_key=settings.resend_api_key,
+        smtp_url=settings.smtp_url,
     )
 
 
