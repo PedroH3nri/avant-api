@@ -16,11 +16,19 @@ REFRESH_REPORT_PREVIEW = "avant.default.refresh_report_preview"
 CHECK_CHECKLIST = "avant.default.check_checklist"
 RUN_GAM_TOOL = "avant.gam.run_tool"
 REQUEST_PASSWORD_RESET = "avant.mail.request_password_reset"
+MASK = "***"
+
+
+def masked_args(args: tuple[Any, ...]) -> str:
+    """O ``argsrepr`` com cada argumento trocado por ``***``, para dado pessoal não ir ao
+    cabeçalho da mensagem nem ao evento ``task-sent``."""
+    return repr(tuple(MASK for _ in args))
 
 
 class TaskQueue(Protocol):
-    def send(self, name: str, *args: Any) -> bool:
-        """Agenda uma tarefa no worker pelo nome; diz se chegou à fila."""
+    def send(self, name: str, *args: Any, masked: bool = False) -> bool:
+        """Agenda uma tarefa no worker pelo nome; diz se chegou à fila. ``masked`` esconde os
+        argumentos (dado pessoal) no cabeçalho e nos eventos do Celery."""
         ...
 
 
@@ -31,7 +39,7 @@ class CeleryQueue:
         self._app = Celery("avant-api", broker=broker_url)
         self._app.conf.update(task_serializer="json", broker_connection_retry_on_startup=True)
 
-    def send(self, name: str, *args: Any) -> bool:
+    def send(self, name: str, *args: Any, masked: bool = False) -> bool:
         """Sem RabbitMQ não levanta erro e devolve False: quem chama decide (a maioria segue, porque
         o agendador do worker passa no próximo ciclo). Fica o erro no log (e o alerta)."""
         queue = name.split(".")[1]
@@ -40,6 +48,7 @@ class CeleryQueue:
                 name,
                 args=list(args),
                 queue=queue,
+                argsrepr=masked_args(args) if masked else None,
                 ignore_result=True,
                 retry=True,
                 retry_policy={"max_retries": 2, "interval_start": 0, "interval_step": 0.5},

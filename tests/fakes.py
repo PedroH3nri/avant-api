@@ -100,14 +100,17 @@ class RecordingQueue:
     """Testes: guarda o que seria enfileirado."""
 
     sent: list[tuple[str, tuple[Any, ...]]] = field(default_factory=list)
+    masked: list[str] = field(default_factory=list)
     offline: bool = False
 
-    def send(self, name: str, *args: Any) -> bool:
+    def send(self, name: str, *args: Any, masked: bool = False) -> bool:
         """Guarda a tarefa em memória, para os testes conferirem; ``offline`` simula a fila fora do
-        ar."""
+        ar. As tarefas com argumentos mascarados ficam também em ``masked``."""
         if self.offline:
             return False
         self.sent.append((name, args))
+        if masked:
+            self.masked.append(name)
         return True
 
 

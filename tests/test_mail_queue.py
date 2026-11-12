@@ -1,6 +1,8 @@
 """Esqueci a senha pela fila do worker, em todo ambiente: a requisição só agenda, sem banco nem
 e-mail, e responde igual exista ou não a conta."""
 
+from typing import Any
+
 import pytest
 from avant_core.ports import UnitOfWork
 from avant_core.shared.clock import SystemClock
@@ -11,7 +13,7 @@ from avant_api.app.container import Services
 from avant_api.app.errors import QueueUnavailable
 from avant_api.app.limits import Limiter
 from avant_api.app.mail_queue import MAIL_QUEUE_RETRY_AFTER, TaskMailQueue
-from avant_api.app.tasks import REQUEST_PASSWORD_RESET
+from avant_api.app.tasks import REQUEST_PASSWORD_RESET, CeleryQueue
 from avant_api.main import create_app
 from avant_api.modules.account.service import AccountService
 from tests.conftest import CapturingMailer, browser, memory_services, settings_for_tests
@@ -77,6 +79,40 @@ def test_forgot_password_only_queues_the_normalized_email() -> None:
         (REQUEST_PASSWORD_RESET, (EMAIL,)),
         (REQUEST_PASSWORD_RESET, (NOBODY,)),
     ]
+    assert tasks.masked == [REQUEST_PASSWORD_RESET] * 2
+
+
+class _CapturingCelery:
+    """Faz o papel do ``Celery``: guarda os argumentos do ``send_task`` sem falar com o broker."""
+
+    def __init__(self) -> None:
+        self.calls: list[tuple[str, dict[str, Any]]] = []
+
+    def send_task(self, name: str, **options: Any) -> None:
+        """Guarda o nome e as opções da tarefa."""
+        self.calls.append((name, options))
+
+
+def test_password_reset_task_masks_the_email_in_the_message() -> None:
+    queue = CeleryQueue("amqp://guest:guest@127.0.0.1:1//")
+    celery = _CapturingCelery()
+    queue._app = celery  # type: ignore[assignment]
+    TaskMailQueue(queue).request_password_reset(email=EMAIL)
+    [(name, options)] = celery.calls
+    assert name == REQUEST_PASSWORD_RESET
+    assert options["args"] == [EMAIL]
+    assert options["argsrepr"] == "('***',)"
+    assert "kwargs" not in options and "kwargsrepr" not in options
+    assert EMAIL not in repr({key: value for key, value in options.items() if key != "args"})
+
+
+def test_tasks_with_ids_only_are_not_masked() -> None:
+    queue = CeleryQueue("amqp://guest:guest@127.0.0.1:1//")
+    celery = _CapturingCelery()
+    queue._app = celery  # type: ignore[assignment]
+    queue.send("avant.default.refresh_report_preview", "id-do-relatorio")
+    [(_, options)] = celery.calls
+    assert options["argsrepr"] is None
 
 
 def test_queue_down_is_a_503_for_everyone() -> None:
