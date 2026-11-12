@@ -1,8 +1,9 @@
 """Configuração por variáveis de ambiente. Os valores reais ficam só nas VMs."""
 
+import ipaddress
 from typing import Literal
 
-from pydantic import model_validator
+from pydantic import Field, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -12,26 +13,34 @@ class Settings(BaseSettings):
     avant_env: Literal["local", "test", "staging", "production"] = "local"
     # Papel avant_app: sem BYPASSRLS e sem ser dono das tabelas.
     database_url: str
+    # Pool e prazos do engine (avant_core.db.engine.EngineSettings): os mesmos em todo ambiente,
+    # e a subida recusa zero e o que passa dos tetos do core.
     db_pool_size: int = 10
     db_max_overflow: int = 5
     # Quanto um pedido espera por uma conexão livre antes de desistir com erro.
-    db_pool_timeout_seconds: int = 10
+    db_pool_timeout_seconds: float = 10
+    # Abaixo de qualquer timeout de rede ou proxy entre a API e o Postgres.
+    db_pool_recycle_seconds: int = 1800
     # Toda consulta da API tem prazo; o motor de relatórios usa um prazo menor por cima.
     db_statement_timeout_ms: int = 30_000
     db_idle_in_transaction_timeout_ms: int = 60_000
+    db_lock_timeout_ms: int = 10_000
     # Chave Fernet dos segredos de 2FA. Trocar a chave invalida todos os 2FA ativos.
     mfa_encryption_key: str
     app_base_url: str = "http://localhost:8080"
-    # Sem chave, os e-mails só vão para o log (local e testes).
-    resend_api_key: str | None = None
+    # Obrigatória em todo ambiente: nenhum e-mail (nem o link com token) vai para o log. Em
+    # desenvolvimento, uma chave do Resend de teste ou com destino escolhido de propósito.
+    resend_api_key: str = Field(min_length=1)
     mail_from: str = "Avant <nao-responda@avant.groone.com>"
-    # Contadores do limite de tentativas. Sem Redis (local e testes), ficam na memória.
-    redis_url: str | None = None
+    # Limites de tentativas, balde das chaves de API, eventos e caches. Obrigatória em todo
+    # ambiente: um limite não pode valer só em staging e produção.
+    redis_url: str = Field(min_length=1)
     # Login com Google. Sem as duas, as rotas /auth/google respondem google_unavailable.
     google_oauth_client_id: str | None = None
     google_oauth_client_secret: str | None = None
-    # Fila do avant-worker. Sem ela (local e testes), as tarefas só ficam registradas.
-    celery_broker_url: str | None = None
+    # Fila do avant-worker (RabbitMQ). Obrigatória em todo ambiente: o esqueci a senha só
+    # agenda o envio, e o mesmo caminho vale no local.
+    celery_broker_url: str = Field(min_length=1)
     # E-mail da conta de serviço da Groone no Ad Manager, mostrado no guia de conexão.
     # Não é segredo: a chave fica só nos workers da fila gam.
     gam_service_account_email: str = "avant@groone-ads.iam.gserviceaccount.com"
@@ -41,35 +50,39 @@ class Settings(BaseSettings):
     # Base GeoLite2 Country (.mmdb) para o país dos floors das regras de preço. Sem ela, a rota
     # dos floors devolve só o grupo de controle.
     geolite2_country_file: str | None = None
+    # Endereços ou redes do proxy (o nginx do compose) de quem o uvicorn aceita o X-Forwarded-For;
+    # o uvicorn lê a mesma variável. Obrigatória em todo ambiente e sem "*": o IP do cliente
+    # sustenta os limites de tentativas.
+    forwarded_allow_ips: str = Field(min_length=1)
+    # Processos do uvicorn no contêiner (a mesma variável que o uvicorn lê).
+    web_concurrency: int = 1
+    # Modo multiprocesso do prometheus_client: cada processo grava aqui e o /metrics soma todos.
+    # Obrigatório com mais de um processo, senão cada coleta cai num processo qualquer.
+    prometheus_multiproc_dir: str | None = None
 
     @model_validator(mode="after")
-    def _mail_in_deployed_envs(self) -> "Settings":
-        """Exige Resend, Redis e o broker do Celery em staging e produção."""
-        if self.avant_env in ("staging", "production") and not self.resend_api_key:
-            raise ValueError("RESEND_API_KEY é obrigatória em staging e produção")
-        if self.avant_env in ("staging", "production") and not self.redis_url:
-            # Com várias instâncias, contador em memória não limita nada.
-            raise ValueError("REDIS_URL é obrigatória em staging e produção")
-        if self.avant_env in ("staging", "production") and not self.celery_broker_url:
-            raise ValueError("CELERY_BROKER_URL é obrigatória em staging e produção")
+    def _required_services(self) -> "Settings":
+        """Exige Redis, o broker do Celery e o Resend em todo ambiente, e o diretório das
+        métricas com vários processos."""
+        if not self.redis_url.strip():
+            raise ValueError("REDIS_URL é obrigatória em todo ambiente")
+        if not self.celery_broker_url.strip():
+            raise ValueError("CELERY_BROKER_URL é obrigatória em todo ambiente")
+        if self.web_concurrency > 1 and not self.prometheus_multiproc_dir:
+            raise ValueError("PROMETHEUS_MULTIPROC_DIR é obrigatória com WEB_CONCURRENCY > 1")
+        if not self.resend_api_key.strip():
+            raise ValueError("RESEND_API_KEY é obrigatória em todo ambiente")
+        _check_proxy_addresses(self.forwarded_allow_ips)
         return self
 
-    @property
-    def cookie_secure(self) -> bool:
-        """Diz se os cookies saem com Secure (staging e produção)."""
-        return self.avant_env in ("staging", "production")
 
-    @property
-    def session_cookie(self) -> str:
-        """O cookie da sessão; com Secure, com o prefixo __Host- (nenhum subdomínio o grava)."""
-        return f"{self._cookie_prefix}avant_session"
-
-    @property
-    def csrf_cookie(self) -> str:
-        """O cookie de CSRF, legível pelo painel, com o mesmo prefixo do de sessão."""
-        return f"{self._cookie_prefix}avant_csrf"
-
-    @property
-    def _cookie_prefix(self) -> str:
-        """``__Host-`` quando os cookies saem com Secure; sem HTTPS o navegador recusaria."""
-        return "__Host-" if self.cookie_secure else ""
+def _check_proxy_addresses(addresses: str) -> None:
+    """Aceita só endereços ou redes IP separados por vírgula; recusa "*" e o que não é IP."""
+    entries = [entry.strip() for entry in addresses.split(",")]
+    for entry in entries:
+        try:
+            ipaddress.ip_network(entry, strict=False)
+        except ValueError:
+            raise ValueError(
+                f"FORWARDED_ALLOW_IPS aceita só endereços ou redes do proxy, não {entry!r}"
+            ) from None

@@ -16,8 +16,8 @@ from sqlalchemy import Engine
 
 from avant_api.app.ad_tag_cache import ad_tag_cache_key
 from avant_api.app.container import Services
-from avant_api.app.reward_buffer import MemoryRewardBuffer
-from tests.conftest import CapturingMailer
+from tests.conftest import CapturingMailer, browser
+from tests.fakes import MemoryRewardBuffer
 from tests.test_api import _csrf, _onboard_owner
 from tests.test_internal import _staff
 from tests.test_rewards import _cache
@@ -126,7 +126,7 @@ def test_ad_tags_and_loaders_panel(
         json={"name": "Principal", "draft": draft},
         headers=_csrf(client),
     )
-    visitor = TestClient(client.app)
+    visitor = browser(client.app)
     page = {"key": key, "url": "https://www.blog.com/receitas"}
     assert visitor.get("/api/tag/config", params=page).json() == {"tag": None}
     assert _cache(client).values[ad_tag_cache_key(key)] == "{}"
@@ -227,7 +227,7 @@ def test_page_views_go_to_the_buffer_and_health_reads_back(
         headers=_csrf(client),
     )
     tag = created.json()
-    visitor = TestClient(client.app)
+    visitor = browser(client.app)
     page = {
         "key": tag["key"],
         "url": "https://blog.com/receitas",

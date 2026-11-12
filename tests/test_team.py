@@ -3,7 +3,7 @@
 from fastapi.testclient import TestClient
 from sqlalchemy import Engine
 
-from tests.conftest import FINANCE, CapturingMailer
+from tests.conftest import FINANCE, CapturingMailer, browser
 from tests.test_api import PASSWORD, _csrf, _onboard_owner
 
 
@@ -15,7 +15,7 @@ def _member_client(owner: TestClient, mailer: CapturingMailer, email: str) -> Te
         headers=_csrf(owner),
     )
     assert r.status_code == 201, r.text
-    other = TestClient(owner.app)
+    other = browser(owner.app)
     accepted = other.post(
         f"/api/v1/auth/invitations/{mailer.sent[-1].token}/accept",
         json={"name": "Ana", "password": PASSWORD},

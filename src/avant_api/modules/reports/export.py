@@ -7,7 +7,8 @@ from decimal import Decimal
 
 from avant_core.identity.enums import Locale
 from avant_core.metrics.catalog import DIMENSIONS_BY_KEY, METRICS_BY_KEY
-from avant_core.metrics.models import QueryDefinition, QueryResult
+from avant_core.metrics.enums import CompareMode
+from avant_core.metrics.models import Label, QueryDefinition, QueryResult
 from openpyxl import Workbook
 from openpyxl.cell import WriteOnlyCell
 from openpyxl.cell.cell import ILLEGAL_CHARACTERS_RE
@@ -18,6 +19,11 @@ from avant_api.modules.reports.dto import dimension_text
 
 FORMULA_PREFIXES = ("=", "+", "-", "@", "\t", "\r")
 Cell = str | Decimal | None
+COMPARE_SUFFIXES: dict[CompareMode, Label] = {
+    CompareMode.PREVIOUS: Label("período anterior", "previous period", "período anterior"),
+    CompareMode.LAST_YEAR: Label("ano anterior", "last year", "año anterior"),
+    CompareMode.CUSTOM: Label("comparação", "comparison", "comparación"),
+}
 
 
 def to_csv(
@@ -52,7 +58,8 @@ def _header(definition: QueryDefinition, locale: Locale, names: Mapping[str, str
     header = [DIMENSIONS_BY_KEY[key].label.text(locale) for key in definition.dimensions]
     header += metrics
     if definition.compares:
-        header += [f"{label} (anterior)" for label in metrics]
+        suffix = COMPARE_SUFFIXES[definition.compare].text(locale)
+        header += [f"{label} ({suffix})" for label in metrics]
     return header
 
 

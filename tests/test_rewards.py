@@ -16,8 +16,9 @@ from fastapi.testclient import TestClient
 from sqlalchemy import Engine
 
 from avant_api.app.container import Services
-from avant_api.app.reward_cache import MemoryRewardCache, reward_cache_key
+from avant_api.app.reward_cache import reward_cache_key
 from tests.conftest import CapturingMailer
+from tests.fakes import MemoryRewardCache
 from tests.test_api import _csrf, _onboard_owner
 from tests.test_company_image import _png
 from tests.test_internal import _staff

@@ -72,6 +72,15 @@ class RateLimited(DomainError):
         self.retry_after = retry_after
 
 
+class InvitationMailNotSent(DomainError):
+    """O convite ficou salvo e pendente, mas o e-mail não saiu: dá para reenviar."""
+
+    code = "invitation_mail_not_sent"
+
+    def __init__(self) -> None:
+        super().__init__("O convite foi salvo, mas o e-mail não saiu. Tente reenviar.")
+
+
 class QueryTooHeavy(DomainError):
     """A consulta passou do tempo máximo no banco."""
 
@@ -91,6 +100,7 @@ class GoogleFailed(DomainError):
 STATUS: dict[str, int] = {
     "exports_busy": 503,
     "queue_unavailable": 503,
+    "invitation_mail_not_sent": 503,
     "not_authenticated": 401,
     "mfa_attempts_exceeded": 401,
     "mfa_locked": 429,

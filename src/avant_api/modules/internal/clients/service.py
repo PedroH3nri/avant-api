@@ -52,6 +52,7 @@ from avant_api.shared.dto import (
     RevenueStatusOut,
     page_out,
 )
+from avant_api.shared.invitations import invitation_mail
 
 
 def owner_invitation_out(invitation: Invitation) -> OwnerInvitationOut:
@@ -112,14 +113,16 @@ class ClientService:
         return ClientOut.of(summary)
 
     def invite_owner(self, actor: Actor, company_id: uuid.UUID) -> OwnerInvitationOut:
-        """Envia ao contato do cadastro o convite de dono, ou um link novo."""
-        invitation = send_owner_invitation(
-            self._uows.trusted_uow(),
-            actor=actor,
-            company_id=company_id,
-            clock=self._clock,
-            mailer=self._mailer,
-        )
+        """Envia ao contato do cadastro o convite de dono, ou um link novo; se o e-mail não sai,
+        o convite fica pendente e a resposta é 503."""
+        with invitation_mail():
+            invitation = send_owner_invitation(
+                self._uows.trusted_uow(),
+                actor=actor,
+                company_id=company_id,
+                clock=self._clock,
+                mailer=self._mailer,
+            )
         return owner_invitation_out(invitation)
 
     def teams(
@@ -240,14 +243,15 @@ class ClientService:
         return page_out(found, owner_invitation_out)
 
     def resend_owner(self, actor: Actor, invitation_id: uuid.UUID) -> OwnerInvitationOut:
-        """Reenvia um convite de dono com validade nova."""
-        invitation = resend_owner_invitation(
-            self._uows.trusted_uow(),
-            actor=actor,
-            invitation_id=invitation_id,
-            clock=self._clock,
-            mailer=self._mailer,
-        )
+        """Reenvia um convite de dono com validade nova; e-mail que não sai: 503."""
+        with invitation_mail():
+            invitation = resend_owner_invitation(
+                self._uows.trusted_uow(),
+                actor=actor,
+                invitation_id=invitation_id,
+                clock=self._clock,
+                mailer=self._mailer,
+            )
         return owner_invitation_out(invitation)
 
     def cancel_owner(self, actor: Actor, invitation_id: uuid.UUID) -> None:

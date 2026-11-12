@@ -1,2 +1,4 @@
 # Fora do grafo: skills de terceiros.
 docs/skills/
+# Swagger UI copiado do swagger-ui-dist (código de terceiros).
+src/avant_api/modules/api_docs/swagger_ui/

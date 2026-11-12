@@ -9,6 +9,7 @@ import uuid
 from collections.abc import Iterator
 from dataclasses import dataclass, field
 from datetime import date
+from typing import Any
 
 import pytest
 from alembic import command
@@ -18,8 +19,9 @@ from avant_core.company.enums import InvitationKind
 from avant_core.db.uow import SqlAlchemyUnitOfWork
 from avant_core.identity.security.crypto import FernetSecretBox
 from avant_core.identity.security.passwords import Argon2PasswordHasher
+from avant_core.identity.services import request_password_reset
 from avant_core.metrics.models import DateRange
-from avant_core.ports import Notice
+from avant_core.ports import MailNotSent, Notice
 from avant_core.schedules.models import ScheduledReportMail
 from avant_core.shared.clock import SystemClock
 from cryptography.fernet import Fernet
@@ -27,12 +29,28 @@ from fastapi.testclient import TestClient
 from sqlalchemy import Engine, create_engine, text
 
 from avant_api.app.container import Services
+from avant_api.app.countries import NoCountries
+from avant_api.app.events import StreamLimiter
+from avant_api.app.images import PillowImageProcessor
+from avant_api.app.limits import Limiter
 from avant_api.app.settings import Settings
+from avant_api.app.tasks import REQUEST_PASSWORD_RESET
 from avant_api.main import create_app
+from tests.fakes import (
+    MemoryBucket,
+    MemoryCounter,
+    MemoryKeyValueBuffer,
+    MemoryRewardBuffer,
+    MemoryRewardCache,
+    NoEvents,
+    RecordingQueue,
+)
 
 APP_URL = os.environ.get("AVANT_TEST_DATABASE_URL")
 OWNER_URL = os.environ.get("AVANT_TEST_MIGRATIONS_URL")
 FINANCE = uuid.uuid5(uuid.NAMESPACE_URL, "avant:role:finance")
+# Os cookies da sessão saem sempre com Secure: o cliente de teste fala HTTPS, como o navegador.
+BASE_URL = "https://testserver"
 
 
 @dataclass
@@ -49,10 +67,13 @@ class CapturingMailer:
     notices: list[tuple[str, Notice]] = field(default_factory=list)
     alerts: list[tuple[str, AlertMail]] = field(default_factory=list)
     reports: list[tuple[str, ScheduledReportMail]] = field(default_factory=list)
+    invitations_fail: bool = False
 
     def send_invitation(
         self, *, to: str, token: str, kind: InvitationKind, company_name: str | None, locale: str
     ) -> None:
+        if self.invitations_fail:
+            raise MailNotSent("o e-mail de convite não saiu")
         self.sent.append(Sent(to, token, kind))
 
     def send_password_reset(self, *, to: str, token: str, locale: str) -> None:
@@ -68,6 +89,65 @@ class CapturingMailer:
 
     def send_scheduled_report(self, *, to: str, locale: str, report: ScheduledReportMail) -> None:
         self.reports.append((to, report))
+
+
+def settings_for_tests(**overrides: object) -> Settings:
+    """Settings dos testes: Redis e fila apontam para endereços que nunca se abrem, porque os
+    testes usam os fakes em memória do Services."""
+    values: dict[str, object] = {
+        "database_url": APP_URL or "",
+        "avant_env": "test",
+        "mfa_encryption_key": "x" * 44,
+        "redis_url": "redis://127.0.0.1:1/0",
+        "celery_broker_url": "amqp://guest:guest@127.0.0.1:1//",
+        "resend_api_key": "re_teste",
+        "forwarded_allow_ips": "127.0.0.1",
+    }
+    return Settings(**(values | overrides))  # type: ignore[arg-type]
+
+
+def browser(app: Any, **options: Any) -> TestClient:
+    """Um navegador de teste por HTTPS, para receber e devolver os cookies ``Secure``."""
+    return TestClient(app, base_url=BASE_URL, **options)
+
+
+def memory_services(
+    *, settings: Settings, engine: Engine, mailer: Any, box: Any, hasher: Any, clock: Any
+) -> Services:
+    """Os serviços dos testes, com os fakes em memória no lugar de Redis e RabbitMQ."""
+    return Services(
+        settings=settings,
+        engine=engine,
+        clock=clock,
+        hasher=hasher,
+        mailer=mailer,
+        box=box,
+        limiter=Limiter(MemoryCounter()),
+        bucket=MemoryBucket(),
+        google=None,
+        tasks=RecordingQueue(),
+        events=NoEvents(),
+        stream_limiter=StreamLimiter(),
+        images=PillowImageProcessor(),
+        key_values=MemoryKeyValueBuffer(),
+        rewards=MemoryRewardCache(),
+        reward_events=MemoryRewardBuffer(),
+        page_views=MemoryRewardBuffer(),
+        countries=NoCountries(),
+    )
+
+
+def run_password_reset_tasks(client: TestClient) -> None:
+    """Faz o papel do worker: roda os pedidos de nova senha que a API deixou na fila."""
+    services = client.app.state.services  # type: ignore[attr-defined]
+    queue = services.tasks
+    assert isinstance(queue, RecordingQueue)
+    pending = [args for name, args in queue.sent if name == REQUEST_PASSWORD_RESET]
+    queue.sent = [task for task in queue.sent if task[0] != REQUEST_PASSWORD_RESET]
+    for (email,) in pending:
+        request_password_reset(
+            services.trusted_uow(), email=email, clock=services.clock, mailer=services.mailer
+        )
 
 
 @pytest.fixture(scope="session")
@@ -92,15 +172,15 @@ def mailer() -> CapturingMailer:
 @pytest.fixture
 def client(engine: Engine, mailer: CapturingMailer) -> Iterator[TestClient]:
     key = Fernet.generate_key().decode()
-    services = Services(
-        settings=Settings(database_url=APP_URL or "", avant_env="test", mfa_encryption_key=key),
+    services = memory_services(
+        settings=settings_for_tests(mfa_encryption_key=key),
         engine=engine,
         clock=SystemClock(),
         hasher=Argon2PasswordHasher(),
         mailer=mailer,
         box=FernetSecretBox(key),
     )
-    with TestClient(create_app(services)) as c:
+    with browser(create_app(services)) as c:
         yield c
     owner = create_engine(OWNER_URL or "")
     with owner.begin() as conn:

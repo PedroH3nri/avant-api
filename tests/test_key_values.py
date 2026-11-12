@@ -6,14 +6,9 @@ import pytest
 import redis
 from fastapi.testclient import TestClient
 
-from avant_api.app.key_value_buffer import (
-    BUFFER,
-    CONNECTED,
-    PENDING_NETWORKS,
-    MemoryKeyValueBuffer,
-    RedisKeyValueBuffer,
-)
+from avant_api.app.key_value_buffer import BUFFER, CONNECTED, PENDING_NETWORKS, RedisKeyValueBuffer
 from avant_api.app.security import CROSS_SITE_PATHS
+from tests.fakes import MemoryKeyValueBuffer
 
 PATH = "/api/admanager/keyvalue"
 GROONE = "22893970961"

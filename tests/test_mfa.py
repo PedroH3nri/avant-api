@@ -11,8 +11,10 @@ from avant_core.shared.clock import SystemClock
 from fastapi.testclient import TestClient
 from sqlalchemy import Engine
 
-from tests.conftest import CapturingMailer
+from tests.conftest import CapturingMailer, browser, run_password_reset_tasks
 from tests.test_api import PASSWORD, _csrf, _onboard_owner
+
+MFA_FIRST_LOCK_SECONDS = 15 * 60
 
 
 def _now_code(secret: str) -> str:
@@ -127,7 +129,7 @@ def test_verify_is_limited_by_ip(
 ) -> None:
     _onboard_owner(client, engine, mailer)
     secret, _ = _enable(client)
-    with TestClient(client.app, client=("203.0.113.7", 50000)) as other:
+    with browser(client.app, client=("203.0.113.7", 50000)) as other:
         _password_login(other)
         for _ in range(5):
             wrong = other.post("/api/v1/auth/mfa/verify", json={"code": "000000"})
@@ -152,6 +154,9 @@ def test_wrong_codes_lock_the_person(
     _password_login(client)
     r = client.post("/api/v1/auth/mfa/verify", json={"code": _now_code(secret)})
     assert r.status_code == 429 and r.json()["error"]["code"] == "mfa_locked"
+    retry_after = int(r.headers["Retry-After"])
+    assert 0 < retry_after <= MFA_FIRST_LOCK_SECONDS
+    assert r.json()["error"]["details"] == {"retry_after": retry_after}
 
 
 def test_new_recovery_codes_send_a_notice(
@@ -172,6 +177,7 @@ def test_reset_link_burns_after_five_wrong_codes(
     _onboard_owner(client, engine, mailer)
     _enable(client)
     client.post("/api/v1/auth/password/forgot", json={"email": "dono@acai.com"})
+    run_password_reset_tasks(client)
     token = mailer.resets[-1][1]
     body = {"token": token, "password": "outra-senha-456", "mfa_code": "000000"}
     codes = [
@@ -179,3 +185,23 @@ def test_reset_link_burns_after_five_wrong_codes(
         for _ in range(5)
     ]
     assert codes == ["invalid_mfa_code"] * 4 + ["mfa_attempts_exceeded"]
+
+
+def test_wrong_reset_codes_spend_the_ip_limit(
+    client: TestClient, engine: Engine, mailer: CapturingMailer
+) -> None:
+    _onboard_owner(client, engine, mailer)
+    _enable(client)
+    codes: list[str] = []
+    with browser(client.app, client=("203.0.113.9", 50000)) as other:
+        for _ in range(4):
+            other.post("/api/v1/auth/password/forgot", json={"email": "dono@acai.com"})
+            run_password_reset_tasks(client)
+            token = mailer.resets[-1][1]
+            body = {"token": token, "password": "outra-senha-456", "mfa_code": "000000"}
+            for _ in range(5):
+                r = other.post("/api/v1/auth/password/reset", json=body)
+                codes.append(r.json()["error"]["code"])
+    assert codes[:5] == ["invalid_mfa_code"] * 4 + ["mfa_attempts_exceeded"]
+    assert codes[5:16] == ["mfa_locked"] * 11
+    assert codes[16:] == ["too_many_attempts"] * 4

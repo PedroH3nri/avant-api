@@ -9,7 +9,6 @@ As páginas vistas do ``tag.js`` usam a mesma fila em outra lista, ``avant:page-
 (``avant.default.flush_page_views``): um JSON por página com o ``ip`` e o ``received_at``.
 """
 
-from dataclasses import dataclass, field
 from typing import Protocol
 
 import redis
@@ -44,15 +43,3 @@ class RedisRewardBuffer:
             return False
         self._client.rpush(self._key, *items)
         return True
-
-
-@dataclass
-class MemoryRewardBuffer:
-    """Local e testes: a lista em memória."""
-
-    items: list[str] = field(default_factory=list)
-
-    def push(self, items: list[str]) -> bool:
-        """Guarda na memória."""
-        self.items.extend(items)
-        return bool(items)

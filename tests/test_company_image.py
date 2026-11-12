@@ -1,7 +1,9 @@
 """Imagem da Empresa contra o Postgres: o cliente na Empresa ativa e a Groone no painel interno."""
 
+import gzip
 import uuid
 from io import BytesIO
+from pathlib import Path
 
 import pytest
 from avant_core.shared.errors import InvalidImage
@@ -10,10 +12,12 @@ from PIL import Image, ImageChops, ImageStat
 from sqlalchemy import Engine
 
 from avant_api.app.images import PillowImageProcessor
-from tests.conftest import CapturingMailer
+from tests.conftest import CapturingMailer, browser
 from tests.test_api import _csrf, _onboard_owner
 from tests.test_internal import _staff
 from tests.test_team import _member_client
+
+FIXTURES = Path(__file__).parent / "fixtures"
 
 
 def _png(width: int, height: int) -> bytes:
@@ -83,7 +87,7 @@ def test_groone_changes_the_image_of_a_client(
     client: TestClient, engine: Engine, mailer: CapturingMailer
 ) -> None:
     staff = _staff(client, engine)
-    owner = TestClient(client.app)
+    owner = browser(client.app)
     company_id = _onboard_owner(owner, engine, mailer)["companies"][0]["id"]
 
     assert owner.put(
@@ -123,6 +127,55 @@ def _jpeg(width: int, height: int, *, progressive: bool = False) -> bytes:
     return output.getvalue()
 
 
+def _three_scans() -> bytes:
+    """JPEG comum (SOF0) de 3500 x 2600 com uma varredura por componente, feito com
+    ``jpegtran -scans``: o Pillow não marca ``progressive``, mas o libjpeg guarda tudo."""
+    return gzip.decompress((FIXTURES / "sequential_three_scans.jpg.gz").read_bytes())
+
+
+def _with_exif_thumbnail(jpeg: bytes) -> bytes:
+    """O JPEG com um APP1 cuja miniatura tem SOS próprio: não pode contar como varredura."""
+    thumbnail = b"Exif\x00\x00" + b"\xff\xd8\xff\xda\x00\x02\x00\xff\xda\x00\x02\xff\xd9"
+    segment = b"\xff\xe1" + (len(thumbnail) + 2).to_bytes(2, "big") + thumbnail
+    return jpeg[:2] + segment + jpeg[2:]
+
+
+def test_sequential_jpeg_with_many_scans_has_the_progressive_limit() -> None:
+    processor = PillowImageProcessor()
+    with Image.open(BytesIO(_three_scans())) as opened:
+        assert opened.size == (3500, 2600) and "progressive" not in opened.info
+    with pytest.raises(InvalidImage, match="pixels demais"):
+        processor.square_webp(_three_scans(), 256)
+    photo = _with_exif_thumbnail(_jpeg(4032, 3024))
+    with Image.open(BytesIO(processor.square_webp(photo, 256))) as result:
+        assert result.size == (256, 256)
+
+
+def _after_first_segment(jpeg: bytes, extra: bytes) -> bytes:
+    """O JPEG com ``extra`` depois do primeiro segmento (o APP0), como no arquivo adulterado."""
+    end = 4 + int.from_bytes(jpeg[4:6], "big")
+    return jpeg[:end] + extra + jpeg[end:]
+
+
+def test_irregular_jpeg_fails_closed_to_the_progressive_limit() -> None:
+    processor = PillowImageProcessor()
+    tampered = _after_first_segment(_three_scans(), b"\x00")
+    with Image.open(BytesIO(tampered)) as opened:
+        assert opened.size == (3500, 2600)
+    with pytest.raises(InvalidImage, match="pixels demais"):
+        processor.square_webp(tampered, 256)
+    photo = _jpeg(4032, 3024)
+    for irregular in (
+        _after_first_segment(photo, b"\x00"),
+        photo[: len(photo) // 2],
+        photo[:-2],
+    ):
+        with pytest.raises(InvalidImage):
+            processor.square_webp(irregular, 256)
+    with Image.open(BytesIO(processor.square_webp(photo, 256))) as result:
+        assert result.size == (256, 256)
+
+
 def _striped_logo(width: int, height: int, mode: str) -> bytes:
     """Uma logo PNG com listras verticais de 4 px, para medir a nitidez depois de reduzir."""
     image = Image.new("RGB", (width, height), (255, 255, 255))
@@ -143,7 +196,7 @@ def test_phone_photos_pass_and_huge_pngs_are_refused() -> None:
     processor = PillowImageProcessor()
     with Image.open(BytesIO(processor.square_webp(_jpeg(4032, 3024), 256))) as result:
         assert result.size == (256, 256)
-    for huge in (_jpeg(8000, 6000, progressive=True), _jpeg(6000, 5000)):
+    for huge in (_jpeg(4032, 3024, progressive=True), _jpeg(6000, 5000)):
         with pytest.raises(InvalidImage):
             processor.square_webp(huge, 256)
     with pytest.raises(InvalidImage):

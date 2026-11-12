@@ -6,7 +6,6 @@ O contrato com o avant-worker (que esvazia o buffer e cria os valores no GAM):
 pares ``key:value`` pendentes da network.
 """
 
-from dataclasses import dataclass, field
 from typing import Protocol
 
 import redis
@@ -47,19 +46,3 @@ class RedisKeyValueBuffer:
         pipe.sadd(BUFFER.format(network=network_code), *pairs)
         pipe.sadd(PENDING_NETWORKS, network_code)
         pipe.execute()
-
-
-@dataclass
-class MemoryKeyValueBuffer:
-    """Local e testes: as networks conectadas e o buffer em memória."""
-
-    connected: set[str] = field(default_factory=set)
-    buffered: dict[str, set[str]] = field(default_factory=dict)
-
-    def is_connected(self, network_code: str) -> bool:
-        """Diz se a network está no conjunto em memória."""
-        return network_code in self.connected
-
-    def push(self, network_code: str, pairs: set[str]) -> None:
-        """Guarda os pares em memória."""
-        self.buffered.setdefault(network_code, set()).update(pairs)

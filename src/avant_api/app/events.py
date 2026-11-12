@@ -107,16 +107,6 @@ class RedisEvents:
             await pubsub.aclose()  # type: ignore[no-untyped-call]
 
 
-class NoEvents:
-    """Sem Redis (local e testes): a conexão fica aberta só com o heartbeat."""
-
-    async def listen(self, channel: str, *, timeout: float) -> AsyncIterator[str | None]:
-        """Nunca tem evento: só entrega None a cada tempo limite."""
-        while True:
-            await asyncio.sleep(timeout)
-            yield None
-
-
 async def sse(
     source: EventSource,
     *,

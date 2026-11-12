@@ -10,17 +10,18 @@ from avant_core.identity.errors import (
     InvalidMfaCode,
     InvalidToken,
     MfaAttemptsExceeded,
+    MfaLocked,
 )
 from avant_core.identity.services import (
     Authenticated,
     change_password,
     list_sessions,
-    request_password_reset,
+    queue_password_reset,
     reset_password,
     revoke_other_sessions,
     revoke_session,
 )
-from avant_core.ports import Mailer, PasswordHasher, SecretBox
+from avant_core.ports import Mailer, MailQueue, PasswordHasher, SecretBox
 from avant_core.shared.clock import Clock
 
 from avant_api.app.limits import PASSWORD_CHANGE, PASSWORD_IP, Limiter
@@ -39,6 +40,7 @@ class AccountService:
         box: SecretBox,
         mailer: Mailer,
         limiter: Limiter,
+        mail_queue: MailQueue,
     ) -> None:
         self._uows = uows
         self._clock = clock
@@ -46,18 +48,18 @@ class AccountService:
         self._box = box
         self._mailer = mailer
         self._limiter = limiter
+        self._mail_queue = mail_queue
 
     def forgot_password(self, email: str, ip: str | None) -> None:
-        """Manda o link de redefinição; todo pedido conta no limite por IP."""
+        """Agenda o link de redefinição sem ler o banco, para o tempo não dizer se a conta existe;
+        todo pedido conta no limite por IP."""
         self._limiter.check((PASSWORD_IP, ip))
         self._limiter.fail((PASSWORD_IP, ip))
-        request_password_reset(
-            self._uows.trusted_uow(), email=email, clock=self._clock, mailer=self._mailer
-        )
+        queue_password_reset(email=email, queue=self._mail_queue)
 
     def reset_password(self, body: ResetPasswordIn, ip: str | None) -> None:
         """Troca a senha pelo link e encerra todas as sessões; link e código errados contam."""
-        failures = (InvalidToken, InvalidMfaCode, MfaAttemptsExceeded)
+        failures = (InvalidToken, InvalidMfaCode, MfaAttemptsExceeded, MfaLocked)
         with self._limiter.attempt((PASSWORD_IP, ip), counts=failures):
             reset_password(
                 self._uows.trusted_uow(),

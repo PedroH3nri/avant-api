@@ -8,6 +8,10 @@ on:
   push:
     branches: [develop, main]
 
+# Só leitura: nenhum passo grava no repositório.
+permissions:
+  contents: read
+
 jobs:
   test:
     runs-on: ubuntu-latest
@@ -27,8 +31,8 @@ jobs:
       AVANT_TEST_DATABASE_URL: postgresql+psycopg://avant_app:app@localhost:5432/avant_test
       AVANT_TEST_REDIS_URL: redis://localhost:6379/0
     steps:
-      - uses: actions/checkout@v4
-      - uses: astral-sh/setup-uv@v5
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: astral-sh/setup-uv@d4b2f3b6ecc6e67c4457f6d3e41ec42d3d0fcb86 # v5.4.2
         with:
           python-version: "3.12"
       - name: Papéis do banco (como o avant-infra/postgres/init/01-roles.sh)
@@ -56,9 +60,32 @@ jobs:
           git config --global url."https://x-access-token:${AVANT_CORE_ACCESS}@github.com/PedroH3nri/avant-core".insteadOf "https://github.com/PedroH3nri/avant-core"
           uv sync --frozen
           git config --global --remove-section "url.https://x-access-token:${AVANT_CORE_ACCESS}@github.com/PedroH3nri/avant-core"
+      - name: Vulnerabilidades nas dependências (pip-audit sobre o uv.lock)
+        run: |
+          uv export --frozen --no-hashes --no-emit-project | grep -v '^avant-core @' > "$RUNNER_TEMP/requirements-audit.txt"
+          uvx pip-audit@2.9.0 --no-deps --disable-pip -r "$RUNNER_TEMP/requirements-audit.txt"
       - run: uv run ruff format --check .
       - run: uv run ruff check .
       - run: uv run mypy
       - name: Clean code (skill avant-clean-code)
         run: uv run python scripts/clean_code.py
       - run: uv run pytest -q
+
+  # Segredos em todo o histórico (avant-infra#87). O .gitleaks.toml libera só as senhas fixas
+  # dos testes.
+  segredos:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          fetch-depth: 0
+      - name: gitleaks
+        env:
+          GITLEAKS_VERSION: 8.30.1
+          GITLEAKS_SHA256: 551f6fc83ea457d62a0d98237cbad105af8d557003051f41f3e7ca7b3f2470eb
+        run: |
+          curl -sSfL -o "$RUNNER_TEMP/gitleaks.tar.gz" \
+            "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz"
+          echo "${GITLEAKS_SHA256}  $RUNNER_TEMP/gitleaks.tar.gz" | sha256sum -c -
+          tar -xzf "$RUNNER_TEMP/gitleaks.tar.gz" -C "$RUNNER_TEMP" gitleaks
+          "$RUNNER_TEMP/gitleaks" git . --config .gitleaks.toml --redact --no-banner --exit-code 1

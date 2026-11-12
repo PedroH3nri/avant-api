@@ -1,7 +1,7 @@
 # avant-api
 
 API REST do Groone Avant, em FastAPI. Todas as rotas ficam em `/api/v1`, e a
-documentação OpenAPI em `/api/docs`. O domínio, os casos de uso e o banco vêm do
+documentação OpenAPI em `/api/docs` (só para a equipe Groone com 2FA). O domínio, os casos de uso e o banco vêm do
 [avant-core](https://github.com/PedroH3nri/avant-core): esta API só traduz HTTP.
 
 Outros repositórios: avant-core, avant-worker, avant-web, avant-infra.
@@ -12,7 +12,7 @@ Outros repositórios: avant-core, avant-worker, avant-web, avant-infra.
 | --- | --- | --- |
 | `GET /health` | o processo está de pé | nenhuma |
 | `GET /ready` | o banco responde | nenhuma |
-| `GET /metrics` | Prometheus; bloqueado no nginx | rede interna |
+| `GET /metrics` | Prometheus; bloqueado no nginx. Com `WEB_CONCURRENCY` > 1, `PROMETHEUS_MULTIPROC_DIR` é obrigatória (a imagem já traz `/tmp/avant-metrics`, limpo a cada subida) e a resposta soma todos os processos | rede interna |
 | `POST /auth/login` | e-mail e senha; abre a sessão | nenhuma |
 | `POST /auth/logout` | encerra a sessão | sessão |
 | `GET /auth/me` | pessoa, Empresas, Empresa ativa e permissões | sessão |
@@ -24,7 +24,7 @@ Outros repositórios: avant-core, avant-worker, avant-web, avant-infra.
 | `POST /auth/mfa/setup` e `/confirm` | ativa o 2FA; o confirm devolve os 10 códigos de recuperação | sessão |
 | `POST /auth/mfa/recovery-codes` | gera novos códigos de recuperação | sessão + código |
 | `DELETE /auth/mfa` | desliga o 2FA (só clientes) | sessão + código |
-| `POST /auth/password/forgot` | manda o link de nova senha; responde 202 exista ou não a conta | nenhuma |
+| `POST /auth/password/forgot` | agenda o link de nova senha no worker; responde 202 exista ou não a conta | nenhuma |
 | `POST /auth/password/reset` | nova senha pelo link (com 2FA, pede o código); encerra todas as sessões | nenhuma |
 | `POST /auth/password/change` | troca a senha; encerra as outras sessões | sessão |
 | `GET /auth/sessions` | sessões ativas, com a atual marcada | sessão |
@@ -86,7 +86,7 @@ Outros repositórios: avant-core, avant-worker, avant-web, avant-infra.
 | `POST /custom-metrics`, `PUT /custom-metrics/{id}`, `DELETE /custom-metrics/{id}` | cadastra, edita ou apaga uma métrica personalizada (fórmula sobre as métricas do catálogo; erro `invalid_formula`; `409 custom_metric_in_use` se outra usa); a chave nasce do nome e não muda | `metrics.manage` |
 | `POST /custom-metrics/validate` | confere o formulário como salvar faria, sem gravar: `valid`, `code`, `error` (com a posição) e as variáveis; com `sample` (valores de exemplo das métricas do catálogo; as personalizadas aninhadas são calculadas), devolve em `value` a fórmula calculada no core (vazio sem denominador) | `metrics.manage` |
 | `POST /reports/query` | roda uma consulta sem salvar: métricas, período (fixo ou relativo), dimensões, filtros, comparação (`compare`: `none`, `previous`, `last_year` ou `custom` com `compare_start` e `compare_end`; `true`/`false` antigos ainda valem), ordem e limite; `currency` converte o dinheiro pela cotação de cada dia (padrão `USD`; sem cotação, `currency_unavailable`); decimais como texto; só os sites que a pessoa vê; 10 seguidas e depois 1 a cada 2 s (`rate_limited`, com `details.retry_after` e o cabeçalho `Retry-After`); passou de 15 s no banco, `query_too_heavy` | `reports.view` |
-| `POST /reports/query/batch` | as consultas de uma tela juntas (`sections`, de 1 a 30, no formato de `/reports/query`); devolve `results` na mesma ordem e gasta uma consulta do limite pela tela inteira | `reports.view` |
+| `POST /reports/query/batch` | as consultas de uma tela juntas (`sections`, de 1 a 8, no formato de `/reports/query`); devolve `results` na mesma ordem e gasta uma consulta do limite pela tela inteira | `reports.view` |
 | `POST /reports/query/export?locale=` | a mesma consulta em CSV, sites e networks pelo nome, texto que parece fórmula escapado com `'` | `reports.view` |
 | `GET /reports`, `GET /reports/{id}` | relatórios salvos que a pessoa vê, em páginas (`page`, o mais recente primeiro, `scope` `mine`/`shared`, `q` no nome, `counts` de cada aba) (os dela, os da Empresa e os dos papéis dela; o privado de outra pessoa é 404), com a consulta, o gráfico, a visibilidade e `editable` | `reports.view` |
 | `POST /reports`, `PUT /reports/{id}`, `DELETE /reports/{id}` | salva, edita ou apaga um relatório: nome, descrição, consulta (a de `/reports/query`, sem a moeda), `chart_type` e opções (`stacked`; `metrics` com a cor de cada métrica, `lime`/`cyan`/`magenta`/`violet`/`orange`/`yellow`/`red`, e a aparência `green_red`/`red_green` com `from` < `to`), `visibility` (`private`, `company`, `roles` com `role_ids`); editar e apagar são do dono ou de quem tem `reports.manage` | `reports.manage` para criar |
@@ -203,9 +203,10 @@ src/avant_api/
 
 ## Como funciona
 
-- **Sessão**: cookie `avant_session` (`httpOnly`, `SameSite=Lax`, `Secure` fora do
-  local). O banco guarda só o hash.
-- **CSRF**: no login, a API grava também o cookie `avant_csrf`, que o Vue lê e manda no
+- **Sessão**: cookie `__Host-avant_session` (`httpOnly`, `SameSite=Lax`, `Secure`), igual
+  em todo ambiente. Chrome e Firefox aceitam `Secure` em `http://localhost`; para os outros
+  navegadores, o HTTPS local vem do avant-infra. O banco guarda só o hash.
+- **CSRF**: no login, a API grava também o cookie `__Host-avant_csrf`, que o Vue lê e manda no
   cabeçalho `X-CSRF-Token` em todo POST, PATCH, PUT e DELETE.
 - **Empresa ativa**: vem da sessão, nunca da URL. Cada rota abre o Unit of Work do
   avant-core com essa Empresa, e o RLS do Postgres garante o isolamento.
@@ -213,15 +214,33 @@ src/avant_api/
   só uma pré-sessão de 5 minutos. A equipe Groone sem 2FA recebe `mfa_required` (403) em
   tudo menos `/auth/me`, `/auth/logout` e `/auth/mfa/*`. O segredo é cifrado com
   `MFA_ENCRYPTION_KEY`.
-- **E-mail**: com `RESEND_API_KEY`, os convites saem pelo Resend (remetente em
-  `MAIL_FROM`), em português, inglês ou espanhol conforme o idioma da pessoa. Sem a chave,
-  o `LogMailer` só registra o envio e, em local, mostra o link. A chave é obrigatória em
-  staging e produção. Falha no envio vai para o log e para `avant_mail_failures_total`,
-  e o convite continua pendente.
+- **E-mail**: os convites saem pelo Resend (`RESEND_API_KEY`, remetente em `MAIL_FROM`), em
+  português, inglês ou espanhol conforme o idioma da pessoa. A chave é obrigatória em todo
+  ambiente (sem ela a API não sobe) e nenhum e-mail nem link com token vai para o log. Em
+  desenvolvimento, use uma chave de teste do Resend ou um destino escolhido de propósito. Falha no envio vai para o log e para `avant_mail_failures_total`,
+  e o convite continua pendente: o core levanta `MailNotSent` e as rotas de convite (equipe,
+  reenvio, convite de dono, reenvio do convite de dono e equipe Groone) respondem 503
+  `invitation_mail_not_sent`, "O convite foi salvo, mas o e-mail não saiu. Tente reenviar."
+- **Banco**: o engine sai do `new_engine` do core com `EngineSettings` (`application_name`
+  `avant-api`), lidas de `DB_POOL_SIZE`, `DB_MAX_OVERFLOW`, `DB_POOL_TIMEOUT_SECONDS`,
+  `DB_POOL_RECYCLE_SECONDS`, `DB_STATEMENT_TIMEOUT_MS`, `DB_IDLE_IN_TRANSACTION_TIMEOUT_MS` e
+  `DB_LOCK_TIMEOUT_MS`, com os mesmos padrões em todo ambiente; zero ou acima dos tetos do core,
+  a API não sobe. Na subida, `ensure_app_role_is_restricted` recusa o papel que ignora o RLS
+  (superusuário, `BYPASSRLS` ou dono de tabela). As respostas em streaming (SSE e downloads) não
+  seguram conexão do pool, e `tests/test_database.py` confere a conta das conexões
+  (`check_connection_budget`) com os números padrão.
 - **Limite de tentativas**: 5 senhas erradas por e-mail e 20 por IP em 15 minutos no
   login; 20 pedidos por IP em 15 minutos em `/auth/password/*`. Passou, 429
-  `too_many_attempts` com `Retry-After`. Os contadores ficam no Redis (`REDIS_URL`,
-  obrigatória em staging e produção) e, sem ele, na memória do processo.
+  `too_many_attempts` com `Retry-After`. Os contadores ficam no Redis (`REDIS_URL`), em
+  todo ambiente: sem `REDIS_URL` ou sem `CELERY_BROKER_URL` a API não sobe, para nenhum
+  limite valer só em staging e produção. O `Services` não tem fake por padrão: os testes montam
+  os fakes em memória (`tests/fakes.py`) na fábrica `memory_services` do `tests/conftest.py`.
+- **Esqueci a senha**: a rota só normaliza o e-mail e agenda
+  `avant.mail.request_password_reset(email)` na fila `mail` (`queue_password_reset` do
+  core, adaptador `TaskMailQueue`), sem ler o banco nem mandar e-mail, para o tempo de
+  resposta não dizer se a conta existe. O worker gera o link e manda o e-mail; o token não
+  passa pela fila; o e-mail vai mascarado (`argsrepr="('***',)"`) no cabeçalho da mensagem e no
+  evento `task-sent`. Com o RabbitMQ fora do ar, 503 `queue_unavailable` para qualquer e-mail.
 - **Google**: OpenID Connect com PKCE, tratado aqui (`GOOGLE_OAUTH_CLIENT_ID` e
   `GOOGLE_OAUTH_CLIENT_SECRET`; URI de redirecionamento
   `{APP_BASE_URL}/api/v1/auth/google/callback`). Só entra com Google quem ligou a conta
@@ -232,7 +251,7 @@ src/avant_api/
   e-mails vêm de `avant_core.mail`, o mesmo módulo do worker.
 - **GAM**: a API não fala com o Ad Manager. Conectar, "sincronizar agora" e atribuir uma
   network MCM gravam o pedido e enfileiram `avant.gam.sync_network` no RabbitMQ
-  (`CELERY_BROKER_URL`, obrigatória em staging e produção) depois do commit. Se o
+  (`CELERY_BROKER_URL`, obrigatória em todo ambiente) depois do commit. Se o
   RabbitMQ não responder, a rota não falha: o erro vai para o log e o agendador do worker
   passa pela network no ciclo seguinte. O guia mostra `GAM_SERVICE_ACCOUNT_EMAIL`.
 - **Tempo real**: `GET /events` é um `text/event-stream`. O worker publica
@@ -249,7 +268,9 @@ src/avant_api/
   `X-RateLimit-Remaining`); passou, 429 `rate_limited` com `Retry-After`, e mais de 20
   recusas em um minuto bloqueiam a chave por 30 s. O balde fica no Redis. Chave que não
   confere conta por IP: 20 em 15 minutos e o IP leva 429 `too_many_attempts` antes de a
-  chave chegar ao banco.
+  chave chegar ao banco. Só a falha conta (o limite confere antes da consulta e soma depois
+  do `not_authenticated`), então uma chave válida nunca ocupa vaga do limite do IP; em
+  rajada, chaves erradas em paralelo podem passar um pouco das 20 antes do bloqueio.
 - **Reward no site** (`modules/reward_public/`, fora de `/api/v1`, sem sessão): o script
   `reward.js` lê `GET /api/reward/v2?url=` (a configuração da página, com o `id` de cada
   pergunta, guardada no Redis em `avant:reward:{domínio}/{caminho}` por 1 hora, ou 5 minutos
@@ -268,8 +289,21 @@ src/avant_api/
   (`/auth/invitations/***`). A chave de API e os cookies nunca vão para o log.
 - **Cabeçalhos**: toda resposta leva `X-Content-Type-Options: nosniff`,
   `X-Frame-Options: DENY`, `Referrer-Policy: no-referrer` e
-  `Content-Security-Policy: default-src 'none'; frame-ancestors 'none'`, menos a página do
-  Swagger (`/api/docs`, fechada em produção), que carrega scripts.
+  `Content-Security-Policy: default-src 'none'; frame-ancestors 'none'`. A página do Swagger
+  (`/api/docs`), quando é entregue, leva uma política própria (`DOCS_CONTENT_SECURITY_POLICY` em
+  `app/middleware.py`): `script-src 'self'`, `connect-src 'self'`, `frame-ancestors 'none'` e
+  nenhum script inline. O Swagger UI não vem de CDN: o `swagger-ui-dist` 5.34.0 está copiado em
+  `modules/api_docs/swagger_ui/` (conferido pelo `integrity` do npm ao copiar) e sai por
+  `/api/docs/assets/{arquivo}`, com o SHA-256 de cada arquivo conferido na subida
+  (`swagger_assets.py`; arquivo alterado, a API não sobe) e `integrity` (SRI) na página. Para
+  atualizar, troque os arquivos e os SHA-256 juntos. O Swagger, os arquivos dele e o
+  `/api/v1/openapi.json` (que lista também as rotas internas) têm a mesma regra em todo
+  ambiente: só a sessão da equipe Groone, com a Company Groone ativa e o 2FA verificado;
+  quem não é recebe o erro de sempre (401, `staff_only` ou `mfa_required`), com a política.
+- **Proxy**: o uvicorn só aceita `X-Forwarded-For` de `FORWARDED_ALLOW_IPS` (endereços ou redes
+  do nginx do compose, separados por vírgula). A variável é obrigatória em todo ambiente e não
+  aceita `*`: o IP do cliente sustenta os limites por IP. Sem ela, a API não sobe. No
+  desenvolvimento, sem proxy na frente, use `127.0.0.1`.
 
 ## Desenvolvimento
 
@@ -295,6 +329,7 @@ Para rodar a API, com o compose do avant-infra no ar:
 
 ```bash
 DATABASE_URL=postgresql+psycopg://avant_app:SENHA@localhost:5432/avant \
+REDIS_URL=redis://localhost:6379/0 CELERY_BROKER_URL=amqp://USUARIO:SENHA@localhost:5672// \
   uv run uvicorn avant_api.main:create_app --factory --reload
 ```
 
