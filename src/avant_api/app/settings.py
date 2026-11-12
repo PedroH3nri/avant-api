@@ -10,6 +10,8 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 log = logging.getLogger("avant.api")
 
+WIDEST_PROXY_PREFIX = {4: 8, 6: 32}
+
 
 class InvalidVariables(ValueError):
     """Variáveis que faltam ou estão inválidas; leva só os nomes, nunca os valores."""
@@ -96,13 +98,15 @@ class Settings(BaseSettings):
 
 
 def _are_proxy_addresses(addresses: str) -> bool:
-    """Diz se são só endereços ou redes IP separados por vírgula; "*" e nome de host não."""
+    """Diz se são só endereços ou redes IP separados por vírgula; "*", nome de host e rede
+    larga demais (como ``0.0.0.0/0``, que vale o mesmo que "*") não."""
     try:
-        for entry in addresses.split(","):
-            ipaddress.ip_network(entry.strip(), strict=False)
+        networks = [
+            ipaddress.ip_network(entry.strip(), strict=False) for entry in addresses.split(",")
+        ]
     except ValueError:
         return False
-    return True
+    return all(network.prefixlen >= WIDEST_PROXY_PREFIX[network.version] for network in networks)
 
 
 def invalid_variable_names(error: ValidationError) -> list[str]:

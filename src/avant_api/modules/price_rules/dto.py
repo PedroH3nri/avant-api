@@ -68,7 +68,7 @@ class PriceRuleSiteOut(BaseModel):
 
 def _recommended_models(blocks: tuple[str, ...]) -> dict[str, PriceRuleModel]:
     """O modelo recomendado de cada bloco; o offerwall e os blocos sem tipo ficam de fora."""
-    recommended = {}
+    recommended: dict[str, PriceRuleModel] = {}
     for block in blocks:
         kind = kind_of(block)
         model = recommended_model(kind) if kind is not None else None

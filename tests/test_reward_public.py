@@ -295,3 +295,27 @@ def test_reward_page_ignores_malformed_cascade_cache(
         response = visitor.get("/api/reward/v2", params={"url": PAGE})
         assert response.status_code == 200
         assert response.json()["price_rules"]["cascades"] == {"Rewards_Mobile": LADDER}
+
+
+def test_reward_page_keeps_reward_and_rewards_blocks(
+    client: TestClient, engine: Engine, mailer: CapturingMailer
+) -> None:
+    site_id, visitor = _cascade_reward(client, engine, mailer)
+    _cache(client).values[CASCADE_CACHE_KEY.format(site_id=site_id)] = json.dumps(
+        {"BR": {"Reward_Mobile": ["1.00"], "Rewards_Mobile": LADDER, "Anchor_Mobile": ["2.00"]}}
+    )
+    body = visitor.get("/api/reward/v2", params={"url": PAGE}).json()
+    assert body["price_rules"]["cascades"] == {"Reward_Mobile": ["1.00"], "Rewards_Mobile": LADDER}
+
+
+def test_reward_page_reloads_a_corrupted_cache_entry(
+    client: TestClient, engine: Engine, mailer: CapturingMailer
+) -> None:
+    _, visitor = _cascade_reward(client, engine, mailer)
+    key = reward_cache_key("blog.com", "receitas/bolo")
+    for invalid in ("{quebrado", '{"reward": 5}', "[]"):
+        _cache(client).values[key] = invalid
+        response = visitor.get("/api/reward/v2", params={"url": PAGE})
+        assert response.status_code == 200
+        assert response.json()["reward"] is not None
+        assert json.loads(_cache(client).values[key])["reward"] is not None

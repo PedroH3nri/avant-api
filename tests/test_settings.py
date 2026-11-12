@@ -79,6 +79,10 @@ def test_api_starts_with_each_transport(monkeypatch: pytest.MonkeyPatch) -> None
         ({"FORWARDED_ALLOW_IPS": "*"}, "FORWARDED_ALLOW_IPS"),
         ({"FORWARDED_ALLOW_IPS": "127.0.0.1,*"}, "FORWARDED_ALLOW_IPS"),
         ({"FORWARDED_ALLOW_IPS": "nginx"}, "FORWARDED_ALLOW_IPS"),
+        ({"FORWARDED_ALLOW_IPS": "0.0.0.0/0"}, "FORWARDED_ALLOW_IPS"),
+        ({"FORWARDED_ALLOW_IPS": "::/0"}, "FORWARDED_ALLOW_IPS"),
+        ({"FORWARDED_ALLOW_IPS": "127.0.0.1, 10.0.0.0/7"}, "FORWARDED_ALLOW_IPS"),
+        ({"FORWARDED_ALLOW_IPS": "fd00::/31"}, "FORWARDED_ALLOW_IPS"),
         ({"WEB_CONCURRENCY": "2"}, "PROMETHEUS_MULTIPROC_DIR"),
     ],
 )
@@ -111,6 +115,8 @@ def test_start_error_shows_names_and_never_values(monkeypatch: pytest.MonkeyPatc
 def test_proxy_addresses_accept_ips_and_networks() -> None:
     accepted = settings_for_tests(forwarded_allow_ips="172.30.0.0/24, ::1")
     assert accepted.forwarded_allow_ips == "172.30.0.0/24, ::1"
+    widest = settings_for_tests(forwarded_allow_ips="10.0.0.0/8, fd00::/32")
+    assert widest.forwarded_allow_ips == "10.0.0.0/8, fd00::/32"
 
 
 def test_environment_name_changes_nothing(monkeypatch: pytest.MonkeyPatch) -> None:

@@ -12,6 +12,8 @@ from datetime import datetime
 from zoneinfo import ZoneInfo
 
 from avant_core.ports import UnitOfWork
+from avant_core.price_rules.enums import BlockKind
+from avant_core.price_rules.services import kind_of
 from avant_core.rewards.enums import RewardLeadKind
 from avant_core.rewards.models import RewardIcon
 from avant_core.rewards.services import (
@@ -24,6 +26,7 @@ from avant_core.rewards.services import (
     public_reward,
 )
 from avant_core.shared.clock import Clock
+from pydantic import ValidationError
 
 from avant_api.app.countries import CountryLookup
 from avant_api.app.errors import RateLimited
@@ -50,7 +53,6 @@ log = logging.getLogger("avant.api.reward_public")
 
 DAY_ZONE = ZoneInfo("America/Sao_Paulo")
 NO_REWARD = PublicPageOut(reward=None).model_dump_json()
-REWARD_BLOCK_PREFIX = "Rewards"
 
 
 def public_control_percent(uow: UnitOfWork, site_id: uuid.UUID) -> int | None:
@@ -93,34 +95,43 @@ class PublicRewardService:
         if parsed is None:
             return NO_REWARD
         key = reward_cache_key(*parsed)
+        entry = self._cached_page(key)
+        if entry is None:
+            entry = self._load_page(url, key)
+        return self._answer(entry, client)
+
+    def _cached_page(self, key: str) -> CachedPage | None:
+        """A página guardada no cache; vazia quando não está lá ou o valor guardado não vale."""
         cached = self._cache.get(key)
         if cached is None:
-            cached = self._load_page(url, key)
-        return self._answer(cached, client)
+            return None
+        try:
+            return CachedPage.model_validate_json(cached)
+        except ValidationError:
+            log.warning("valor inválido no cache do reward em %s", key)
+            return None
 
-    def _load_page(self, url: str, key: str) -> str:
+    def _load_page(self, url: str, key: str) -> CachedPage:
         """Lê a página do banco e guarda; a leitura da regra de preço que falha não é guardada."""
         found = public_reward(
             self._uows.trusted_uow(), url=url, groone_network_code=self._groone_network_code
         )
         if found is None:
             self._cache.set(key, NO_REWARD, EMPTY_TTL_SECONDS)
-            return NO_REWARD
+            return CachedPage(reward=None)
         site_id = found.reward.site_id
         reward = PublicRewardOut.of(found, self._base_url)
         try:
             control_percent = public_control_percent(self._uows.trusted_uow(), site_id)
         except Exception:
             log.warning("falha ao ler a regra de preço do site %s", site_id, exc_info=True)
-            return CachedPage(reward=reward).model_dump_json()
+            return CachedPage(reward=reward)
         entry = CachedPage(reward=reward, site_id=site_id, control_percent=control_percent)
-        body = entry.model_dump_json()
-        self._cache.set(key, body, TTL_SECONDS)
-        return body
+        self._cache.set(key, entry.model_dump_json(), TTL_SECONDS)
+        return entry
 
-    def _answer(self, cached: str, client: str) -> str:
+    def _answer(self, entry: CachedPage, client: str) -> str:
         """A resposta pública: o reward da página e a escada do país de quem pede."""
-        entry = CachedPage.model_validate_json(cached)
         if entry.reward is None:
             return NO_REWARD
         price_rules = None
@@ -132,7 +143,7 @@ class PublicRewardService:
                 cascades={
                     block: ladder
                     for block, ladder in ladders.get(country, {}).items()
-                    if block.startswith(REWARD_BLOCK_PREFIX)
+                    if kind_of(block) is BlockKind.REWARD
                 },
             )
         return PublicPageOut(reward=entry.reward, price_rules=price_rules).model_dump_json()
