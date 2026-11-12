@@ -1,9 +1,10 @@
 """Conversão da imagem da Empresa com o Pillow (adaptador do port ``ImageProcessor``).
 
 Um PNG de 2 MB pode declarar dezenas de megapixels: o teto é 8 MP. O JPEG comum vai até 24 MP e
-é lido já reduzido, então foto de celular passa; o progressivo fica nos 8 MP. A imagem é
-reduzida pelo lado menor antes de virar RGBA e no máximo duas conversões rodam ao mesmo tempo
-em cada processo.
+é lido já reduzido, então foto de celular passa; o progressivo fica nos 8 MP, e o comum com mais
+de uma varredura (``jpegtran -scans``) conta como progressivo, porque também fica todo na
+memória. A imagem é reduzida pelo lado menor antes de virar RGBA e no máximo duas conversões
+rodam ao mesmo tempo em cada processo.
 """
 
 import threading
@@ -20,6 +21,11 @@ MAX_JPEG_PIXELS = 24_000_000
 WEBP_QUALITY = 90
 # O lado menor é reduzido até este múltiplo do lado final antes do corte, para não converter tudo.
 SHRINK_FACTOR = 4
+
+# Marcadores do JPEG: começo da varredura, fim da imagem e os que não têm tamanho.
+START_OF_SCAN = 0xDA
+END_OF_IMAGE = 0xD9
+STANDALONE_MARKERS = frozenset({0x01, *range(0xD0, 0xD8)})
 
 _converting = threading.BoundedSemaphore(2)
 
@@ -41,7 +47,7 @@ class PillowImageProcessor:
                 if source.format not in ACCEPTED_FORMATS:
                     raise InvalidImage(f"formato {source.format} não aceito")
                 if source.format == "JPEG":
-                    _check_jpeg_size(source)
+                    _check_jpeg_size(source, content)
                     source.draft("RGB", (target, target))
                 width, height = source.size
                 if width * height > MAX_PIXELS:
@@ -61,9 +67,51 @@ class PillowImageProcessor:
         return output.getvalue()
 
 
-def _check_jpeg_size(source: Image.Image) -> None:
-    """Recusa o JPEG grande demais antes de ler: 24 MP no comum, 8 MP no progressivo."""
+def _check_jpeg_size(source: Image.Image, content: bytes) -> None:
+    """Recusa o JPEG grande demais antes de ler: 24 MP no comum, 8 MP no progressivo ou no
+    comum com várias varreduras."""
     progressive = bool(source.info.get("progressive") or source.info.get("progression"))
-    limit = MAX_PIXELS if progressive else MAX_JPEG_PIXELS
+    limit = MAX_PIXELS if progressive or _has_many_scans(content) else MAX_JPEG_PIXELS
     if source.width * source.height > limit:
         raise InvalidImage("a imagem tem pixels demais")
+
+
+def _has_many_scans(content: bytes) -> bool:
+    """Percorre os segmentos do fluxo principal e diz se há mais de um SOS antes do EOI; a
+    miniatura do EXIF fica dentro do APP1 e é pulada pelo tamanho do segmento."""
+    scans = 0
+    position = 2
+    while position + 1 < len(content):
+        if content[position] != 0xFF:
+            return False
+        marker = content[position + 1]
+        position += 2
+        if marker == 0xFF:
+            position -= 1
+            continue
+        if marker == END_OF_IMAGE:
+            return False
+        if marker in STANDALONE_MARKERS:
+            continue
+        if position + 2 > len(content):
+            return False
+        position += int.from_bytes(content[position : position + 2], "big")
+        if marker == START_OF_SCAN:
+            scans += 1
+            if scans > 1:
+                return True
+            position = _end_of_scan_data(content, position)
+    return False
+
+
+def _end_of_scan_data(content: bytes, position: int) -> int:
+    """Pula os dados comprimidos da varredura até o próximo marcador (nem FF00 nem RST)."""
+    while True:
+        position = content.find(b"\xff", position)
+        if position < 0 or position + 1 >= len(content):
+            return len(content)
+        following = content[position + 1]
+        if following == 0x00 or following == 0xFF or 0xD0 <= following <= 0xD7:
+            position += 1 if following == 0xFF else 2
+            continue
+        return position
