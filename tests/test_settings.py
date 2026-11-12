@@ -34,3 +34,10 @@ def test_queue_does_not_break_the_request_without_broker() -> None:
 
     # Porta fechada: a publicação falha rápido e só vai para o log.
     CeleryQueue("amqp://guest:guest@127.0.0.1:1//").send("avant.gam.sync_network", "a", "b")
+
+
+def test_many_processes_need_the_prometheus_directory() -> None:
+    with pytest.raises(ValueError, match="PROMETHEUS_MULTIPROC_DIR"):
+        settings_for_tests(web_concurrency=2)
+    settings_for_tests(web_concurrency=2, prometheus_multiproc_dir="/tmp/avant-metrics")
+    settings_for_tests(web_concurrency=1)

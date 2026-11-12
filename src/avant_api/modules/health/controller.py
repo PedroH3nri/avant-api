@@ -2,9 +2,12 @@
 
 from fastapi import APIRouter, Depends
 from fastapi.responses import JSONResponse, Response
-from prometheus_client import CONTENT_TYPE_LATEST, generate_latest
+from prometheus_client import CONTENT_TYPE_LATEST
 
+from avant_api.app.container import Services
+from avant_api.app.security import get_services
 from avant_api.modules.health.dependencies import health_service
+from avant_api.modules.health.metrics import exposition
 from avant_api.modules.health.service import HealthService
 
 router = APIRouter(tags=["ops"])
@@ -26,6 +29,7 @@ def ready(service: HealthService = Depends(health_service)) -> JSONResponse | di
 
 
 @router.get("/metrics", include_in_schema=False)
-def metrics() -> Response:
-    """Bloqueado no nginx: só a rede interna das VMs chega aqui."""
-    return Response(generate_latest(), media_type=CONTENT_TYPE_LATEST)
+def metrics(services: Services = Depends(get_services)) -> Response:
+    """Bloqueado no nginx: só a rede interna das VMs chega aqui. Soma todos os processos."""
+    body = exposition(services.settings.prometheus_multiproc_dir)
+    return Response(body, media_type=CONTENT_TYPE_LATEST)

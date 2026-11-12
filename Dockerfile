@@ -25,5 +25,7 @@ USER avant
 EXPOSE 8000
 HEALTHCHECK --interval=10s --timeout=3s CMD python -c "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/api/v1/health')"
 # Processos do uvicorn por contêiner (o uvicorn lê WEB_CONCURRENCY); cada um tem o próprio pool.
-ENV WEB_CONCURRENCY=2
-CMD ["uvicorn", "avant_api.main:create_app", "--factory", "--host", "0.0.0.0", "--port", "8000", "--proxy-headers", "--forwarded-allow-ips", "*"]
+# Com mais de um, as métricas do Prometheus vão para PROMETHEUS_MULTIPROC_DIR e o /metrics soma
+# todos os processos; o diretório é limpo a cada subida, para não somar processos antigos.
+ENV WEB_CONCURRENCY=2 PROMETHEUS_MULTIPROC_DIR=/tmp/avant-metrics
+CMD ["sh", "-c", "rm -rf \"$PROMETHEUS_MULTIPROC_DIR\" && mkdir -p \"$PROMETHEUS_MULTIPROC_DIR\" && exec uvicorn avant_api.main:create_app --factory --host 0.0.0.0 --port 8000 --proxy-headers --forwarded-allow-ips '*'"]
