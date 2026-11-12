@@ -283,13 +283,11 @@ def test_prices_cascades_cached_per_site(
     site_id, key, visitor = _cascade_site(client, engine, mailer, "BR")
     first = visitor.get("/api/tag/prices", params={"key": key, "hash": HASH})
     assert first.json()["cascades"] == {"Anchor_Mobile": ["1.22", "1.13", "1.05"]}
-    assert CASCADE_CACHE_KEY.format(site_id=site_id) in _cache(client).values
-    with SqlAlchemyUnitOfWork(engine, bypass_rls=True) as uow:
-        for rule in uow.price_rules.list_for_site(site_id):
-            rule.floor_micros = 2_000_000
-        uow.commit()
+    cascade_key = CASCADE_CACHE_KEY.format(site_id=site_id)
+    assert cascade_key in _cache(client).values
+    _cache(client).values[cascade_key] = '{"BR": {"Anchor_Mobile": ["9.99"]}}'
     other = visitor.get("/api/tag/prices", params={"key": key, "hash": "ffffffffffffffff"})
-    assert other.json()["cascades"] == {"Anchor_Mobile": ["1.22", "1.13", "1.05"]}
+    assert other.json()["cascades"] == {"Anchor_Mobile": ["9.99"]}
 
 
 def test_prices_cascade_failure_keeps_floors(
