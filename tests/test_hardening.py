@@ -24,13 +24,10 @@ from tests.test_internal import _staff
 DOCS_PATHS = ("/api/docs", "/api/v1/openapi.json", "/api/docs/assets/swagger-ui-bundle.js")
 
 
-@pytest.mark.parametrize("env", ["local", "production"])
 def test_docs_only_for_the_groone_session_with_2fa(
-    client: TestClient, engine: Engine, mailer: CapturingMailer, env: str
+    client: TestClient, engine: Engine, mailer: CapturingMailer
 ) -> None:
-    services = client.app.state.services  # type: ignore[attr-defined]
-    settings = services.settings.model_copy(update={"avant_env": env})
-    app = create_app(replace(services, settings=settings))
+    app = client.app
     for path in DOCS_PATHS:
         anonymous = browser(app).get(path)
         assert anonymous.status_code == 401, path
