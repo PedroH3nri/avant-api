@@ -6,7 +6,7 @@ from fastapi.testclient import TestClient
 from PIL import Image
 from sqlalchemy import Engine
 
-from tests.conftest import CapturingMailer
+from tests.conftest import CapturingMailer, browser
 from tests.test_api import _csrf, _onboard_owner
 from tests.test_team import _member_client
 
@@ -52,7 +52,7 @@ def test_appearance_belongs_to_the_person(
     assert invalid.status_code == 422
     red = ana.patch("/api/v1/auth/appearance", json={"accent": "red"}, headers=_csrf(ana))
     assert red.status_code == 422
-    assert TestClient(client.app).patch("/api/v1/auth/appearance", json={}).status_code == 401
+    assert browser(client.app).patch("/api/v1/auth/appearance", json={}).status_code == 401
 
 
 def test_profile_picture(client: TestClient, engine: Engine, mailer: CapturingMailer) -> None:
@@ -78,7 +78,7 @@ def test_profile_picture(client: TestClient, engine: Engine, mailer: CapturingMa
     members = client.get("/api/v1/members").json()["items"]
     assert [member["user"]["image_url"] for member in members] == [image_url, None]
 
-    outsider = TestClient(client.app)
+    outsider = browser(client.app)
     assert outsider.get(image_url).status_code == 401
 
     invalid = ana.put("/api/v1/auth/me/image", content=b"%PDF-1.4", headers=_csrf(ana))

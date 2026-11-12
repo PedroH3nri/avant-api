@@ -15,6 +15,7 @@ from avant_api.modules.account.controller import router as account
 from avant_api.modules.ad_tag_public.controller import router as ad_tag_public
 from avant_api.modules.ad_tags.controller import router as ad_tags
 from avant_api.modules.alerts.controller import router as alerts
+from avant_api.modules.api_docs.controller import router as api_docs
 from avant_api.modules.api_keys.controller import router as api_keys
 from avant_api.modules.audit.controller import router as audit
 from avant_api.modules.auth.controller import router as auth
@@ -55,13 +56,13 @@ def create_app(services: Services | None = None) -> FastAPI:
     if services is None:
         configure_logging()
         services = Services.build(Settings())
-    # Em produção a documentação fica fechada: o OpenAPI lista também as rotas internas.
-    public_docs = services.settings.avant_env != "production"
+    # A documentação padrão do FastAPI fica desligada: o Swagger e o OpenAPI são rotas do
+    # módulo api_docs, só para a equipe Groone com 2FA, em todo ambiente.
     app = FastAPI(
         title="Groone Avant API",
         version="1",
-        docs_url="/api/docs" if public_docs else None,
-        openapi_url="/api/v1/openapi.json" if public_docs else None,
+        docs_url=None,
+        openapi_url=None,
         redoc_url=None,
         dependencies=[Depends(check_fetch_site)],
     )
@@ -101,6 +102,7 @@ def create_app(services: Services | None = None) -> FastAPI:
         internal,
     ):
         app.include_router(router, prefix=API_PREFIX)
+    app.include_router(api_docs)
     app.include_router(key_values)
     app.include_router(reward_public)
     app.include_router(ad_tag_public)

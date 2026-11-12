@@ -13,15 +13,16 @@ from avant_core.shared.tokens import hash_token
 from fastapi.testclient import TestClient
 from sqlalchemy import Engine
 
-from avant_api.app.limits import API_KEY, BucketRule, MemoryBucket, RedisBucket
-from tests.conftest import FINANCE, CapturingMailer, run_password_reset_tasks
+from avant_api.app.limits import API_KEY, BucketRule, RedisBucket
+from tests.conftest import FINANCE, CapturingMailer, browser, run_password_reset_tasks
+from tests.fakes import MemoryBucket
 from tests.test_api import PASSWORD, _csrf, _onboard_owner, _owner_invite
 from tests.test_team import _member_client
 
 
 def _bearer(client: TestClient, token: str) -> TestClient:
     """Outro cliente, sem cookie: só a chave."""
-    other = TestClient(client.app)
+    other = browser(client.app)
     other.headers["Authorization"] = f"Bearer {token}"
     return other
 
@@ -150,7 +151,7 @@ def _keys_in_two_companies(
     """O dono da Açaí entra também na Bacuri e tem uma chave em cada Empresa."""
     _onboard_owner(client, engine, mailer)
     tokens = [_create(client)["token"]]
-    bacuri = TestClient(client.app)
+    bacuri = browser(client.app)
     invite = _owner_invite(engine, mailer, "dono@bacuri.com", "Bacuri Sites")
     opened = bacuri.post(
         f"/api/v1/auth/invitations/{invite}/accept", json={"name": "Bia", "password": PASSWORD}

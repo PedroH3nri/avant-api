@@ -22,7 +22,7 @@ from avant_core.shared.errors import NotAuthenticated
 from fastapi import Depends, Request
 
 from avant_api.app.container import Services
-from avant_api.app.cookies import SessionCookies
+from avant_api.app.cookies import CSRF_COOKIE, SESSION_COOKIE, SessionCookies
 from avant_api.app.errors import CompanyChanged, CsrfFailed, NoActiveCompany, RateLimited
 from avant_api.app.limits import API_KEY, API_KEY_IP
 
@@ -67,7 +67,7 @@ def check_csrf(request: Request, services: Services) -> None:
     por ``check_fetch_site`` em toda rota."""
     if request.method in SAFE_METHODS:
         return
-    cookie = request.cookies.get(services.settings.csrf_cookie, "")
+    cookie = request.cookies.get(CSRF_COOKIE, "")
     header = request.headers.get(CSRF_HEADER, "")
     if not cookie or not hmac.compare_digest(cookie, header):
         raise CsrfFailed("cabeçalho X-CSRF-Token ausente ou diferente do cookie")
@@ -77,7 +77,7 @@ def optional_auth(
     request: Request, services: Services = Depends(get_services)
 ) -> Authenticated | None:
     """Autentica pelo cookie de sessão, se houver; sem cookie devolve None."""
-    token = request.cookies.get(services.settings.session_cookie)
+    token = request.cookies.get(SESSION_COOKIE)
     if not token:
         return None
     try:
@@ -231,4 +231,4 @@ def require_staff(permission: str) -> Callable[[Request, Authenticated], Actor]:
 
 def get_cookies(services: Services = Depends(get_services)) -> SessionCookies:
     """Os cookies da sessão do painel, com as configurações e o relógio da aplicação."""
-    return SessionCookies(services.settings, services.clock)
+    return SessionCookies(services.clock)

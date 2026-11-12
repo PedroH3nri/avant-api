@@ -12,7 +12,7 @@ from PIL import Image, ImageChops, ImageStat
 from sqlalchemy import Engine
 
 from avant_api.app.images import PillowImageProcessor
-from tests.conftest import CapturingMailer
+from tests.conftest import CapturingMailer, browser
 from tests.test_api import _csrf, _onboard_owner
 from tests.test_internal import _staff
 from tests.test_team import _member_client
@@ -87,7 +87,7 @@ def test_groone_changes_the_image_of_a_client(
     client: TestClient, engine: Engine, mailer: CapturingMailer
 ) -> None:
     staff = _staff(client, engine)
-    owner = TestClient(client.app)
+    owner = browser(client.app)
     company_id = _onboard_owner(owner, engine, mailer)["companies"][0]["id"]
 
     assert owner.put(

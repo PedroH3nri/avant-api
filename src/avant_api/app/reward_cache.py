@@ -7,7 +7,6 @@ com o valor vazio, para o site não bater no banco a cada visita.
 """
 
 import logging
-from dataclasses import dataclass, field
 from typing import Protocol
 
 import redis
@@ -73,23 +72,3 @@ class RedisRewardCache:
             self._client.delete(*keys)
         except redis.RedisError:
             log.warning("cache do reward indisponível ao apagar", exc_info=True)
-
-
-@dataclass
-class MemoryRewardCache:
-    """Local e testes: o cache em memória, sem prazo."""
-
-    values: dict[str, str] = field(default_factory=dict)
-
-    def get(self, key: str) -> str | None:
-        """Lê da memória."""
-        return self.values.get(key)
-
-    def set(self, key: str, value: str, ttl_seconds: int) -> None:
-        """Grava na memória."""
-        self.values[key] = value
-
-    def delete(self, *keys: str) -> None:
-        """Apaga da memória."""
-        for key in keys:
-            self.values.pop(key, None)

@@ -1,44 +1,28 @@
 """Os adaptadores que a API entrega aos casos de uso. Um por processo."""
 
 import uuid
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Any
 
 from avant_core.db.uow import SqlAlchemyUnitOfWork
 from avant_core.identity.security.crypto import FernetSecretBox
 from avant_core.identity.security.passwords import Argon2PasswordHasher
-from avant_core.mail import LogMailer, ResendMailer
+from avant_core.mail import ResendMailer
 from avant_core.ports import ImageProcessor, Mailer, MailQueue, PasswordHasher, SecretBox
 from avant_core.shared.clock import Clock, SystemClock
 from sqlalchemy import Engine, create_engine
 
 from avant_api.app.countries import CountryLookup, GeoLiteCountries, NoCountries
-from avant_api.app.events import EventSource, NoEvents, RedisEvents, StreamLimiter
+from avant_api.app.events import EventSource, RedisEvents, StreamLimiter
 from avant_api.app.google import GoogleAuth, GoogleOAuth
 from avant_api.app.images import PillowImageProcessor
-from avant_api.app.key_value_buffer import (
-    KeyValueBuffer,
-    MemoryKeyValueBuffer,
-    RedisKeyValueBuffer,
-)
-from avant_api.app.limits import (
-    Bucket,
-    Limiter,
-    MemoryBucket,
-    MemoryCounter,
-    RedisBucket,
-    RedisCounter,
-)
+from avant_api.app.key_value_buffer import KeyValueBuffer, RedisKeyValueBuffer
+from avant_api.app.limits import Bucket, Limiter, RedisBucket, RedisCounter
 from avant_api.app.mail_queue import TaskMailQueue
-from avant_api.app.reward_buffer import (
-    PAGE_VIEWS_BUFFER,
-    MemoryRewardBuffer,
-    RedisRewardBuffer,
-    RewardBuffer,
-)
-from avant_api.app.reward_cache import MemoryRewardCache, RedisRewardCache, RewardCache
+from avant_api.app.reward_buffer import PAGE_VIEWS_BUFFER, RedisRewardBuffer, RewardBuffer
+from avant_api.app.reward_cache import RedisRewardCache, RewardCache
 from avant_api.app.settings import Settings
-from avant_api.app.tasks import CeleryQueue, RecordingQueue, TaskQueue
+from avant_api.app.tasks import CeleryQueue, TaskQueue
 
 
 def engine_options(settings: Settings) -> dict[str, Any]:
@@ -59,27 +43,29 @@ def engine_options(settings: Settings) -> dict[str, Any]:
 
 @dataclass
 class Services:
+    """Todos os adaptadores são obrigatórios: nenhum fake em memória entra por padrão. O build
+    monta Redis, RabbitMQ e Resend; os testes montam os fakes na fábrica deles."""
+
     settings: Settings
     engine: Engine
     clock: Clock
     hasher: PasswordHasher
     mailer: Mailer
     box: SecretBox
-    # Os padrões abaixo são os fakes em memória dos testes; o build monta Redis e RabbitMQ.
-    limiter: Limiter = field(default_factory=lambda: Limiter(MemoryCounter()))
+    limiter: Limiter
     # Balde de fichas que limita as chaves de API.
-    bucket: Bucket = field(default_factory=MemoryBucket)
+    bucket: Bucket
     # Sem cliente OAuth configurado, não há login com Google.
-    google: GoogleAuth | None = None
-    tasks: TaskQueue = field(default_factory=RecordingQueue)
-    events: EventSource = field(default_factory=NoEvents)
-    stream_limiter: StreamLimiter = field(default_factory=StreamLimiter)
-    images: ImageProcessor = field(default_factory=PillowImageProcessor)
-    key_values: KeyValueBuffer = field(default_factory=MemoryKeyValueBuffer)
-    rewards: RewardCache = field(default_factory=MemoryRewardCache)
-    reward_events: RewardBuffer = field(default_factory=MemoryRewardBuffer)
-    page_views: RewardBuffer = field(default_factory=MemoryRewardBuffer)
-    countries: CountryLookup = field(default_factory=NoCountries)
+    google: GoogleAuth | None
+    tasks: TaskQueue
+    events: EventSource
+    stream_limiter: StreamLimiter
+    images: ImageProcessor
+    key_values: KeyValueBuffer
+    rewards: RewardCache
+    reward_events: RewardBuffer
+    page_views: RewardBuffer
+    countries: CountryLookup
 
     @classmethod
     def build(cls, settings: Settings) -> "Services":
@@ -98,6 +84,8 @@ class Services:
             google=_google(settings),
             tasks=CeleryQueue(settings.celery_broker_url),
             events=RedisEvents(settings.redis_url),
+            stream_limiter=StreamLimiter(),
+            images=PillowImageProcessor(),
             key_values=RedisKeyValueBuffer.from_url(settings.redis_url),
             rewards=RedisRewardCache.from_url(settings.redis_url),
             reward_events=RedisRewardBuffer.from_url(settings.redis_url),
@@ -121,15 +109,11 @@ class Services:
 
 
 def _mailer(settings: Settings) -> Mailer:
-    """Usa o Resend quando há chave; senão só registra os emails no log."""
-    if settings.resend_api_key:
-        return ResendMailer(
-            api_key=settings.resend_api_key,
-            sender=settings.mail_from,
-            base_url=settings.app_base_url,
-        )
-    return LogMailer(
-        base_url=settings.app_base_url, show_links=settings.avant_env in ("local", "test")
+    """O Resend, em todo ambiente: nenhum e-mail nem link com token vai para o log."""
+    return ResendMailer(
+        api_key=settings.resend_api_key,
+        sender=settings.mail_from,
+        base_url=settings.app_base_url,
     )
 
 

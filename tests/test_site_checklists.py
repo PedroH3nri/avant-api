@@ -11,8 +11,9 @@ from avant_core.site_checklists.models import ChecklistResult, SiteChecklist
 from fastapi.testclient import TestClient
 from sqlalchemy import Engine
 
-from avant_api.app.tasks import CHECK_CHECKLIST, RecordingQueue
+from avant_api.app.tasks import CHECK_CHECKLIST
 from tests.conftest import CapturingMailer
+from tests.fakes import RecordingQueue
 from tests.test_api import _csrf, _onboard_owner
 from tests.test_internal import _staff
 from tests.test_support_tasks import _agent

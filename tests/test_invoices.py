@@ -12,7 +12,7 @@ from avant_core.ports import Notice
 from fastapi.testclient import TestClient
 from sqlalchemy import Engine
 
-from tests.conftest import CapturingMailer
+from tests.conftest import CapturingMailer, browser
 from tests.test_api import _csrf, _onboard_owner
 from tests.test_commissions import _support
 from tests.test_internal import _staff
@@ -156,7 +156,7 @@ def test_who_sees_and_changes_invoices(
         assert found.status_code == 403, (url, found.text)
     stolen = support.post(f"{base}/invoices/{invoice['id']}/issue", headers=_csrf(support))
     assert stolen.status_code == 404
-    owner = TestClient(client.app)
+    owner = browser(client.app)
     _onboard_owner(owner, engine, mailer)
     assert owner.get(f"{base}/invoices/mine").status_code == 403
     assert owner.get(f"{base}/payment-details").status_code == 403

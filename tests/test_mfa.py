@@ -11,7 +11,7 @@ from avant_core.shared.clock import SystemClock
 from fastapi.testclient import TestClient
 from sqlalchemy import Engine
 
-from tests.conftest import CapturingMailer, run_password_reset_tasks
+from tests.conftest import CapturingMailer, browser, run_password_reset_tasks
 from tests.test_api import PASSWORD, _csrf, _onboard_owner
 
 
@@ -127,7 +127,7 @@ def test_verify_is_limited_by_ip(
 ) -> None:
     _onboard_owner(client, engine, mailer)
     secret, _ = _enable(client)
-    with TestClient(client.app, client=("203.0.113.7", 50000)) as other:
+    with browser(client.app, client=("203.0.113.7", 50000)) as other:
         _password_login(other)
         for _ in range(5):
             wrong = other.post("/api/v1/auth/mfa/verify", json={"code": "000000"})
@@ -188,7 +188,7 @@ def test_wrong_reset_codes_spend_the_ip_limit(
     _onboard_owner(client, engine, mailer)
     _enable(client)
     codes: list[str] = []
-    with TestClient(client.app, client=("203.0.113.9", 50000)) as other:
+    with browser(client.app, client=("203.0.113.9", 50000)) as other:
         for _ in range(4):
             other.post("/api/v1/auth/password/forgot", json={"email": "dono@acai.com"})
             run_password_reset_tasks(client)

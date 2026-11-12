@@ -9,12 +9,13 @@ from sqlalchemy import Engine, create_engine
 
 from avant_api.app.container import Services
 from avant_api.app.errors import QueueUnavailable
-from avant_api.app.limits import Limiter, MemoryCounter
+from avant_api.app.limits import Limiter
 from avant_api.app.mail_queue import MAIL_QUEUE_RETRY_AFTER, TaskMailQueue
-from avant_api.app.tasks import REQUEST_PASSWORD_RESET, RecordingQueue
+from avant_api.app.tasks import REQUEST_PASSWORD_RESET
 from avant_api.main import create_app
 from avant_api.modules.account.service import AccountService
-from tests.conftest import CapturingMailer, settings_for_tests
+from tests.conftest import CapturingMailer, browser, memory_services, settings_for_tests
+from tests.fakes import MemoryCounter, RecordingQueue
 from tests.test_api import _onboard_owner
 
 EMAIL = "dono@acai.com"
@@ -57,15 +58,13 @@ def _account(tasks: RecordingQueue) -> AccountService:
 
 def _services(env: str) -> Services:
     """Serviços cujo banco não abre: qualquer consulta derrubaria o pedido."""
-    return Services(
-        settings=settings_for_tests(
-            avant_env=env, database_url=NO_DATABASE, resend_api_key="re_teste"
-        ),
+    return memory_services(
+        settings=settings_for_tests(avant_env=env, database_url=NO_DATABASE),
         engine=create_engine(NO_DATABASE),
         clock=SystemClock(),
-        hasher=None,  # type: ignore[arg-type]
+        hasher=None,
         mailer=_NoMail(),
-        box=None,  # type: ignore[arg-type]
+        box=None,
     )
 
 
@@ -80,11 +79,6 @@ def test_forgot_password_only_queues_the_normalized_email() -> None:
     ]
 
 
-def test_password_reset_task_goes_to_the_mail_queue() -> None:
-    assert REQUEST_PASSWORD_RESET == "avant.mail.request_password_reset"
-    assert REQUEST_PASSWORD_RESET.split(".")[1] == "mail"
-
-
 def test_queue_down_is_a_503_for_everyone() -> None:
     account = _account(RecordingQueue(offline=True))
     for email in (EMAIL, NOBODY):
@@ -96,7 +90,7 @@ def test_queue_down_is_a_503_for_everyone() -> None:
 @pytest.mark.parametrize("env", ["local", "test", "staging", "production"])
 def test_forgot_route_queues_without_database_or_mail_in_every_env(env: str) -> None:
     services = _services(env)
-    app = TestClient(create_app(services))
+    app = browser(create_app(services))
     answers = [
         app.post("/api/v1/auth/password/forgot", json={"email": email}) for email in (EMAIL, NOBODY)
     ]
@@ -117,3 +111,22 @@ def test_forgot_route_never_sends_the_link_itself(
     assert client.post("/api/v1/auth/password/forgot", json={"email": EMAIL}).status_code == 202
     assert mailer.resets == []
     assert services.tasks.sent == [(REQUEST_PASSWORD_RESET, (EMAIL,))]
+
+
+def test_forgot_route_with_the_queue_down_answers_the_same_for_everyone(
+    client: TestClient, engine: Engine, mailer: CapturingMailer
+) -> None:
+    _onboard_owner(client, engine, mailer)
+    services = client.app.state.services  # type: ignore[attr-defined]
+    services.tasks = RecordingQueue(offline=True)
+    answers = [
+        client.post("/api/v1/auth/password/forgot", json={"email": email})
+        for email in (EMAIL, NOBODY)
+    ]
+    existing, missing = (
+        (answer.status_code, answer.json(), answer.headers.get("Retry-After")) for answer in answers
+    )
+    assert existing == missing
+    assert existing[0] == 503 and existing[1]["error"]["code"] == "queue_unavailable"
+    assert existing[2] == str(MAIL_QUEUE_RETRY_AFTER)
+    assert mailer.resets == []

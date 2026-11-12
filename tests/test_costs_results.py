@@ -12,7 +12,7 @@ from avant_core.metrics.models import GamCounts, GamDailyMetric, McmEarning
 from fastapi.testclient import TestClient
 from sqlalchemy import Engine
 
-from tests.conftest import CapturingMailer, refresh_levels
+from tests.conftest import CapturingMailer, browser, refresh_levels
 from tests.test_api import PASSWORD, _csrf, _onboard_owner
 from tests.test_internal import _staff
 
@@ -29,7 +29,7 @@ def _marketing_client(owner: TestClient, mailer: CapturingMailer) -> TestClient:
         headers=_csrf(owner),
     )
     assert invited.status_code == 201, invited.text
-    other = TestClient(owner.app)
+    other = browser(owner.app)
     accepted = other.post(
         f"/api/v1/auth/invitations/{mailer.sent[-1].token}/accept",
         json={"name": "Bia", "password": PASSWORD},

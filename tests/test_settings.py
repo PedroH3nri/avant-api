@@ -10,15 +10,23 @@ REDIS = "redis://localhost:6379/0"
 BROKER = "amqp://guest:guest@localhost:5672//"
 
 
-def test_resend_key_required_outside_local() -> None:
-    with pytest.raises(ValueError, match="RESEND_API_KEY"):
-        settings_for_tests(avant_env="staging")
-    settings_for_tests(avant_env="local")
+@pytest.mark.parametrize("env", ["local", "test", "staging", "production"])
+def test_resend_key_required_in_every_env(env: str) -> None:
+    with pytest.raises(ValueError, match="RESEND_API_KEY é obrigatória em todo ambiente"):
+        settings_for_tests(avant_env=env, resend_api_key=" ")
+    base = {"avant_env": env, "database_url": "postgresql://x", "mfa_encryption_key": "k"}
+    with pytest.raises(ValidationError, match="resend_api_key"):
+        Settings(**base, redis_url=REDIS, celery_broker_url=BROKER)  # type: ignore[arg-type]
 
 
 @pytest.mark.parametrize("env", ["local", "test", "staging", "production"])
 def test_api_does_not_start_without_redis_or_queue_in_any_env(env: str) -> None:
-    base = {"avant_env": env, "database_url": "postgresql://x", "mfa_encryption_key": "k"}
+    base = {
+        "avant_env": env,
+        "database_url": "postgresql://x",
+        "mfa_encryption_key": "k",
+        "resend_api_key": "re_teste",
+    }
     with pytest.raises(ValidationError, match="redis_url"):
         Settings(**base, celery_broker_url=BROKER)  # type: ignore[arg-type]
     with pytest.raises(ValidationError, match="celery_broker_url"):

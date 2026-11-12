@@ -8,8 +8,9 @@ from fastapi.testclient import TestClient
 from httpx import Response
 from sqlalchemy import Engine
 
-from avant_api.app.tasks import SYNC_NETWORK, RecordingQueue
+from avant_api.app.tasks import SYNC_NETWORK
 from tests.conftest import FINANCE, CapturingMailer
+from tests.fakes import RecordingQueue
 from tests.test_api import _csrf, _onboard_owner
 from tests.test_client_documents import PDF, _manage_inventory
 from tests.test_costs_results import _marketing_client

@@ -25,7 +25,7 @@ from sqlalchemy import Engine, create_engine
 from avant_api.app import price_cascade_cache as service_module
 from avant_api.app.container import Services
 from avant_api.app.countries import FixedCountries
-from tests.conftest import CapturingMailer
+from tests.conftest import CapturingMailer, browser
 from tests.test_ad_tags import CONTENT, _site
 from tests.test_api import PASSWORD, _csrf, _onboard_owner
 from tests.test_internal import _staff
@@ -147,7 +147,7 @@ def test_price_rules_panel_internal_and_public_floors(
 
     services: Services = client.app.state.services  # type: ignore[attr-defined]
     services.countries = FixedCountries({"testclient": "BR"})
-    visitor = TestClient(client.app)
+    visitor = browser(client.app)
     page = {"key": key, "hash": HASH}
     floors = visitor.get("/api/tag/prices", params=page)
     assert floors.headers["access-control-allow-origin"] == "*"
@@ -256,7 +256,7 @@ def _cascade_site(
     client.post(f"/api/v1/ad-tags/{tag_id}/publish", json={}, headers=_csrf(client))
     services: Services = client.app.state.services  # type: ignore[attr-defined]
     services.countries = FixedCountries({"testclient": "BR"})
-    return site_id, key, TestClient(client.app)
+    return site_id, key, browser(client.app)
 
 
 def test_prices_returns_cascade_ladder_for_country(
@@ -685,7 +685,7 @@ def test_config_save_needs_manage_without_view(
         headers=_csrf(client),
     )
     assert invited.status_code == 201, invited.text
-    editor = TestClient(client.app)
+    editor = browser(client.app)
     accepted = editor.post(
         f"/api/v1/auth/invitations/{mailer.sent[-1].token}/accept",
         json={"name": "Edita", "password": PASSWORD},

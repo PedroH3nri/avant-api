@@ -1,7 +1,7 @@
 # avant-api
 
 API REST do Groone Avant, em FastAPI. Todas as rotas ficam em `/api/v1`, e a
-documentação OpenAPI em `/api/docs`. O domínio, os casos de uso e o banco vêm do
+documentação OpenAPI em `/api/docs` (só para a equipe Groone com 2FA). O domínio, os casos de uso e o banco vêm do
 [avant-core](https://github.com/PedroH3nri/avant-core): esta API só traduz HTTP.
 
 Outros repositórios: avant-core, avant-worker, avant-web, avant-infra.
@@ -203,9 +203,10 @@ src/avant_api/
 
 ## Como funciona
 
-- **Sessão**: cookie `avant_session` (`httpOnly`, `SameSite=Lax`, `Secure` fora do
-  local). O banco guarda só o hash.
-- **CSRF**: no login, a API grava também o cookie `avant_csrf`, que o Vue lê e manda no
+- **Sessão**: cookie `__Host-avant_session` (`httpOnly`, `SameSite=Lax`, `Secure`), igual
+  em todo ambiente. Chrome e Firefox aceitam `Secure` em `http://localhost`; para os outros
+  navegadores, o HTTPS local vem do avant-infra. O banco guarda só o hash.
+- **CSRF**: no login, a API grava também o cookie `__Host-avant_csrf`, que o Vue lê e manda no
   cabeçalho `X-CSRF-Token` em todo POST, PATCH, PUT e DELETE.
 - **Empresa ativa**: vem da sessão, nunca da URL. Cada rota abre o Unit of Work do
   avant-core com essa Empresa, e o RLS do Postgres garante o isolamento.
@@ -213,16 +214,17 @@ src/avant_api/
   só uma pré-sessão de 5 minutos. A equipe Groone sem 2FA recebe `mfa_required` (403) em
   tudo menos `/auth/me`, `/auth/logout` e `/auth/mfa/*`. O segredo é cifrado com
   `MFA_ENCRYPTION_KEY`.
-- **E-mail**: com `RESEND_API_KEY`, os convites saem pelo Resend (remetente em
-  `MAIL_FROM`), em português, inglês ou espanhol conforme o idioma da pessoa. Sem a chave,
-  o `LogMailer` só registra o envio e, em local, mostra o link. A chave é obrigatória em
-  staging e produção. Falha no envio vai para o log e para `avant_mail_failures_total`,
+- **E-mail**: os convites saem pelo Resend (`RESEND_API_KEY`, remetente em `MAIL_FROM`), em
+  português, inglês ou espanhol conforme o idioma da pessoa. A chave é obrigatória em todo
+  ambiente (sem ela a API não sobe) e nenhum e-mail nem link com token vai para o log. Em
+  desenvolvimento, use uma chave de teste do Resend ou um destino escolhido de propósito. Falha no envio vai para o log e para `avant_mail_failures_total`,
   e o convite continua pendente.
 - **Limite de tentativas**: 5 senhas erradas por e-mail e 20 por IP em 15 minutos no
   login; 20 pedidos por IP em 15 minutos em `/auth/password/*`. Passou, 429
   `too_many_attempts` com `Retry-After`. Os contadores ficam no Redis (`REDIS_URL`), em
   todo ambiente: sem `REDIS_URL` ou sem `CELERY_BROKER_URL` a API não sobe, para nenhum
-  limite valer só em staging e produção. Os testes usam os fakes em memória do `Services`.
+  limite valer só em staging e produção. O `Services` não tem fake por padrão: os testes montam
+  os fakes em memória (`tests/fakes.py`) na fábrica `memory_services` do `tests/conftest.py`.
 - **Esqueci a senha**: a rota só normaliza o e-mail e agenda
   `avant.mail.request_password_reset(email)` na fila `mail` (`queue_password_reset` do
   core, adaptador `TaskMailQueue`), sem ler o banco nem mandar e-mail, para o tempo de
@@ -277,8 +279,10 @@ src/avant_api/
 - **Cabeçalhos**: toda resposta leva `X-Content-Type-Options: nosniff`,
   `X-Frame-Options: DENY`, `Referrer-Policy: no-referrer` e
   `Content-Security-Policy: default-src 'none'; frame-ancestors 'none'`, menos a página do
-  Swagger (`/api/docs`, fechada em produção), que carrega scripts. Com a documentação
-  fechada não há exceção: a política vale em todo caminho.
+  Swagger (`/api/docs`) quando ela é entregue, que carrega scripts. O Swagger e o
+  `/api/v1/openapi.json` (que lista também as rotas internas) têm a mesma regra em todo
+  ambiente: só a sessão da equipe Groone, com a Company Groone ativa e o 2FA verificado;
+  quem não é recebe o erro de sempre (401, `staff_only` ou `mfa_required`), com a política.
 
 ## Desenvolvimento
 

@@ -12,8 +12,9 @@ from avant_core.gam.networks.models import Network
 from fastapi.testclient import TestClient
 from sqlalchemy import Engine
 
-from avant_api.app.tasks import RUN_GAM_TOOL, RecordingQueue
-from tests.conftest import CapturingMailer
+from avant_api.app.tasks import RUN_GAM_TOOL
+from tests.conftest import CapturingMailer, browser
+from tests.fakes import RecordingQueue
 from tests.test_api import PASSWORD, _csrf, _onboard_owner
 from tests.test_internal import _staff
 from tests.test_mfa import _enable
@@ -196,7 +197,7 @@ def _gam_viewer(client: TestClient, staff: TestClient, mailer: CapturingMailer) 
         headers=_csrf(staff),
     )
     assert invited.status_code == 201, invited.text
-    viewer = TestClient(client.app)
+    viewer = browser(client.app)
     accepted = viewer.post(
         f"/api/v1/auth/invitations/{mailer.sent[-1].token}/accept",
         json={"name": "Leitura", "password": PASSWORD},
@@ -235,7 +236,7 @@ def test_gam_tool_runs_refuse_what_they_should(
     install = {"network": network_id, "sites": ["a" * 254]}
     assert staff.get(f"{BASE}/install", params=install).status_code == 422
 
-    unverified = TestClient(client.app)
+    unverified = browser(client.app)
     login = {"email": "admin@groone.com", "password": PASSWORD}
     pending = unverified.post("/api/v1/auth/login", json=login)
     assert pending.status_code == 200 and pending.json()["mfa_required"] is True

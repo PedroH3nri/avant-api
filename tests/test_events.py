@@ -19,7 +19,7 @@ from avant_api.app.events import (
     channel,
     sse,
 )
-from tests.conftest import CapturingMailer
+from tests.conftest import CapturingMailer, browser
 from tests.test_api import _csrf, _onboard_owner
 from tests.test_team import _member_client
 
@@ -96,7 +96,7 @@ def test_redis_source_delivers_published_messages() -> None:
 
 
 def test_events_route(client: TestClient, engine: Engine, mailer: CapturingMailer) -> None:
-    assert TestClient(client.app).get("/api/v1/events").status_code == 401
+    assert browser(client.app).get("/api/v1/events").status_code == 401
     me = _onboard_owner(client, engine, mailer)
     source = ListEvents([_event("network.updated", network_id="n1")])
     client.app.state.services.events = source  # type: ignore[attr-defined]
@@ -142,7 +142,7 @@ def test_events_route_is_session_only_and_frees_the_slot(
         headers=_csrf(client),
     )
     assert created.status_code == 201, created.text
-    key = TestClient(client.app)
+    key = browser(client.app)
     key.headers["Authorization"] = f"Bearer {created.json()['token']}"
     assert key.get("/api/v1/events").status_code == 401
     client.app.state.services.events = ListEvents([])  # type: ignore[attr-defined]

@@ -16,10 +16,10 @@ from sqlalchemy import Engine
 from avant_api.app import price_cascade_cache
 from avant_api.app.container import Services
 from avant_api.app.countries import FixedCountries
-from avant_api.app.reward_buffer import MemoryRewardBuffer
 from avant_api.app.reward_cache import RedisRewardCache, reward_cache_key
 from avant_api.modules.reward_public import service as reward_service
-from tests.conftest import CapturingMailer
+from tests.conftest import CapturingMailer, browser
+from tests.fakes import MemoryRewardBuffer
 from tests.test_api import _csrf, _onboard_owner
 from tests.test_company_image import _png
 from tests.test_rewards import NOW, _body, _cache, _site
@@ -41,7 +41,7 @@ def test_public_config_is_cached_and_cleared(
 ) -> None:
     me = _onboard_owner(client, engine, mailer)
     site_id = _site(engine, uuid.UUID(me["active_company_id"]))
-    visitor = TestClient(client.app)
+    visitor = browser(client.app)
     empty = visitor.get("/api/reward/v2", params={"url": PAGE})
     assert empty.status_code == 200 and empty.json() == EMPTY_PAGE
     assert empty.headers["access-control-allow-origin"] == "*"
@@ -77,7 +77,7 @@ def test_public_config_is_cached_and_cleared(
 
 def test_icon_route_has_the_ip_limit(client: TestClient) -> None:
     """Ícone que não existe é 404, e uma enxurrada de ids aleatórios do mesmo IP leva 429."""
-    visitor = TestClient(client.app)
+    visitor = browser(client.app)
     codes = [visitor.get(f"/api/reward/icon/{uuid.uuid4()}").status_code for _ in range(25)]
     assert codes[0] == 404
     assert 429 in codes
@@ -108,7 +108,7 @@ def test_cache_down_does_not_break_the_page_or_the_save() -> None:
 
 
 def test_events_and_leads_go_to_the_buffer(client: TestClient) -> None:
-    visitor = TestClient(client.app)
+    visitor = browser(client.app)
     reward_id, question_id = str(uuid.uuid4()), str(uuid.uuid4())
     events = {
         "events": [
@@ -196,7 +196,7 @@ def _cascade_reward(
     assert created.status_code == 201, created.text
     services: Services = client.app.state.services  # type: ignore[attr-defined]
     services.countries = FixedCountries({"testclient": "BR"})
-    return site_id, TestClient(client.app)
+    return site_id, browser(client.app)
 
 
 def test_reward_page_has_cascade_for_rewards_block(
@@ -233,7 +233,7 @@ def test_reward_page_price_rules_null_when_site_off(
 
 
 def test_reward_page_without_reward_stays_empty(client: TestClient) -> None:
-    visitor = TestClient(client.app)
+    visitor = browser(client.app)
     assert visitor.get("/api/reward/v2", params={"url": PAGE}).json() == EMPTY_PAGE
 
 

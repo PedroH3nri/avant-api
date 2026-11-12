@@ -22,8 +22,9 @@ class Settings(BaseSettings):
     # Chave Fernet dos segredos de 2FA. Trocar a chave invalida todos os 2FA ativos.
     mfa_encryption_key: str
     app_base_url: str = "http://localhost:8080"
-    # Sem chave, os e-mails só vão para o log (local e testes).
-    resend_api_key: str | None = None
+    # Obrigatória em todo ambiente: nenhum e-mail (nem o link com token) vai para o log. Em
+    # desenvolvimento, uma chave do Resend de teste ou com destino escolhido de propósito.
+    resend_api_key: str
     mail_from: str = "Avant <nao-responda@avant.groone.com>"
     # Limites de tentativas, balde das chaves de API, eventos e caches. Obrigatória em todo
     # ambiente: um limite não pode valer só em staging e produção.
@@ -51,34 +52,14 @@ class Settings(BaseSettings):
 
     @model_validator(mode="after")
     def _required_services(self) -> "Settings":
-        """Exige Redis e o broker do Celery em todo ambiente, o diretório das métricas com vários
-        processos e o Resend em staging e produção."""
+        """Exige Redis, o broker do Celery e o Resend em todo ambiente, e o diretório das
+        métricas com vários processos."""
         if not self.redis_url.strip():
             raise ValueError("REDIS_URL é obrigatória em todo ambiente")
         if not self.celery_broker_url.strip():
             raise ValueError("CELERY_BROKER_URL é obrigatória em todo ambiente")
         if self.web_concurrency > 1 and not self.prometheus_multiproc_dir:
             raise ValueError("PROMETHEUS_MULTIPROC_DIR é obrigatória com WEB_CONCURRENCY > 1")
-        if self.avant_env in ("staging", "production") and not self.resend_api_key:
-            raise ValueError("RESEND_API_KEY é obrigatória em staging e produção")
+        if not self.resend_api_key.strip():
+            raise ValueError("RESEND_API_KEY é obrigatória em todo ambiente")
         return self
-
-    @property
-    def cookie_secure(self) -> bool:
-        """Diz se os cookies saem com Secure (staging e produção)."""
-        return self.avant_env in ("staging", "production")
-
-    @property
-    def session_cookie(self) -> str:
-        """O cookie da sessão; com Secure, com o prefixo __Host- (nenhum subdomínio o grava)."""
-        return f"{self._cookie_prefix}avant_session"
-
-    @property
-    def csrf_cookie(self) -> str:
-        """O cookie de CSRF, legível pelo painel, com o mesmo prefixo do de sessão."""
-        return f"{self._cookie_prefix}avant_csrf"
-
-    @property
-    def _cookie_prefix(self) -> str:
-        """``__Host-`` quando os cookies saem com Secure; sem HTTPS o navegador recusaria."""
-        return "__Host-" if self.cookie_secure else ""

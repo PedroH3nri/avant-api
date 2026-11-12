@@ -5,7 +5,7 @@ from typing import Any
 from fastapi.testclient import TestClient
 from sqlalchemy import Engine
 
-from tests.conftest import FINANCE, CapturingMailer
+from tests.conftest import FINANCE, CapturingMailer, browser
 from tests.test_api import _csrf, _onboard_owner
 from tests.test_commissions import _support
 from tests.test_internal import _staff
@@ -80,7 +80,7 @@ def test_staff_manage_templates_and_clients_see_them_by_role(
 def test_templates_need_the_permission_and_the_groone_company(
     client: TestClient, engine: Engine, mailer: CapturingMailer
 ) -> None:
-    owner = TestClient(client.app)
+    owner = browser(client.app)
     _onboard_owner(owner, engine, mailer)
     staff = _staff(client, engine)
     support = _support(client, staff, mailer)
