@@ -319,3 +319,21 @@ def test_reward_page_reloads_a_corrupted_cache_entry(
         assert response.status_code == 200
         assert response.json()["reward"] is not None
         assert json.loads(_cache(client).values[key])["reward"] is not None
+
+
+def test_price_rule_settings_forget_reward_page(
+    client: TestClient, engine: Engine, mailer: CapturingMailer
+) -> None:
+    site_id, visitor = _cascade_reward(client, engine, mailer)
+    key = reward_cache_key("blog.com", "receitas/bolo")
+    assert visitor.get("/api/reward/v2", params={"url": PAGE}).json()["price_rules"] is not None
+    assert key in _cache(client).values
+    changed = client.put(
+        f"/api/v1/sites/{site_id}/price-rules/settings",
+        json={"active": True, "control_percent": 20},
+        headers=_csrf(client),
+    )
+    assert changed.status_code == 200, changed.text
+    assert key not in _cache(client).values
+    body = visitor.get("/api/reward/v2", params={"url": PAGE}).json()
+    assert body["price_rules"]["control_percent"] == 20
