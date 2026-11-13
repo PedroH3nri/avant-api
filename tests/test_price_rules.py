@@ -283,13 +283,11 @@ def test_prices_cascades_cached_per_site(
     site_id, key, visitor = _cascade_site(client, engine, mailer, "BR")
     first = visitor.get("/api/tag/prices", params={"key": key, "hash": HASH})
     assert first.json()["cascades"] == {"Anchor_Mobile": ["1.22", "1.13", "1.05"]}
-    assert CASCADE_CACHE_KEY.format(site_id=site_id) in _cache(client).values
-    with SqlAlchemyUnitOfWork(engine, bypass_rls=True) as uow:
-        for rule in uow.price_rules.list_for_site(site_id):
-            rule.floor_micros = 2_000_000
-        uow.commit()
+    cascade_key = CASCADE_CACHE_KEY.format(site_id=site_id)
+    assert cascade_key in _cache(client).values
+    _cache(client).values[cascade_key] = '{"BR": {"Anchor_Mobile": ["9.99"]}}'
     other = visitor.get("/api/tag/prices", params={"key": key, "hash": "ffffffffffffffff"})
-    assert other.json()["cascades"] == {"Anchor_Mobile": ["1.22", "1.13", "1.05"]}
+    assert other.json()["cascades"] == {"Anchor_Mobile": ["9.99"]}
 
 
 def test_prices_cascade_failure_keeps_floors(
@@ -556,16 +554,19 @@ def test_history_serialises_cascade_reasons(
                     floor_before_micros=1_220_000,
                     floor_applied_micros=1_220_000,
                     created_at=today,
+                    data_date=today.date() if hour == 0 else None,
+                    data_hour=7 if hour == 0 else None,
                 )
             )
         uow.commit()
     period = {"start": today.date().isoformat(), "end": today.date().isoformat()}
     history = client.get(f"{base}/{rule_id}/history", params=period)
-    assert sorted(entry["reason"] for entry in history.json()) == [
-        "fills_first",
-        "fills_late",
-        "no_new_data",
-    ]
+    by_reason = {entry["reason"]: entry for entry in history.json()}
+    assert sorted(by_reason) == ["fills_first", "fills_late", "no_new_data"]
+    assert by_reason["fills_first"]["data_date"] == today.date().isoformat()
+    assert by_reason["fills_first"]["data_hour"] == 7
+    assert by_reason["no_new_data"]["data_date"] is None
+    assert by_reason["no_new_data"]["data_hour"] is None
 
 
 def _seed_caches(client: TestClient, site_id: uuid.UUID, *hashes: str) -> tuple[str, list[str]]:

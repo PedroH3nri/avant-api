@@ -72,6 +72,10 @@ def test_api_starts_with_each_transport(monkeypatch: pytest.MonkeyPatch) -> None
         ({"RESEND_API_KEY": " "}, "RESEND_API_KEY"),
         ({"MAIL_TRANSPORT": "smtp"}, "SMTP_URL"),
         ({"MAIL_TRANSPORT": "smtp", "SMTP_URL": ""}, "SMTP_URL"),
+        ({"MAIL_TRANSPORT": "smtp", "SMTP_URL": "mailpit:1025"}, "SMTP_URL"),
+        ({"MAIL_TRANSPORT": "smtp", "SMTP_URL": "https://mailpit:1025"}, "SMTP_URL"),
+        ({"MAIL_TRANSPORT": "smtp", "SMTP_URL": "smtps://"}, "SMTP_URL"),
+        ({"MAIL_TRANSPORT": "smtp", "SMTP_URL": "smtps://mail:porta"}, "SMTP_URL"),
         ({"REDIS_URL": ""}, "REDIS_URL"),
         ({"REDIS_URL": " "}, "REDIS_URL"),
         ({"CELERY_BROKER_URL": " "}, "CELERY_BROKER_URL"),
@@ -79,6 +83,10 @@ def test_api_starts_with_each_transport(monkeypatch: pytest.MonkeyPatch) -> None
         ({"FORWARDED_ALLOW_IPS": "*"}, "FORWARDED_ALLOW_IPS"),
         ({"FORWARDED_ALLOW_IPS": "127.0.0.1,*"}, "FORWARDED_ALLOW_IPS"),
         ({"FORWARDED_ALLOW_IPS": "nginx"}, "FORWARDED_ALLOW_IPS"),
+        ({"FORWARDED_ALLOW_IPS": "0.0.0.0/0"}, "FORWARDED_ALLOW_IPS"),
+        ({"FORWARDED_ALLOW_IPS": "::/0"}, "FORWARDED_ALLOW_IPS"),
+        ({"FORWARDED_ALLOW_IPS": "127.0.0.1, 10.0.0.0/7"}, "FORWARDED_ALLOW_IPS"),
+        ({"FORWARDED_ALLOW_IPS": "fd00::/31"}, "FORWARDED_ALLOW_IPS"),
         ({"WEB_CONCURRENCY": "2"}, "PROMETHEUS_MULTIPROC_DIR"),
     ],
 )
@@ -111,6 +119,8 @@ def test_start_error_shows_names_and_never_values(monkeypatch: pytest.MonkeyPatc
 def test_proxy_addresses_accept_ips_and_networks() -> None:
     accepted = settings_for_tests(forwarded_allow_ips="172.30.0.0/24, ::1")
     assert accepted.forwarded_allow_ips == "172.30.0.0/24, ::1"
+    widest = settings_for_tests(forwarded_allow_ips="10.0.0.0/8, fd00::/32")
+    assert widest.forwarded_allow_ips == "10.0.0.0/8, fd00::/32"
 
 
 def test_environment_name_changes_nothing(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -132,3 +142,13 @@ def test_queue_does_not_break_the_request_without_broker() -> None:
 
     # Porta fechada: a publicação falha rápido e só vai para o log.
     CeleryQueue("amqp://guest:guest@127.0.0.1:1//").send("avant.gam.sync_network", "a", "b")
+
+
+def test_malformed_smtp_url_never_shows_the_value(monkeypatch: pytest.MonkeyPatch) -> None:
+    values = REQUIRED_ENVIRONMENT | {
+        "MAIL_TRANSPORT": "smtp",
+        "SMTP_URL": f"smtps://avant:{SECRET}@mail:porta",
+    }
+    message = _refused_names(monkeypatch, values)
+    assert message == "configuração da API incompleta: SMTP_URL"
+    assert SECRET not in message

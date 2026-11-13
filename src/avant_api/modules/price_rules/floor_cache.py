@@ -1,4 +1,5 @@
-"""Apaga o cache público dos floors e da escada da Cascata quando a regra ou o site mudam à mão."""
+"""Apaga o cache público dos floors, da escada da Cascata e das páginas de reward quando a regra ou
+o site mudam à mão."""
 
 import uuid
 
@@ -6,8 +7,9 @@ from avant_core.ports import UnitOfWork
 from avant_core.price_rules.catalog import CASCADE_CACHE_KEY, FLOOR_CACHE_KEY
 from avant_core.price_rules.enums import PriceRuleModel
 from avant_core.price_rules.models import PriceRule
+from avant_core.rewards.services import site_reward_pages
 
-from avant_api.app.reward_cache import RewardCache
+from avant_api.app.reward_cache import RewardCache, reward_cache_key
 
 
 def forget_floors(cache: RewardCache, site_id: uuid.UUID, content_hash: str) -> None:
@@ -29,9 +31,13 @@ def forget_rule(cache: RewardCache, rule: PriceRule) -> None:
 
 
 def forget_site(cache: RewardCache, uow: UnitOfWork, site_id: uuid.UUID) -> None:
-    """Apaga a escada e os floors de todos os hashes das regras do site (blocos e ajustes)."""
+    """Apaga a escada, os floors de todos os hashes das regras do site e as páginas dos rewards
+    do site, que guardam o controle e os blocos (configuração e blocos)."""
     with uow:
         hashes = {rule.content_hash for rule in uow.price_rules.list_for_site(site_id)}
     forget_cascades(cache, site_id)
     for content_hash in hashes:
         forget_floors(cache, site_id, content_hash)
+    pages = site_reward_pages(uow, site_id=site_id)
+    if pages:
+        cache.delete(*{reward_cache_key(domain, path) for domain, path in pages})

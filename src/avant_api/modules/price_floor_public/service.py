@@ -1,10 +1,17 @@
 """Service da rota pública dos floors: cache por site e content_hash e o país pelo IP.
 
-Três chaves no Redis (o mesmo do reward): ``avant:price-floors:tag:{chave}`` guarda o site da
-tag (vazio quando a tag não leva regra), ``avant:price-floors:{site}:{hash}`` guarda o controle
-e os floors de todos os países do hash e ``avant:price-cascades:{site}`` guarda a escada da
-Cascata de todos os países do site. O worker apaga a segunda quando o floor muda; o painel
-apaga quando a regra muda à mão. Ligar, desligar e trocar blocos vale em até 1 hora.
+Três chaves no Redis (o mesmo do reward), todas com prazo de 1 hora (5 minutos quando vazias):
+
+- ``avant:price-floors:tag:{chave}``: o site da tag, ou vazio quando a tag não leva regra.
+  Ninguém apaga; troca de site ou de regra na tag vale quando o prazo vence.
+- ``avant:price-floors:{site}:{hash}``: o controle e os floors de todos os países do hash. O
+  worker apaga quando o motor muda um floor; o painel apaga quando a regra muda à mão
+  (``forget_rule``) e, com os de todos os hashes do site, quando liga, desliga, muda o controle
+  ou troca os blocos (``forget_site``).
+- ``avant:price-cascades:{site}``: a escada da Cascata de todos os países do site, que a página
+  do reward também lê (``avant_api.app.price_cascade_cache``). O worker apaga quando a Cascata
+  muda algum floor inicial; o painel apaga quando uma regra da Cascata muda à mão e nas mesmas
+  mudanças do site.
 """
 
 import json

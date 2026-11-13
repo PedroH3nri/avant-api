@@ -5,10 +5,13 @@ import ipaddress
 import logging
 from typing import Literal
 
+from avant_core.mail import parse_smtp_url
 from pydantic import Field, ValidationError, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 log = logging.getLogger("avant.api")
+
+WIDEST_PROXY_PREFIX = {4: 8, 6: 32}
 
 
 class InvalidVariables(ValueError):
@@ -77,8 +80,8 @@ class Settings(BaseSettings):
 
     @model_validator(mode="after")
     def _required_services(self) -> "Settings":
-        """Exige Redis, o broker do Celery, a configuração do transporte de e-mail e o proxy em
-        todo ambiente, e o diretório das métricas com vários processos."""
+        """Exige Redis, o broker do Celery, a configuração válida do transporte de e-mail e o proxy
+        em todo ambiente, e o diretório das métricas com vários processos."""
         required = {
             "REDIS_URL": self.redis_url,
             "CELERY_BROKER_URL": self.celery_broker_url,
@@ -86,6 +89,8 @@ class Settings(BaseSettings):
             "SMTP_URL": self.smtp_url if self.mail_transport == "smtp" else "-",
         }
         invalid = [name for name, value in required.items() if not (value or "").strip()]
+        if self.mail_transport == "smtp" and self.smtp_url and not _is_smtp_url(self.smtp_url):
+            invalid.append("SMTP_URL")
         if self.web_concurrency > 1 and not self.prometheus_multiproc_dir:
             invalid.append("PROMETHEUS_MULTIPROC_DIR")
         if not _are_proxy_addresses(self.forwarded_allow_ips):
@@ -96,10 +101,21 @@ class Settings(BaseSettings):
 
 
 def _are_proxy_addresses(addresses: str) -> bool:
-    """Diz se são só endereços ou redes IP separados por vírgula; "*" e nome de host não."""
+    """Diz se são só endereços ou redes IP separados por vírgula; "*", nome de host e rede
+    larga demais (como ``0.0.0.0/0``, que vale o mesmo que "*") não."""
     try:
-        for entry in addresses.split(","):
-            ipaddress.ip_network(entry.strip(), strict=False)
+        networks = [
+            ipaddress.ip_network(entry.strip(), strict=False) for entry in addresses.split(",")
+        ]
+    except ValueError:
+        return False
+    return all(network.prefixlen >= WIDEST_PROXY_PREFIX[network.version] for network in networks)
+
+
+def _is_smtp_url(url: str) -> bool:
+    """Diz se o ``parse_smtp_url`` do core aceita a URL; o erro dele nunca repete o valor."""
+    try:
+        parse_smtp_url(url)
     except ValueError:
         return False
     return True

@@ -3,6 +3,7 @@ na moeda da network do site (sem conversão). Datas em ISO 8601 UTC."""
 
 import uuid
 from datetime import date, datetime
+from datetime import date as calendar_date
 
 from avant_core.price_rules.catalog import DEFAULT_DROP_TIERS
 from avant_core.price_rules.enums import (
@@ -24,7 +25,6 @@ from avant_core.price_rules.models import (
     PriceRuleSiteSummary,
     PriceRuleSiteView,
 )
-from avant_core.price_rules.services import kind_of, recommended_model
 from pydantic import BaseModel, Field
 
 
@@ -60,20 +60,9 @@ class PriceRuleSiteOut(BaseModel):
             currency_supported=view.currency_supported,
             blocks=[PriceRuleBlockOut(block=item.block, model=item.model) for item in view.blocks],
             available_blocks=list(view.available_blocks),
-            recommended_models=_recommended_models(view.available_blocks),
+            recommended_models=dict(view.recommended_models),
             updated_at=settings.updated_at,
         )
-
-
-def _recommended_models(blocks: tuple[str, ...]) -> dict[str, PriceRuleModel]:
-    """O modelo recomendado de cada bloco; o offerwall e os blocos sem tipo ficam de fora."""
-    recommended = {}
-    for block in blocks:
-        kind = kind_of(block)
-        model = recommended_model(kind) if kind is not None else None
-        if model is not None:
-            recommended[block] = model
-    return recommended
 
 
 class PriceRuleSiteSummaryOut(BaseModel):
@@ -226,6 +215,8 @@ class PriceRuleHistoryOut(BaseModel):
     floor_before_micros: int
     floor_applied_micros: int
     created_at: datetime
+    data_date: calendar_date | None
+    data_hour: int | None
 
     @classmethod
     def of(cls, entry: PriceRuleHistoryEntry) -> "PriceRuleHistoryOut":
@@ -238,6 +229,8 @@ class PriceRuleHistoryOut(BaseModel):
             floor_before_micros=entry.floor_before_micros,
             floor_applied_micros=entry.floor_applied_micros,
             created_at=entry.created_at,
+            data_date=entry.data_date,
+            data_hour=entry.data_hour,
         )
 
 
