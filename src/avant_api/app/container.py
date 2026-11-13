@@ -20,6 +20,7 @@ from avant_api.app.images import PillowImageProcessor
 from avant_api.app.key_value_buffer import KeyValueBuffer, RedisKeyValueBuffer
 from avant_api.app.limits import Bucket, Limiter, RedisBucket, RedisCounter
 from avant_api.app.mail_queue import TaskMailQueue
+from avant_api.app.pool_metrics import watch_pool
 from avant_api.app.reward_buffer import PAGE_VIEWS_BUFFER, RedisRewardBuffer, RewardBuffer
 from avant_api.app.reward_cache import RedisRewardCache, RewardCache
 from avant_api.app.settings import Settings
@@ -44,8 +45,10 @@ def engine_settings(settings: Settings) -> EngineSettings:
 
 
 def restricted_engine(settings: Settings) -> Engine:
-    """Monta o engine e recusa a subida se o papel do banco puder ignorar o RLS."""
+    """Monta o engine com as métricas do pool e recusa a subida se o papel do banco puder
+    ignorar o RLS."""
     engine = new_engine(settings.database_url, engine_settings(settings))
+    watch_pool(engine)
     try:
         ensure_app_role_is_restricted(engine)
     except Exception:

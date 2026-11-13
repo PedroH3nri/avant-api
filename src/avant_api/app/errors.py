@@ -14,6 +14,7 @@ from fastapi.responses import JSONResponse
 from starlette.exceptions import HTTPException
 
 from avant_api.app.logs import masked_path
+from avant_api.app.pool_metrics import count_pool_timeout
 
 log = logging.getLogger("avant.api")
 
@@ -245,7 +246,9 @@ def install(app: FastAPI) -> None:
 
     @app.exception_handler(Exception)
     async def unexpected(request: Request, exc: Exception) -> JSONResponse:
-        """Registra o erro inesperado no log e devolve 500 sem detalhes."""
+        """Registra o erro inesperado no log (e conta a espera esgotada do pool) e devolve 500
+        sem detalhes."""
+        count_pool_timeout(exc)
         log.error(
             "erro inesperado",
             exc_info=exc,
