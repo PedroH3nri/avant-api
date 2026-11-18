@@ -56,6 +56,12 @@ class Settings(BaseSettings):
     # Login com Google. Sem as duas, as rotas /auth/google respondem google_unavailable.
     google_oauth_client_id: str | None = None
     google_oauth_client_secret: str | None = None
+    # Facebook (decisão 16): o app da Meta que a Groone já tem e a chave Fernet dos tokens, a
+    # mesma do worker. Sem as três, as rotas /facebook/oauth respondem facebook_unavailable.
+    facebook_app_id: str | None = None
+    facebook_app_secret: str | None = None
+    facebook_token_key: str | None = None
+    facebook_graph_version: str = "v25.0"
     # Fila do avant-worker (RabbitMQ). Obrigatória em todo ambiente: o esqueci a senha só
     # agenda o envio, e o mesmo caminho vale no local.
     celery_broker_url: str = Field(min_length=1)

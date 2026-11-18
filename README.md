@@ -104,6 +104,10 @@ Outros repositórios: avant-core, avant-worker, avant-web, avant-infra.
 | `POST /rewards`, `PUT /rewards/{id}`, `PATCH /rewards/{id}` (`{active}`), `DELETE /rewards/{id}`, `PUT /rewards/{id}/icon` | cria, troca, pausa ou ativa, apaga (`deleted_at`) e troca o ícone (imagem crua de até 2 MB); `reward_page_taken` (409) e `reward_ad_unit_day_missing` (422). Cada mudança apaga o cache público da página (`avant:reward:{domínio}/{caminho}`) | `rewards.manage` |
 | `GET /rewards/{id}`, `GET /sites/{id}/reward-ad-units`, `GET /rewards/{id}/metrics?from=&to=` | o reward com as perguntas; os ad units de reward do site por data do bloco, com os aparelhos; as métricas do período (padrão: os últimos 30 dias) | `rewards.view` |
 | `GET /rewards/{id}/leads?q=&question_id=&answer=&page=`, `GET /rewards/{id}/leads/export`, `DELETE /rewards/{id}/leads/{lead_id}` | contatos (dado pessoal), o mais novo primeiro, o CSV com o mesmo filtro e apagar um contato (os dois últimos na auditoria); continuam à vista depois que o reward é apagado | `rewards.leads` |
+| `GET /facebook/oauth/start`, `GET /facebook/oauth/callback` | login do Facebook (decisão 16) com o app da Meta da Groone; o `state` vai num cookie de 10 minutos e o retorno sempre volta para `/facebook?facebook=conectado` ou `/facebook?erro=<code>`. Sem `FACEBOOK_APP_ID`, `FACEBOOK_APP_SECRET` e `FACEBOOK_TOKEN_KEY`, 503 `facebook_not_configured` | `facebook.connect`, só sessão |
+| `GET /facebook/profiles`, `DELETE /facebook/profiles/{id}` | perfis conectados (sem o token) e desconectar (para a sincronia e revoga as permissões no Facebook; os números ficam) | `facebook.view` (desconectar o perfil de outra pessoa pede `facebook.connect`, conferido no core) |
+| `GET /facebook/accounts`, `GET /facebook/objects?level=&account_id=&parent=&active=&in_review=&q=&from=&to=&page=`, `GET /facebook/objects/{external_id}?from=&to=`, `GET /facebook/changes?account_id=&object_id=&origin=&page=`, `GET /facebook/alerts?page=`, `POST /facebook/alerts/{id}/read` | contas com quem usa e o gasto do mês; campanhas, conjuntos e anúncios com gasto, receita (UTMs do site ligado), lucro e ROI na moeda da conta (padrão: os últimos 7 dias, até 400); o detalhe por dia e por país; o histórico; os avisos. Quem não tem `facebook.accounts.manage` vê só as contas que usa | `facebook.view` |
+| `PUT /facebook/accounts/{id}`, `GET /facebook/people`, `PUT /facebook/people/{user_id}`, `GET`, `PUT /facebook/alert-settings` | site, pessoa e limites da conta (uma conta, uma pessoa); contas e limites por pessoa (passar a conta tira de quem usava); quem recebe cada aviso | `facebook.accounts.manage` |
 | `GET /results?start=&end=&currency=` | faturamento, deduções (parte do cliente), receita, custos e resultado de cada mês, até 24 meses (padrão: os 6 até o atual); `deductions_pending` enquanto o GAM não fecha o mês | `results.view` |
 | `PUT /auth/preferences` | troca a moeda de visualização da pessoa (`display_currency`, que também vem em `/auth/me`) | sessão |
 | `PATCH /auth/appearance` | tema (`light`, `dark`, `system`), cor (`default`, `blue`, `green`, `purple`, `orange`) e idioma (`pt`, `en`, `es`) da pessoa, também em `/auth/me` | sessão |
@@ -143,6 +147,7 @@ Painel interno, em `/api/v1/internal` (Company Groone ativa e 2FA verificado na 
 | `GET /internal/gam-tools/networks`, `GET /internal/gam-tools/networks/{id}` | ferramentas do GAM: networks dos clientes (páginas de 10, `q` no nome ou no network code) e a network com os sites e os blocos que o Avant já importou | `internal.gam_tools.view` |
 | `GET`, `POST /internal/gam-tools/runs` | execuções da network (`?network=`; sem ele, de todas as networks), a mais recente primeiro, cada uma com a network e o cliente; e nova execução `{network_id, kind, domains, format}` → 202, enfileira `avant.gam.run_tool`; `gam_tool_running` (409) com outra rodando | `internal.gam_tools.view`; `config`, `setup` e `key_values` escrevem no GAM e pedem `internal.gam_tools.run` |
 | `/internal/rewards...`, `GET /internal/sites/{id}/reward-ad-units` | as mesmas rotas dos rewards para todos os clientes, cada reward com o `client`; a auditoria vai para o cliente | `internal.rewards.view`, `.manage` e `.leads` |
+| `GET /internal/facebook/accounts`, `/objects`, `/objects/{external_id}`, `/changes`, `/alerts` (todas com `?company_id=` opcional, menos o detalhe) | o Facebook de todos os clientes, só leitura, nos mesmos formatos do painel do cliente | `internal.facebook.view` |
 | `GET /internal/gam-tools/runs/{id}` | execução com os passos; a tela atualiza pelo evento `gam_tool_run.updated` | `internal.gam_tools.view` |
 | `GET /internal/gam-tools/ads-txt?network=`, `GET /internal/gam-tools/install?network=&sites=&language=&label=` | linhas do ads.txt e o arquivo de instalação Tag Light (.txt de um site, .zip de vários); `seller_id_missing`, `no_blocks_yet` e `gtag_install_pending` (409) | `internal.gam_tools.view` |
 | `GET /internal/owner-invitations`, `POST .../{id}/resend`, `DELETE .../{id}` | convites de dono (a lista em páginas) | `internal.clients.view` / `.manage` |
@@ -253,6 +258,10 @@ src/avant_api/
   em Configurações. O callback sempre redireciona para o painel: `/` ou `/entrar/2fa`
   quando deu certo, `/entrar?erro=<code>` ou `/configuracoes/conta?erro=<code>` quando
   não.
+- **Facebook**: a API troca o código do login pelo token de longa duração, cifra com
+  `FACEBOOK_TOKEN_KEY` (a mesma chave do worker) e traz as contas do perfil. A sincronia de
+  estrutura e números é do worker (fila `facebook`). URI de retorno cadastrada no app da Meta:
+  `{APP_BASE_URL}/api/v1/facebook/oauth/callback`.
 - **Avisos por e-mail**: senha trocada, Google ligado e 2FA zerado pela Groone. Os
   e-mails vêm de `avant_core.mail`, o mesmo módulo do worker.
 - **GAM**: a API não fala com o Ad Manager. Conectar, "sincronizar agora" e atribuir uma
