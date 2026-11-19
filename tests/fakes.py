@@ -7,7 +7,17 @@ import threading
 import time
 from collections.abc import AsyncIterator
 from dataclasses import dataclass, field
+from datetime import date, datetime
 from typing import Any
+
+from avant_core.facebook.enums import FacebookAccountState, FacebookLevel
+from avant_core.facebook.models import (
+    FacebookAccountData,
+    FacebookCountryRow,
+    FacebookInsightRow,
+    FacebookObjectData,
+    FacebookToken,
+)
 
 from avant_api.app.limits import BucketResult, BucketRule
 
@@ -170,3 +180,62 @@ class MemoryRewardBuffer:
         """Guarda na memória."""
         self.items.extend(items)
         return bool(items)
+
+
+class FakeFacebook:
+    """A Graph API com uma conta, uma campanha com um conjunto e um anúncio e os números."""
+
+    def __init__(self) -> None:
+        self.codes: list[tuple[str, str]] = []
+        self.revoked: list[str] = []
+
+    def exchange_code(self, code: str, redirect_uri: str) -> FacebookToken:
+        """Guarda o código e devolve um token de longa duração."""
+        self.codes.append((code, redirect_uri))
+        return FacebookToken("token-1", None, "fb-1", "Dono no Facebook")
+
+    def ad_accounts(self, token: str) -> list[FacebookAccountData]:
+        """Uma conta em reais."""
+        return [
+            FacebookAccountData(
+                "act_123",
+                "CA 01",
+                "bm-1",
+                "BM Blog",
+                "BRL",
+                "America/Sao_Paulo",
+                FacebookAccountState.ACTIVE,
+            )
+        ]
+
+    def objects(
+        self, token: str, account_external_id: str, currency: str, since: datetime | None
+    ) -> list[FacebookObjectData]:
+        """Campanha, conjunto e anúncio ativos."""
+        return [
+            FacebookObjectData(
+                FacebookLevel.CAMPAIGN, "c1", "Bolo", None, "c1", "ACTIVE", "ACTIVE", None
+            ),
+            FacebookObjectData(
+                FacebookLevel.ADSET, "s1", "Bolo BR", "c1", "c1", "ACTIVE", "ACTIVE", None
+            ),
+            FacebookObjectData(
+                FacebookLevel.AD, "a1", "Carrossel", "s1", "c1", "ACTIVE", "ACTIVE", None
+            ),
+        ]
+
+    def insights(
+        self, token: str, account_external_id: str, since: date, until: date
+    ) -> list[FacebookInsightRow]:
+        """R$ 5 de gasto no último dia."""
+        return [FacebookInsightRow("a1", "s1", "c1", until, 5_000_000, 1000, 800, 30, 20, 15)]
+
+    def country_insights(
+        self, token: str, account_external_id: str, since: date, until: date
+    ) -> list[FacebookCountryRow]:
+        """Sem números por país."""
+        return []
+
+    def revoke(self, token: str) -> None:
+        """Guarda o token revogado."""
+        self.revoked.append(token)

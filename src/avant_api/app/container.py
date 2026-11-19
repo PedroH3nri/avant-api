@@ -6,6 +6,8 @@ from dataclasses import dataclass
 from avant_core.db.app_role import ensure_app_role_is_restricted
 from avant_core.db.engine import EngineSettings, new_engine
 from avant_core.db.uow import SqlAlchemyUnitOfWork
+from avant_core.facebook.adapters import GraphFacebookGateway
+from avant_core.facebook.interfaces import FacebookGateway
 from avant_core.identity.security.crypto import FernetSecretBox
 from avant_core.identity.security.passwords import Argon2PasswordHasher
 from avant_core.mail import build_mailer
@@ -82,6 +84,9 @@ class Services:
     reward_events: RewardBuffer
     page_views: RewardBuffer
     countries: CountryLookup
+    # Sem o app da Meta e a chave dos tokens, não há integração com o Facebook.
+    facebook: FacebookGateway | None = None
+    facebook_box: SecretBox | None = None
 
     @classmethod
     def build(cls, settings: Settings) -> "Services":
@@ -108,6 +113,10 @@ class Services:
             countries=GeoLiteCountries(settings.geolite2_country_file)
             if settings.geolite2_country_file
             else NoCountries(),
+            facebook=_facebook(settings),
+            facebook_box=FernetSecretBox(settings.facebook_token_key)
+            if settings.facebook_token_key
+            else None,
         )
 
     def uow(self, company_id: uuid.UUID) -> SqlAlchemyUnitOfWork:
@@ -143,4 +152,13 @@ def _google(settings: Settings) -> GoogleAuth | None:
         client_id=settings.google_oauth_client_id,
         client_secret=settings.google_oauth_client_secret,
         redirect_uri=f"{settings.app_base_url.rstrip('/')}/api/v1/auth/google/callback",
+    )
+
+
+def _facebook(settings: Settings) -> FacebookGateway | None:
+    """Monta a Graph API com o app da Meta da Groone, se estiver configurado."""
+    if not (settings.facebook_app_id and settings.facebook_app_secret):
+        return None
+    return GraphFacebookGateway(
+        settings.facebook_app_id, settings.facebook_app_secret, settings.facebook_graph_version
     )
