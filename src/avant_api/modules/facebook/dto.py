@@ -39,32 +39,9 @@ from avant_core.facebook.models import (
     FacebookRuleInput,
     FacebookTotals,
 )
-from avant_core.identity.models import User
 from pydantic import BaseModel, Field
 
-MICROS = Decimal(1_000_000)
-MAX_LIMIT = Decimal(1_000_000_000)
-
-
-def money(micros: int | None) -> Decimal | None:
-    """Micros para o valor na moeda; vazio continua vazio."""
-    return None if micros is None else Decimal(micros) / MICROS
-
-
-def micros(amount: Decimal | None) -> int | None:
-    """O valor na moeda para micros; vazio é sem limite."""
-    return None if amount is None else int(amount * MICROS)
-
-
-class PersonRefOut(BaseModel):
-    id: uuid.UUID
-    name: str
-    email: str
-
-    @classmethod
-    def of(cls, user: User | None) -> "PersonRefOut | None":
-        """A pessoa resumida, ou vazio."""
-        return None if user is None else cls(id=user.id, name=user.name, email=user.email)
+from avant_api.shared.ads import MAX_LIMIT, MICROS, PersonRefOut, micros, money
 
 
 class FacebookProfileOut(BaseModel):

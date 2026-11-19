@@ -22,6 +22,19 @@ from avant_core.facebook.models import (
     FacebookOption,
     FacebookToken,
 )
+from avant_core.google_ads.enums import GoogleAdsAccountStatus, GoogleAdsLevel
+from avant_core.google_ads.models import (
+    GoogleAdsAccountData,
+    GoogleAdsCampaignRow,
+    GoogleAdsChangeData,
+    GoogleAdsKeywordData,
+    GoogleAdsKeywordRow,
+    GoogleAdsMetricRow,
+    GoogleAdsObjectData,
+    GoogleAdsPlacementRow,
+    GoogleAdsSearchTermRow,
+    GoogleAdsToken,
+)
 
 from avant_api.app.limits import BucketResult, BucketRule
 
@@ -341,3 +354,91 @@ class FakeFacebook:
 
     def set_creative(self, token: str, ad_external_id: str, creative_id: str) -> None:
         """Não usado na API (o worker edita)."""
+
+
+class FakeGoogleAds:
+    """A API do Google Ads com uma conta numa MCC, uma campanha com um grupo, um anúncio, uma
+    palavra-chave e os números de um dia."""
+
+    def __init__(self) -> None:
+        self.codes: list[tuple[str, str]] = []
+        self.revoked: list[str] = []
+        self.calls: list[tuple[str, ...]] = []
+        self.suffix: str | None = None
+
+    def exchange_code(self, code: str, redirect_uri: str) -> GoogleAdsToken:
+        """Guarda o código e devolve o token de atualização."""
+        self.codes.append((code, redirect_uri))
+        return GoogleAdsToken("refresh-1", "google-1", "dono@gmail.com")
+
+    def accounts(self, token: str) -> list[GoogleAdsAccountData]:
+        """Uma conta cliente da MCC, com o sufixo que o Avant gravou (se gravou)."""
+        return [
+            GoogleAdsAccountData(
+                "1234567890",
+                "Blog Pesquisa",
+                "5550001111",
+                "MCC",
+                "BRL",
+                "America/Sao_Paulo",
+                GoogleAdsAccountStatus.ENABLED,
+                url_suffix=self.suffix,
+            )
+        ]
+
+    def objects(self, token: str, login: str, customer_id: str) -> list[GoogleAdsObjectData]:
+        """A campanha 111, o grupo 222 e o anúncio 333."""
+        return [
+            GoogleAdsObjectData(GoogleAdsLevel.CAMPAIGN, "111", "Bolo", None, "111", "ENABLED"),
+            GoogleAdsObjectData(GoogleAdsLevel.AD_GROUP, "222", "Cenoura", "111", "111", "ENABLED"),
+            GoogleAdsObjectData(GoogleAdsLevel.AD, "333", "Anúncio", "222", "111", "ENABLED"),
+        ]
+
+    def keywords(self, token: str, login: str, customer_id: str) -> list[GoogleAdsKeywordData]:
+        """A palavra-chave 44 no grupo 222."""
+        return [GoogleAdsKeywordData("222", "111", "44", "bolo de cenoura", "PHRASE", "ENABLED")]
+
+    def campaign_metrics(
+        self, token: str, login: str, customer_id: str, since: date, until: date
+    ) -> list[GoogleAdsCampaignRow]:
+        """R$ 5 na campanha no último dia."""
+        return [GoogleAdsCampaignRow("111", until, 5_000_000, 1000, 30, 2)]
+
+    def ad_metrics(
+        self, token: str, login: str, customer_id: str, since: date, until: date
+    ) -> list[GoogleAdsMetricRow]:
+        """R$ 5 no anúncio no último dia."""
+        return [GoogleAdsMetricRow("333", "222", "111", until, 5_000_000, 1000, 30, 2)]
+
+    def keyword_metrics(
+        self, token: str, login: str, customer_id: str, since: date, until: date
+    ) -> list[GoogleAdsKeywordRow]:
+        """R$ 4 na palavra-chave no último dia."""
+        return [GoogleAdsKeywordRow("222", "44", "111", until, 4_000_000, 800, 25, 2)]
+
+    def search_terms(
+        self, token: str, login: str, customer_id: str, since: date, until: date
+    ) -> list[GoogleAdsSearchTermRow]:
+        """Um termo de pesquisa no último dia."""
+        return [GoogleAdsSearchTermRow("111", "222", "44", "bolo", until, 3_000_000, 500, 20, 1)]
+
+    def placements(
+        self, token: str, login: str, customer_id: str, since: date, until: date
+    ) -> list[GoogleAdsPlacementRow]:
+        """Sem posicionamentos (campanha de pesquisa)."""
+        return []
+
+    def changes(
+        self, token: str, login: str, customer_id: str, since: datetime, time_zone: str
+    ) -> list[GoogleAdsChangeData]:
+        """Sem mudanças feitas direto no Google Ads."""
+        return []
+
+    def set_url_suffix(self, token: str, login: str, customer_id: str, suffix: str) -> None:
+        """Guarda o sufixo gravado."""
+        self.calls.append(("suffix", login, customer_id, suffix))
+        self.suffix = suffix
+
+    def revoke(self, token: str) -> None:
+        """Guarda o token revogado."""
+        self.revoked.append(token)

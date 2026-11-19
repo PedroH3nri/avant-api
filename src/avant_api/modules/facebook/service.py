@@ -67,8 +67,8 @@ from avant_api.modules.facebook.dto import (
     FacebookRuleIn,
     FacebookRuleOut,
     FacebookStatusIn,
-    micros,
 )
+from avant_api.shared.ads import micros
 from avant_api.shared.dto import PageOut, page_out
 
 LISTS_KEY = "avant:facebook:lists:{account}:{kind}:{query}"
