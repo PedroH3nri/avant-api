@@ -28,6 +28,7 @@ PERMISSION_FOR = {
     "network.updated": "network.view",
     "gam_tool_run.updated": "internal.gam_tools.view",
     "metrics.updated": "reports.view",
+    "facebook.job.updated": "facebook.view",
 }
 HEARTBEAT_SECONDS = 15
 # Depois disso o servidor fecha; o EventSource reconecta e a sessão é conferida de novo.

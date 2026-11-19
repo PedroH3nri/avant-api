@@ -8,7 +8,7 @@ from decimal import Decimal
 from typing import Any
 
 import redis
-from avant_core.facebook.errors import FacebookLimitExceeded
+from avant_core.facebook.errors import FacebookDraftInvalid, FacebookLimitExceeded
 from avant_core.shared.errors import DomainError
 from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
@@ -114,6 +114,12 @@ class FacebookDenied(DomainError):
     code = "facebook_denied"
 
 
+class FacebookMediaTooLarge(DomainError):
+    """A imagem ou o vídeo do anúncio passa do tamanho que o Avant aceita."""
+
+    code = "facebook_media_too_large"
+
+
 class GoogleFailed(DomainError):
     """O Google recusou o código ou devolveu um id_token que não confere."""
 
@@ -184,6 +190,8 @@ STATUS: dict[str, int] = {
     "facebook_unavailable": 503,
     "facebook_token_invalid": 409,
     "facebook_limit_exceeded": 409,
+    "facebook_draft_invalid": 422,
+    "facebook_media_too_large": 413,
     "facebook_rejected": 422,
     "facebook_error": 502,
     "facebook_state_invalid": 400,
@@ -249,6 +257,8 @@ def install(app: FastAPI) -> None:
         details = {"retry_after": retry_after} if retry_after is not None else None
         if isinstance(exc, FacebookLimitExceeded):
             details = _limit_details(exc)
+        if isinstance(exc, FacebookDraftInvalid):
+            details = {"problems": exc.problems}
         return JSONResponse(
             error_body(exc.code, str(exc), details),
             status_code=STATUS.get(exc.code, 400),
