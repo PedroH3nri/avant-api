@@ -8,6 +8,8 @@ from avant_core.facebook.enums import (
     FacebookAccountState,
     FacebookAlertKind,
     FacebookChangeOrigin,
+    FacebookJobKind,
+    FacebookJobState,
     FacebookLevel,
     FacebookOnLimit,
     FacebookProfileStatus,
@@ -24,9 +26,12 @@ from avant_core.facebook.models import (
     FacebookControlResult,
     FacebookCountryTotals,
     FacebookDailyPoint,
+    FacebookJob,
+    FacebookMedia,
     FacebookObject,
     FacebookObjectDetail,
     FacebookObjectView,
+    FacebookOption,
     FacebookPersonView,
     FacebookProfileView,
     FacebookRule,
@@ -549,3 +554,61 @@ class FacebookRuleDecisionOut(BaseModel):
             roi=decision.roi,
             data=dict(decision.data),
         )
+
+
+class FacebookJobOut(BaseModel):
+    """Um job de criar, editar ou duplicar: o passo, os ids criados, o erro e o aviso."""
+
+    id: uuid.UUID
+    account_id: uuid.UUID
+    kind: FacebookJobKind
+    state: FacebookJobState
+    step: str | None
+    target_external_id: str | None
+    created: dict[str, object]
+    error_code: str | None
+    error_message: str | None
+    warning_code: str | None
+    created_at: datetime
+    updated_at: datetime
+    finished_at: datetime | None
+
+    @classmethod
+    def of(cls, job: FacebookJob) -> "FacebookJobOut":
+        """O job sem o rascunho guardado."""
+        return cls(
+            id=job.id,
+            account_id=job.account_id,
+            kind=job.kind,
+            state=job.state,
+            step=job.step,
+            target_external_id=job.target_external_id,
+            created=job.created,
+            error_code=job.error_code,
+            error_message=job.error_message,
+            warning_code=job.warning_code,
+            created_at=job.created_at,
+            updated_at=job.updated_at,
+            finished_at=job.finished_at,
+        )
+
+
+class FacebookOptionOut(BaseModel):
+    id: str
+    name: str
+    detail: str
+
+    @classmethod
+    def of(cls, option: FacebookOption) -> "FacebookOptionOut":
+        """Um item de uma lista do Facebook."""
+        return cls(id=option.id, name=option.name, detail=option.detail)
+
+
+class FacebookMediaOut(BaseModel):
+    kind: str
+    ref: str
+
+    @classmethod
+    def of(cls, media: FacebookMedia) -> "FacebookMediaOut":
+        """O hash da imagem ou o id do vídeo enviado à conta."""
+        return cls(kind=media.kind, ref=media.ref)

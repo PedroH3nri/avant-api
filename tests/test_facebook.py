@@ -13,8 +13,9 @@ from fastapi.testclient import TestClient
 from sqlalchemy import Engine
 
 from avant_api.app.container import Services
+from avant_api.app.tasks import RUN_FACEBOOK_JOB
 from tests.conftest import CapturingMailer
-from tests.fakes import FakeFacebook
+from tests.fakes import FakeFacebook, RecordingQueue
 from tests.test_api import _csrf, _onboard_owner
 from tests.test_internal import _staff
 from tests.test_team import _member_client
@@ -267,3 +268,100 @@ def test_facebook_control_and_rules(
     assert staff.get("/api/v1/internal/facebook/objects/c1/rules").json()["scale"] is True
     assert staff.get("/api/v1/internal/facebook/objects/c1/rule-decisions").status_code == 200
     assert client.get("/api/v1/internal/facebook/objects/c1/rules").status_code == 403
+
+
+def _draft(account_id: str) -> dict[str, object]:
+    """Um rascunho completo de tráfego com um conjunto e um anúncio de imagem."""
+    ad = {
+        "name": "Anúncio",
+        "format": "image",
+        "page_id": "page-1",
+        "texts": ["Texto"],
+        "titles": ["Título"],
+        "path": "/post",
+        "image_hash": "hash-1",
+    }
+    adset = {
+        "name": "Conjunto",
+        "optimization": "LANDING_PAGE_VIEWS",
+        "countries": ["br"],
+        "ads": [ad],
+    }
+    return {
+        "account_id": account_id,
+        "name": "Campanha nova",
+        "objective": "traffic",
+        "budget": "20",
+        "adsets": [adset],
+    }
+
+
+def test_facebook_create_edit_duplicate_lists_and_media(
+    client: TestClient, engine: Engine, mailer: CapturingMailer
+) -> None:
+    me = _onboard_owner(client, engine, mailer)
+    fake = _configure(client)
+    _connect(client)
+    _sync(engine, client, uuid.UUID(me["active_company_id"]))
+    queue = _services(client).tasks
+    assert isinstance(queue, RecordingQueue)
+    account_id = client.get("/api/v1/facebook/accounts").json()[0]["id"]
+
+    no_site = client.post("/api/v1/facebook/jobs", json=_draft(account_id), headers=_csrf(client))
+    assert no_site.status_code == 422, no_site.text
+    error = no_site.json()["error"]
+    assert error["code"] == "facebook_draft_invalid"
+    assert error["details"]["problems"] == ["account_without_site"]
+
+    site = client.post("/api/v1/sites", json={"domain": "acai.com"}, headers=_csrf(client))
+    client.put(
+        f"/api/v1/facebook/accounts/{account_id}",
+        json={"site_id": site.json()["id"]},
+        headers=_csrf(client),
+    )
+    created = client.post("/api/v1/facebook/jobs", json=_draft(account_id), headers=_csrf(client))
+    assert created.status_code == 202, created.text
+    job = created.json()
+    assert job["kind"] == "create" and job["state"] == "queued"
+    assert queue.sent[-1][0] == RUN_FACEBOOK_JOB
+    assert client.get(f"/api/v1/facebook/jobs/{job['id']}").json()["id"] == job["id"]
+
+    copied = client.post("/api/v1/facebook/objects/c1/duplicate", headers=_csrf(client))
+    assert copied.status_code == 202 and copied.json()["kind"] == "duplicate"
+    edited = client.put(
+        "/api/v1/facebook/objects/c1", json={"name": "Novo nome"}, headers=_csrf(client)
+    )
+    assert edited.status_code == 202 and edited.json()["target_external_id"] == "c1"
+
+    queue.offline = True
+    down = client.post("/api/v1/facebook/objects/c1/duplicate", headers=_csrf(client))
+    assert down.status_code == 503
+    queue.offline = False
+
+    lists = f"/api/v1/facebook/lists/pages?account_id={account_id}"
+    assert client.get(lists).json() == [{"id": "page-1", "name": "Página", "detail": ""}]
+    client.get(lists)
+    assert [call for call in fake.calls if call[0] == "options"] == [("options", "pages", "")]
+    short = client.get(f"/api/v1/facebook/lists/interests?account_id={account_id}&q=a")
+    assert short.status_code == 422
+
+    image = client.post(
+        f"/api/v1/facebook/media?account_id={account_id}&name=foto.png",
+        content=b"png",
+        headers={**_csrf(client), "Content-Type": "image/png"},
+    )
+    assert image.status_code == 201, image.text
+    assert image.json() == {"kind": "image", "ref": "hash-1"}
+    wrong = client.post(
+        f"/api/v1/facebook/media?account_id={account_id}&name=doc.pdf",
+        content=b"pdf",
+        headers={**_csrf(client), "Content-Type": "application/pdf"},
+    )
+    assert wrong.status_code == 422
+
+    ana = _member_client(client, mailer, "ana@acai.com")
+    assert (
+        ana.post("/api/v1/facebook/jobs", json=_draft(account_id), headers=_csrf(ana)).status_code
+        == 403
+    )
+    assert ana.get(lists).status_code == 403

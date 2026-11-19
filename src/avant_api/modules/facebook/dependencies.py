@@ -9,8 +9,16 @@ from avant_api.modules.facebook.service import FacebookService
 
 
 def facebook_service(services: Services = Depends(get_services)) -> FacebookService:
-    """O service do Facebook com o banco, o relógio, a Graph API e a cifra dos tokens."""
-    return FacebookService(services, services.clock, services.facebook, services.facebook_box)
+    """O service do Facebook com o banco, o relógio, a Graph API, a cifra dos tokens, a fila do
+    worker e o Redis (cache das listas)."""
+    return FacebookService(
+        services,
+        services.clock,
+        services.facebook,
+        services.facebook_box,
+        services.tasks,
+        services.rewards,
+    )
 
 
 def facebook_redirects(services: Services = Depends(get_services)) -> FacebookRedirects:
