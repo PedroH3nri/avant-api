@@ -8,6 +8,8 @@ from avant_core.db.engine import EngineSettings, new_engine
 from avant_core.db.uow import SqlAlchemyUnitOfWork
 from avant_core.facebook.adapters import GraphFacebookGateway
 from avant_core.facebook.interfaces import FacebookGateway
+from avant_core.google_ads.adapters import RestGoogleAdsGateway
+from avant_core.google_ads.interfaces import GoogleAdsGateway
 from avant_core.identity.security.crypto import FernetSecretBox
 from avant_core.identity.security.passwords import Argon2PasswordHasher
 from avant_core.mail import build_mailer
@@ -87,6 +89,9 @@ class Services:
     # Sem o app da Meta e a chave dos tokens, não há integração com o Facebook.
     facebook: FacebookGateway | None = None
     facebook_box: SecretBox | None = None
+    # Sem o cliente OAuth, o developer token e a chave dos tokens, não há Google Ads.
+    google_ads: GoogleAdsGateway | None = None
+    google_ads_box: SecretBox | None = None
 
     @classmethod
     def build(cls, settings: Settings) -> "Services":
@@ -116,6 +121,10 @@ class Services:
             facebook=_facebook(settings),
             facebook_box=FernetSecretBox(settings.facebook_token_key)
             if settings.facebook_token_key
+            else None,
+            google_ads=_google_ads(settings),
+            google_ads_box=FernetSecretBox(settings.google_ads_token_key)
+            if settings.google_ads_token_key
             else None,
         )
 
@@ -161,4 +170,20 @@ def _facebook(settings: Settings) -> FacebookGateway | None:
         return None
     return GraphFacebookGateway(
         settings.facebook_app_id, settings.facebook_app_secret, settings.facebook_graph_version
+    )
+
+
+def _google_ads(settings: Settings) -> GoogleAdsGateway | None:
+    """Monta a API do Google Ads com o cliente OAuth e o developer token, se configurados."""
+    if not (
+        settings.google_ads_client_id
+        and settings.google_ads_client_secret
+        and settings.google_ads_developer_token
+    ):
+        return None
+    return RestGoogleAdsGateway(
+        settings.google_ads_client_id,
+        settings.google_ads_client_secret,
+        settings.google_ads_developer_token,
+        settings.google_ads_api_version,
     )

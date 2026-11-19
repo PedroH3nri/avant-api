@@ -114,6 +114,24 @@ class FacebookDenied(DomainError):
     code = "facebook_denied"
 
 
+class GoogleAdsNotConfigured(DomainError):
+    """A API sobe sem o cliente OAuth, o developer token ou a chave dos tokens do Google Ads."""
+
+    code = "google_ads_not_configured"
+
+
+class GoogleAdsStateInvalid(DomainError):
+    """O retorno do Google chegou sem o ``state`` do cookie ou com outro."""
+
+    code = "google_ads_state_invalid"
+
+
+class GoogleAdsDenied(DomainError):
+    """A pessoa cancelou o login do Google ou não deu acesso ao Google Ads."""
+
+    code = "google_ads_denied"
+
+
 class FacebookMediaTooLarge(DomainError):
     """A imagem ou o vídeo do anúncio passa do tamanho que o Avant aceita."""
 
@@ -196,6 +214,14 @@ STATUS: dict[str, int] = {
     "facebook_error": 502,
     "facebook_state_invalid": 400,
     "facebook_denied": 400,
+    "google_ads_not_configured": 503,
+    "google_ads_unavailable": 503,
+    "google_ads_token_invalid": 409,
+    "google_ads_suffix_taken": 409,
+    "google_ads_rejected": 422,
+    "google_ads_error": 502,
+    "google_ads_state_invalid": 400,
+    "google_ads_denied": 400,
     "google_unavailable": 503,
     "google_failed": 502,
     "google_not_linked": 403,

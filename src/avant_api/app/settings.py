@@ -62,6 +62,14 @@ class Settings(BaseSettings):
     facebook_app_secret: str | None = None
     facebook_token_key: str | None = None
     facebook_graph_version: str = "v25.0"
+    # Google Ads (decisão 17): o cliente OAuth e o developer token do Genius e a chave Fernet
+    # dos tokens, a mesma do worker. Sem os quatro, as rotas /google-ads/oauth respondem
+    # google_ads_not_configured.
+    google_ads_client_id: str | None = None
+    google_ads_client_secret: str | None = None
+    google_ads_developer_token: str | None = None
+    google_ads_token_key: str | None = None
+    google_ads_api_version: str = "v23"
     # Fila do avant-worker (RabbitMQ). Obrigatória em todo ambiente: o esqueci a senha só
     # agenda o envio, e o mesmo caminho vale no local.
     celery_broker_url: str = Field(min_length=1)

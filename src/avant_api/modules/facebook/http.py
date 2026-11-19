@@ -1,22 +1,14 @@
 """Filtros de período e de listagem que o painel do cliente e o interno usam."""
 
 import uuid
-from datetime import date, timedelta
 
 from avant_core.facebook.enums import FacebookLevel
 from avant_core.facebook.models import FacebookObjectFilter
 from fastapi import Query
 
-DEFAULT_DAYS = 7
+from avant_api.shared.ads import period
 
-
-def period(
-    start: date | None = Query(default=None, alias="from"),
-    end: date | None = Query(default=None, alias="to"),
-) -> tuple[date, date]:
-    """O período pedido; sem ele, os últimos 7 dias até hoje (o core confere o tamanho)."""
-    last = end or date.today()
-    return start or last - timedelta(days=DEFAULT_DAYS - 1), last
+__all__ = ["object_filter", "period"]
 
 
 def object_filter(

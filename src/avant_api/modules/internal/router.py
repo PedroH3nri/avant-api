@@ -14,6 +14,7 @@ from avant_api.modules.internal.dashboard_templates.controller import router as 
 from avant_api.modules.internal.facebook.controller import router as facebook
 from avant_api.modules.internal.gam_tools.controller import router as gam_tools
 from avant_api.modules.internal.goals.controller import router as goals
+from avant_api.modules.internal.google_ads.controller import router as google_ads
 from avant_api.modules.internal.inventory.controller import router as inventory
 from avant_api.modules.internal.invoices.controller import router as invoices
 from avant_api.modules.internal.loaders.controller import router as loaders
@@ -51,5 +52,6 @@ for child in (
     price_rules,
     loaders,
     facebook,
+    google_ads,
 ):
     router.include_router(child)
