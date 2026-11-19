@@ -6,6 +6,8 @@ from avant_api.modules.facebook.dto import (
     FacebookChangeOut,
     FacebookObjectDetailOut,
     FacebookObjectOut,
+    FacebookRuleDecisionOut,
+    FacebookRuleOut,
 )
 
 __all__ = [
@@ -14,4 +16,6 @@ __all__ = [
     "FacebookChangeOut",
     "FacebookObjectDetailOut",
     "FacebookObjectOut",
+    "FacebookRuleDecisionOut",
+    "FacebookRuleOut",
 ]

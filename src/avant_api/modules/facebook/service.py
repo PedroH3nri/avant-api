@@ -12,6 +12,7 @@ from avant_core.facebook.services import (
     disconnect_facebook_profile,
     facebook_alert_settings,
     get_facebook_object,
+    get_facebook_rule,
     list_facebook_accounts,
     list_facebook_people,
     list_facebook_profiles,
@@ -19,8 +20,12 @@ from avant_core.facebook.services import (
     page_facebook_alerts,
     page_facebook_changes,
     page_facebook_objects,
+    page_facebook_rule_decisions,
     set_facebook_alert_settings,
+    set_facebook_budget,
     set_facebook_person,
+    set_facebook_rule,
+    set_facebook_status,
     update_facebook_account,
 )
 from avant_core.ports import SecretBox
@@ -33,12 +38,19 @@ from avant_api.modules.facebook.dto import (
     FacebookAccountOut,
     FacebookAlertOut,
     FacebookAlertSettingOut,
+    FacebookBudgetIn,
+    FacebookBudgetOut,
     FacebookChangeOut,
+    FacebookControlOut,
     FacebookObjectDetailOut,
     FacebookObjectOut,
     FacebookPersonIn,
     FacebookPersonOut,
     FacebookProfileOut,
+    FacebookRuleDecisionOut,
+    FacebookRuleIn,
+    FacebookRuleOut,
+    FacebookStatusIn,
     micros,
 )
 from avant_api.shared.dto import PageOut, page_out
@@ -206,6 +218,64 @@ class FacebookService:
             clock=self._clock,
         )
         return [FacebookAlertSettingOut.of(setting) for setting in found]
+
+    def set_status(self, actor: Actor, body: FacebookStatusIn) -> FacebookControlOut:
+        """Liga ou pausa os objetos no Facebook, conferindo os limites antes de ligar."""
+        gateway, box = self._adapters()
+        result = set_facebook_status(
+            self._uows.uow(actor.company_id),
+            actor=actor,
+            gateway=gateway,
+            box=box,
+            external_ids=body.external_ids,
+            active=body.active,
+            clock=self._clock,
+        )
+        return FacebookControlOut.of(result)
+
+    def set_budget(
+        self, actor: Actor, external_id: str, body: FacebookBudgetIn
+    ) -> FacebookBudgetOut:
+        """Troca o orçamento diário ou o vitalício, conferindo o limite diário."""
+        gateway, box = self._adapters()
+        item = set_facebook_budget(
+            self._uows.uow(actor.company_id),
+            actor=actor,
+            gateway=gateway,
+            box=box,
+            external_id=external_id,
+            daily_budget_micros=micros(body.daily_budget),
+            lifetime_budget_micros=micros(body.lifetime_budget),
+            clock=self._clock,
+        )
+        return FacebookBudgetOut.of(item)
+
+    def rule(self, actor: Actor, external_id: str) -> FacebookRuleOut:
+        """As regras automáticas do objeto (as sugeridas, desligadas, quando não há)."""
+        found = get_facebook_rule(
+            self._uows.uow(actor.company_id), actor=actor, external_id=external_id
+        )
+        return FacebookRuleOut.of(found)
+
+    def set_rule(self, actor: Actor, external_id: str, body: FacebookRuleIn) -> FacebookRuleOut:
+        """Grava as regras automáticas do objeto."""
+        found = set_facebook_rule(
+            self._uows.uow(actor.company_id),
+            actor=actor,
+            external_id=external_id,
+            data=body.to_core(),
+            clock=self._clock,
+        )
+        return FacebookRuleOut.of(found)
+
+    def rule_decisions(
+        self, actor: Actor, external_id: str, page: int
+    ) -> PageOut[FacebookRuleDecisionOut]:
+        """Uma página das decisões das regras do objeto, a mais nova primeiro."""
+        found = page_facebook_rule_decisions(
+            self._uows.uow(actor.company_id), actor=actor, external_id=external_id, page=page
+        )
+        return page_out(found, FacebookRuleDecisionOut.of)
 
     def _adapters(self) -> tuple[FacebookGateway, SecretBox]:
         """A Graph API e a cifra dos tokens, ou recusa quando não estão configuradas."""

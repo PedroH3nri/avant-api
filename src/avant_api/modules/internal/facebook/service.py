@@ -9,9 +9,11 @@ from avant_core.facebook.models import FacebookObjectFilter
 from avant_core.facebook.services import (
     internal_facebook_accounts,
     internal_get_facebook_object,
+    internal_get_facebook_rule,
     internal_page_facebook_alerts,
     internal_page_facebook_changes,
     internal_page_facebook_objects,
+    internal_page_facebook_rule_decisions,
 )
 from avant_core.shared.clock import Clock
 
@@ -22,6 +24,8 @@ from avant_api.modules.facebook.dto import (
     FacebookChangeOut,
     FacebookObjectDetailOut,
     FacebookObjectOut,
+    FacebookRuleDecisionOut,
+    FacebookRuleOut,
 )
 from avant_api.shared.dto import PageOut, page_out
 
@@ -100,3 +104,19 @@ class ClientFacebookService:
             self._uows.trusted_uow(), actor=actor, page=page, company_id=company_id
         )
         return page_out(found, FacebookAlertOut.of)
+
+    def rule(self, actor: Actor, external_id: str) -> FacebookRuleOut:
+        """As regras automáticas de um objeto de qualquer cliente, só leitura."""
+        found = internal_get_facebook_rule(
+            self._uows.trusted_uow(), actor=actor, external_id=external_id
+        )
+        return FacebookRuleOut.of(found)
+
+    def rule_decisions(
+        self, actor: Actor, external_id: str, page: int
+    ) -> PageOut[FacebookRuleDecisionOut]:
+        """Uma página das decisões das regras de um objeto de qualquer cliente."""
+        found = internal_page_facebook_rule_decisions(
+            self._uows.trusted_uow(), actor=actor, external_id=external_id, page=page
+        )
+        return page_out(found, FacebookRuleDecisionOut.of)

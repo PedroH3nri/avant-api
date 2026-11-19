@@ -20,6 +20,8 @@ from avant_api.modules.internal.facebook.dto import (
     FacebookChangeOut,
     FacebookObjectDetailOut,
     FacebookObjectOut,
+    FacebookRuleDecisionOut,
+    FacebookRuleOut,
 )
 from avant_api.modules.internal.facebook.service import ClientFacebookService
 from avant_api.shared.dto import PageOut
@@ -50,6 +52,27 @@ def objects(
 ) -> PageOut[FacebookObjectOut]:
     """Uma página das campanhas, conjuntos ou anúncios dos clientes com os números."""
     return service.objects(actor, filters, dates[0], dates[1], page, company_id)
+
+
+@router.get("/objects/{external_id}/rules")
+def rule(
+    external_id: str,
+    actor: Actor = Depends(require_staff(VIEW)),
+    service: ClientFacebookService = Depends(client_facebook_service),
+) -> FacebookRuleOut:
+    """As regras automáticas de um objeto de um cliente, só para ver."""
+    return service.rule(actor, external_id)
+
+
+@router.get("/objects/{external_id}/rule-decisions")
+def rule_decisions(
+    external_id: str,
+    page: int = Query(default=1, ge=1),
+    actor: Actor = Depends(require_staff(VIEW)),
+    service: ClientFacebookService = Depends(client_facebook_service),
+) -> PageOut[FacebookRuleDecisionOut]:
+    """Uma página do que as regras decidiram num objeto de um cliente."""
+    return service.rule_decisions(actor, external_id, page)
 
 
 @router.get("/objects/{external_id}")

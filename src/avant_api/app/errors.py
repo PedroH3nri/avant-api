@@ -4,9 +4,11 @@ O frontend traduz pelo code; a mensagem é só para quem lê o log ou a API.
 """
 
 import logging
+from decimal import Decimal
 from typing import Any
 
 import redis
+from avant_core.facebook.errors import FacebookLimitExceeded
 from avant_core.shared.errors import DomainError
 from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
@@ -17,6 +19,8 @@ from avant_api.app.logs import masked_path
 from avant_api.app.pool_metrics import count_pool_timeout
 
 log = logging.getLogger("avant.api")
+
+MICROS = Decimal(1_000_000)
 
 
 class CsrfFailed(DomainError):
@@ -179,6 +183,7 @@ STATUS: dict[str, int] = {
     "facebook_not_configured": 503,
     "facebook_unavailable": 503,
     "facebook_token_invalid": 409,
+    "facebook_limit_exceeded": 409,
     "facebook_rejected": 422,
     "facebook_error": 502,
     "facebook_state_invalid": 400,
@@ -222,6 +227,16 @@ def error_body(code: str, message: str, details: dict[str, Any] | None = None) -
     return {"error": {"code": code, "message": message, "details": details or {}}}
 
 
+def _limit_details(exc: FacebookLimitExceeded) -> dict[str, Any]:
+    """Qual limite, de quem e quanto ainda cabe, na moeda da conta, para a tela explicar."""
+    return {
+        "period": exc.period,
+        "scope": exc.scope,
+        "room": str(Decimal(max(exc.room_micros, 0)) / MICROS),
+        "currency": exc.currency,
+    }
+
+
 def install(app: FastAPI) -> None:
     """Registra na aplicação os tratadores que devolvem erros no formato da API."""
 
@@ -232,6 +247,8 @@ def install(app: FastAPI) -> None:
         retry_after = getattr(exc, "retry_after", None)
         headers = {"Retry-After": str(retry_after)} if retry_after is not None else None
         details = {"retry_after": retry_after} if retry_after is not None else None
+        if isinstance(exc, FacebookLimitExceeded):
+            details = _limit_details(exc)
         return JSONResponse(
             error_body(exc.code, str(exc), details),
             status_code=STATUS.get(exc.code, 400),

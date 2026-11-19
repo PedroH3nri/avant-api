@@ -12,6 +12,7 @@ from avant_core.facebook.enums import (
     FacebookOnLimit,
     FacebookProfileStatus,
     FacebookReview,
+    FacebookRuleAction,
 )
 from avant_core.facebook.models import (
     FacebookAccountInput,
@@ -20,6 +21,7 @@ from avant_core.facebook.models import (
     FacebookAlertSetting,
     FacebookAlertView,
     FacebookChange,
+    FacebookControlResult,
     FacebookCountryTotals,
     FacebookDailyPoint,
     FacebookObject,
@@ -27,6 +29,9 @@ from avant_core.facebook.models import (
     FacebookObjectView,
     FacebookPersonView,
     FacebookProfileView,
+    FacebookRule,
+    FacebookRuleDecision,
+    FacebookRuleInput,
     FacebookTotals,
 )
 from avant_core.identity.models import User
@@ -429,4 +434,118 @@ class FacebookAlertSettingOut(BaseModel):
             users=self.users,
             connector=self.connector,
             email=self.email,
+        )
+
+
+class FacebookStatusIn(BaseModel):
+    """Os objetos a ligar (``active``) ou pausar, de 1 a 100."""
+
+    external_ids: list[str] = Field(min_length=1, max_length=100)
+    active: bool
+
+
+class FacebookControlOut(BaseModel):
+    """O que mudou e o código do erro de cada objeto que o Facebook recusou."""
+
+    done: list[str]
+    failed: dict[str, str]
+
+    @classmethod
+    def of(cls, result: FacebookControlResult) -> "FacebookControlOut":
+        """Monta a resposta de uma mudança em lote."""
+        return cls(done=list(result.done), failed=dict(result.failed))
+
+
+class FacebookBudgetIn(BaseModel):
+    """O orçamento novo na moeda da conta: o diário ou o vitalício, um dos dois."""
+
+    daily_budget: Decimal | None = Field(default=None, gt=0, le=MAX_LIMIT)
+    lifetime_budget: Decimal | None = Field(default=None, gt=0, le=MAX_LIMIT)
+
+
+class FacebookBudgetOut(BaseModel):
+    external_id: str
+    daily_budget: Decimal | None
+    lifetime_budget: Decimal | None
+
+    @classmethod
+    def of(cls, item: FacebookObject) -> "FacebookBudgetOut":
+        """Os orçamentos do objeto depois da mudança."""
+        return cls(
+            external_id=item.external_id,
+            daily_budget=money(item.daily_budget_micros),
+            lifetime_budget=money(item.lifetime_budget_micros),
+        )
+
+
+class FacebookRuleIn(BaseModel):
+    """As três regras automáticas; ROI em pontos percentuais, passos em % do orçamento."""
+
+    scale: bool
+    up_roi: int
+    up_by: int
+    down_roi: int
+    down_by: int
+    pause: bool
+    min_roi: int
+    days: int
+    duplicate: bool
+    duplicate_roi: int
+
+    def to_core(self) -> FacebookRuleInput:
+        """As regras no formato do caso de uso (o core confere os números)."""
+        return FacebookRuleInput(**self.model_dump())
+
+
+class FacebookRuleOut(FacebookRuleIn):
+    object_external_id: str
+    level: FacebookLevel
+    enabled: bool
+    updated_at: datetime
+    updated_by: uuid.UUID | None
+    last_duplicated_at: datetime | None
+
+    @classmethod
+    def of(cls, rule: FacebookRule) -> "FacebookRuleOut":
+        """As regras gravadas do objeto, ou as sugeridas desligadas."""
+        return cls(
+            object_external_id=rule.object_external_id,
+            level=rule.level,
+            enabled=rule.enabled,
+            updated_at=rule.updated_at,
+            updated_by=rule.updated_by,
+            last_duplicated_at=rule.last_duplicated_at,
+            scale=rule.scale,
+            up_roi=rule.up_roi,
+            up_by=rule.up_by,
+            down_roi=rule.down_roi,
+            down_by=rule.down_by,
+            pause=rule.pause,
+            min_roi=rule.min_roi,
+            days=rule.days,
+            duplicate=rule.duplicate,
+            duplicate_roi=rule.duplicate_roi,
+        )
+
+
+class FacebookRuleDecisionOut(BaseModel):
+    id: uuid.UUID
+    object_external_id: str
+    day: date
+    action: FacebookRuleAction
+    decided_at: datetime
+    roi: float | None
+    data: dict[str, object]
+
+    @classmethod
+    def of(cls, decision: FacebookRuleDecision) -> "FacebookRuleDecisionOut":
+        """Uma decisão das regras com o ROI do dia; a tela monta o motivo pela ``action``."""
+        return cls(
+            id=decision.id,
+            object_external_id=decision.object_external_id,
+            day=decision.day,
+            action=decision.action,
+            decided_at=decision.decided_at,
+            roi=decision.roi,
+            data=dict(decision.data),
         )
