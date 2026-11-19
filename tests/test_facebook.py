@@ -19,6 +19,19 @@ from tests.test_api import _csrf, _onboard_owner
 from tests.test_internal import _staff
 from tests.test_team import _member_client
 
+RULE_FIELDS = {
+    "scale",
+    "up_roi",
+    "up_by",
+    "down_roi",
+    "down_by",
+    "pause",
+    "min_roi",
+    "days",
+    "duplicate",
+    "duplicate_roi",
+}
+
 
 def _services(client: TestClient) -> Services:
     """Os serviços da aplicação de teste."""
@@ -167,3 +180,90 @@ def test_facebook_panel(client: TestClient, engine: Engine, mailer: CapturingMai
     gone = client.delete(f"/api/v1/facebook/profiles/{profiles[0]['id']}", headers=_csrf(client))
     assert gone.status_code == 204 and fake.revoked == ["token-1"]
     assert client.get("/api/v1/facebook/profiles").json()[0]["status"] != "ok"
+
+
+def test_facebook_control_and_rules(
+    client: TestClient, engine: Engine, mailer: CapturingMailer
+) -> None:
+    me = _onboard_owner(client, engine, mailer)
+    company_id = uuid.UUID(me["active_company_id"])
+    fake = _configure(client)
+    _connect(client)
+    account_id = client.get("/api/v1/facebook/accounts").json()[0]["id"]
+    client.put(
+        f"/api/v1/facebook/accounts/{account_id}",
+        json={"daily_limit": "150", "on_limit": "pause"},
+        headers=_csrf(client),
+    )
+    _sync(engine, client, company_id)
+
+    paused = client.post(
+        "/api/v1/facebook/objects/status",
+        json={"external_ids": ["c1"], "active": False},
+        headers=_csrf(client),
+    )
+    assert paused.status_code == 200, paused.text
+    assert paused.json() == {"done": ["c1"], "failed": {}}
+    assert ("status", "c1", "PAUSED") in fake.calls
+
+    too_much = client.put(
+        "/api/v1/facebook/objects/c1/budget",
+        json={"daily_budget": "200"},
+        headers=_csrf(client),
+    )
+    assert too_much.status_code == 200, too_much.text
+    refused = client.post(
+        "/api/v1/facebook/objects/status",
+        json={"external_ids": ["c1"], "active": True},
+        headers=_csrf(client),
+    )
+    assert refused.status_code == 409
+    error = refused.json()["error"]
+    assert error["code"] == "facebook_limit_exceeded"
+    assert error["details"] == {
+        "period": "daily",
+        "scope": "account",
+        "room": "150",
+        "currency": "BRL",
+    }
+    lowered = client.put(
+        "/api/v1/facebook/objects/c1/budget",
+        json={"daily_budget": "120.5"},
+        headers=_csrf(client),
+    )
+    assert lowered.json()["daily_budget"] == "120.5"
+    both = client.put(
+        "/api/v1/facebook/objects/c1/budget",
+        json={"daily_budget": "1", "lifetime_budget": "1"},
+        headers=_csrf(client),
+    )
+    assert both.status_code == 422
+
+    suggested = client.get("/api/v1/facebook/objects/c1/rules").json()
+    assert suggested["enabled"] is False and suggested["up_roi"] == 50
+    rules = {**{key: suggested[key] for key in suggested if key in RULE_FIELDS}, "scale": True}
+    saved = client.put("/api/v1/facebook/objects/c1/rules", json=rules, headers=_csrf(client))
+    assert saved.status_code == 200, saved.text
+    assert saved.json()["enabled"] is True
+    wrong = client.put(
+        "/api/v1/facebook/objects/c1/rules",
+        json={**rules, "up_by": 0},
+        headers=_csrf(client),
+    )
+    assert wrong.status_code == 422
+    decisions = client.get("/api/v1/facebook/objects/c1/rule-decisions").json()
+    assert decisions["total"] == 0
+
+    ana = _member_client(client, mailer, "ana@acai.com")
+    assert (
+        ana.post(
+            "/api/v1/facebook/objects/status",
+            json={"external_ids": ["c1"], "active": False},
+            headers=_csrf(ana),
+        ).status_code
+        == 403
+    )
+    staff = _staff(client, engine)
+    assert staff.get("/api/v1/internal/facebook/objects/c1/rules").json()["scale"] is True
+    assert staff.get("/api/v1/internal/facebook/objects/c1/rule-decisions").status_code == 200
+    assert client.get("/api/v1/internal/facebook/objects/c1/rules").status_code == 403

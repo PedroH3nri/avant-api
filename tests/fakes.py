@@ -188,6 +188,7 @@ class FakeFacebook:
     def __init__(self) -> None:
         self.codes: list[tuple[str, str]] = []
         self.revoked: list[str] = []
+        self.calls: list[tuple[str, ...]] = []
 
     def exchange_code(self, code: str, redirect_uri: str) -> FacebookToken:
         """Guarda o código e devolve um token de longa duração."""
@@ -214,7 +215,15 @@ class FakeFacebook:
         """Campanha, conjunto e anúncio ativos."""
         return [
             FacebookObjectData(
-                FacebookLevel.CAMPAIGN, "c1", "Bolo", None, "c1", "ACTIVE", "ACTIVE", None
+                FacebookLevel.CAMPAIGN,
+                "c1",
+                "Bolo",
+                None,
+                "c1",
+                "ACTIVE",
+                "ACTIVE",
+                None,
+                daily_budget_micros=100_000_000,
             ),
             FacebookObjectData(
                 FacebookLevel.ADSET, "s1", "Bolo BR", "c1", "c1", "ACTIVE", "ACTIVE", None
@@ -239,3 +248,24 @@ class FakeFacebook:
     def revoke(self, token: str) -> None:
         """Guarda o token revogado."""
         self.revoked.append(token)
+
+    def set_status(self, token: str, external_id: str, status: str) -> None:
+        """Guarda a troca de situação."""
+        self.calls.append(("status", external_id, status))
+
+    def set_budget(
+        self,
+        token: str,
+        external_id: str,
+        currency: str,
+        *,
+        daily_budget_micros: int | None,
+        lifetime_budget_micros: int | None,
+    ) -> None:
+        """Guarda a troca de orçamento."""
+        self.calls.append(("budget", external_id, str(daily_budget_micros)))
+
+    def copy(self, token: str, external_id: str, level: FacebookLevel, *, paused: bool) -> str:
+        """Guarda a cópia e devolve o id novo."""
+        self.calls.append(("copy", external_id))
+        return f"{external_id}-copia"
