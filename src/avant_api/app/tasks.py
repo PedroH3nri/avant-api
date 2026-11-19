@@ -15,6 +15,7 @@ SYNC_NETWORK = "avant.gam.sync_network"
 REFRESH_REPORT_PREVIEW = "avant.default.refresh_report_preview"
 CHECK_CHECKLIST = "avant.default.check_checklist"
 RUN_GAM_TOOL = "avant.gam.run_tool"
+RUN_FACEBOOK_JOB = "avant.facebook.run_job"
 REQUEST_PASSWORD_RESET = "avant.mail.request_password_reset"
 MASK = "***"
 

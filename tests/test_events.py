@@ -156,6 +156,14 @@ def test_metrics_updates_reach_who_sees_reports() -> None:
     assert 'event: metrics.updated\ndata: {"network_id": "n1"}\n\n' in chunks
 
 
+def test_facebook_job_updates_reach_who_sees_facebook() -> None:
+    source = ListEvents([_event("facebook.job.updated", job_id="j1")])
+    chunks = asyncio.run(_collect(source, {"facebook.view"}))
+    assert 'event: facebook.job.updated\ndata: {"job_id": "j1"}\n\n' in chunks
+    hidden = asyncio.run(_collect(ListEvents([_event("facebook.job.updated", job_id="j1")]), set()))
+    assert "facebook.job.updated" not in "".join(hidden)
+
+
 def test_events_route_refuses_above_the_cap(
     client: TestClient, engine: Engine, mailer: CapturingMailer
 ) -> None:

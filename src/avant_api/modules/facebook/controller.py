@@ -1,8 +1,8 @@
 """Facebook da Empresa ativa (decisão 16), em /api/v1/facebook.
 
 Ver pede ``facebook.view``; conectar perfis pede ``facebook.connect``; ligar, pausar, mudar
-orçamento e regras pede ``facebook.manage``; passar contas para pessoas, limites e quem recebe
-os avisos pedem ``facebook.accounts.manage``. Quem não tem
+orçamento e regras, criar, editar e duplicar pede ``facebook.manage``; passar contas para
+pessoas, limites e quem recebe os avisos pedem ``facebook.accounts.manage``. Quem não tem
 ``facebook.accounts.manage`` vê só as contas que usa e os perfis que conectou (o core confere).
 """
 
@@ -12,15 +12,16 @@ import uuid
 from datetime import date
 
 from avant_core.access.models import Actor
-from avant_core.facebook.enums import FacebookChangeOrigin
+from avant_core.facebook.enums import FacebookChangeOrigin, FacebookListKind
 from avant_core.facebook.models import FacebookObjectFilter
 from avant_core.shared.errors import DomainError
-from fastapi import APIRouter, Depends, Query, Request, status
+from fastapi import APIRouter, Depends, Header, Query, Request, status
 from fastapi.responses import RedirectResponse
 
 from avant_api.app.errors import FacebookDenied, FacebookStateInvalid
 from avant_api.app.security import require, require_session
 from avant_api.modules.facebook.dependencies import facebook_redirects, facebook_service
+from avant_api.modules.facebook.drafts import FacebookDraftIn, FacebookEditIn
 from avant_api.modules.facebook.dto import (
     FacebookAccountIn,
     FacebookAccountOut,
@@ -30,8 +31,11 @@ from avant_api.modules.facebook.dto import (
     FacebookBudgetOut,
     FacebookChangeOut,
     FacebookControlOut,
+    FacebookJobOut,
+    FacebookMediaOut,
     FacebookObjectDetailOut,
     FacebookObjectOut,
+    FacebookOptionOut,
     FacebookPersonIn,
     FacebookPersonOut,
     FacebookProfileOut,
@@ -41,6 +45,7 @@ from avant_api.modules.facebook.dto import (
     FacebookStatusIn,
 )
 from avant_api.modules.facebook.http import object_filter, period
+from avant_api.modules.facebook.media import media_upload
 from avant_api.modules.facebook.oauth import FACEBOOK_COOKIE, FacebookRedirects
 from avant_api.modules.facebook.service import FacebookService
 from avant_api.shared.dto import PageOut
@@ -212,6 +217,27 @@ def rule_decisions(
     return service.rule_decisions(actor, external_id, page)
 
 
+@router.post("/objects/{external_id}/duplicate", status_code=status.HTTP_202_ACCEPTED)
+def duplicate(
+    external_id: str,
+    actor: Actor = Depends(require(MANAGE)),
+    service: FacebookService = Depends(facebook_service),
+) -> FacebookJobOut:
+    """Duplica a campanha, o conjunto ou o anúncio, com tudo dentro e pausado (um job)."""
+    return service.duplicate(actor, external_id)
+
+
+@router.put("/objects/{external_id}", status_code=status.HTTP_202_ACCEPTED)
+def edit(
+    external_id: str,
+    body: FacebookEditIn,
+    actor: Actor = Depends(require(MANAGE)),
+    service: FacebookService = Depends(facebook_service),
+) -> FacebookJobOut:
+    """Edita nome, limite de gasto, público ou anúncio no Facebook (um job)."""
+    return service.edit(actor, external_id, body)
+
+
 @router.get("/objects/{external_id}")
 def show_object(
     external_id: str,
@@ -273,3 +299,51 @@ def set_alert_settings(
 ) -> list[FacebookAlertSettingOut]:
     """Grava quem recebe os tipos de aviso enviados; os outros ficam como estavam."""
     return service.set_alert_settings(actor, body)
+
+
+@router.post("/jobs", status_code=status.HTTP_202_ACCEPTED)
+def create(
+    body: FacebookDraftIn,
+    actor: Actor = Depends(require(MANAGE)),
+    service: FacebookService = Depends(facebook_service),
+) -> FacebookJobOut:
+    """Cria a campanha do rascunho no Facebook, pausada (ou ligada, se os limites deixam).
+    Rascunho incompleto volta 422 com ``details.problems``."""
+    return service.create(actor, body)
+
+
+@router.get("/jobs/{job_id}")
+def job(
+    job_id: uuid.UUID,
+    actor: Actor = Depends(require(VIEW)),
+    service: FacebookService = Depends(facebook_service),
+) -> FacebookJobOut:
+    """O job de criar, editar ou duplicar: passo, ids criados e o erro do Facebook."""
+    return service.job(actor, job_id)
+
+
+@router.get("/lists/{kind}")
+def options(
+    kind: FacebookListKind,
+    account_id: uuid.UUID = Query(),
+    query: str = Query(alias="q", default="", max_length=100),
+    actor: Actor = Depends(require(MANAGE)),
+    service: FacebookService = Depends(facebook_service),
+) -> list[FacebookOptionOut]:
+    """Páginas, Instagram, pixels e públicos da conta, ou a busca de interesses, lugares e
+    idiomas (``q``)."""
+    return service.options(actor, account_id, kind, query)
+
+
+@router.post("/media", status_code=status.HTTP_201_CREATED)
+def upload_media(
+    account_id: uuid.UUID = Query(),
+    name: str = Query(min_length=1, max_length=255),
+    content_type: str = Header(alias="Content-Type", max_length=100),
+    actor: Actor = Depends(require(MANAGE)),
+    content: bytes = Depends(media_upload),
+    service: FacebookService = Depends(facebook_service),
+) -> FacebookMediaOut:
+    """Envia a imagem (JPG ou PNG, até 30 MB) ou o vídeo (MP4 ou MOV, até 100 MB) para a
+    conta: o corpo é o arquivo cru e o Avant guarda só o hash ou o id."""
+    return service.upload(actor, account_id, name, content_type.split(";")[0].strip(), content)

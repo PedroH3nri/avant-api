@@ -10,12 +10,16 @@ from dataclasses import dataclass, field
 from datetime import date, datetime
 from typing import Any
 
-from avant_core.facebook.enums import FacebookAccountState, FacebookLevel
+from avant_core.facebook.enums import FacebookAccountState, FacebookLevel, FacebookListKind
 from avant_core.facebook.models import (
     FacebookAccountData,
     FacebookCountryRow,
+    FacebookDraft,
+    FacebookDraftAd,
+    FacebookDraftAdset,
     FacebookInsightRow,
     FacebookObjectData,
+    FacebookOption,
     FacebookToken,
 )
 
@@ -269,3 +273,71 @@ class FakeFacebook:
         """Guarda a cópia e devolve o id novo."""
         self.calls.append(("copy", external_id))
         return f"{external_id}-copia"
+
+    def options(
+        self, token: str, account_external_id: str, kind: FacebookListKind, query: str
+    ) -> list[FacebookOption]:
+        """Uma Página fixa (ou o termo buscado) e conta as buscas, para testar o cache."""
+        self.calls.append(("options", kind.value, query))
+        return [FacebookOption("page-1", query or "Página", "")]
+
+    def upload_image(
+        self, token: str, account_external_id: str, filename: str, content: bytes
+    ) -> str:
+        """Guarda o envio e devolve um hash."""
+        self.calls.append(("image", filename))
+        return "hash-1"
+
+    def upload_video(
+        self, token: str, account_external_id: str, filename: str, content: bytes
+    ) -> str:
+        """Guarda o envio e devolve um id de vídeo."""
+        self.calls.append(("video", filename))
+        return "video-1"
+
+    def create_campaign(
+        self, token: str, account_external_id: str, currency: str, draft: FacebookDraft
+    ) -> str:
+        """Não usado na API (o worker cria)."""
+        return "campaign-1"
+
+    def create_adset(
+        self,
+        token: str,
+        account_external_id: str,
+        currency: str,
+        draft: FacebookDraft,
+        adset: FacebookDraftAdset,
+        campaign_id: str,
+    ) -> str:
+        """Não usado na API (o worker cria)."""
+        return "adset-1"
+
+    def create_creative(
+        self, token: str, account_external_id: str, ad: FacebookDraftAd, link: str
+    ) -> str:
+        """Não usado na API (o worker cria)."""
+        return "creative-1"
+
+    def create_ad(
+        self, token: str, account_external_id: str, name: str, adset_id: str, creative_id: str
+    ) -> str:
+        """Não usado na API (o worker cria)."""
+        return "ad-1"
+
+    def update_object(
+        self,
+        token: str,
+        external_id: str,
+        currency: str,
+        *,
+        name: str | None,
+        spend_cap_micros: int | None,
+    ) -> None:
+        """Não usado na API (o worker edita)."""
+
+    def update_adset(self, token: str, external_id: str, adset: FacebookDraftAdset) -> None:
+        """Não usado na API (o worker edita)."""
+
+    def set_creative(self, token: str, ad_external_id: str, creative_id: str) -> None:
+        """Não usado na API (o worker edita)."""

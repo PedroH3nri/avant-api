@@ -1,18 +1,24 @@
 """Service do Facebook do painel do cliente: chama os casos de uso com o RLS da Empresa."""
 
+import json
 import uuid
+from dataclasses import asdict
 from datetime import date
+from typing import Any, cast
 
 from avant_core.access.models import Actor
-from avant_core.facebook.enums import FacebookChangeOrigin
+from avant_core.facebook.enums import FacebookChangeOrigin, FacebookListKind
 from avant_core.facebook.interfaces import FacebookGateway
-from avant_core.facebook.models import FacebookObjectFilter
+from avant_core.facebook.models import FacebookObjectFilter, FacebookOption
 from avant_core.facebook.services import (
     connect_facebook_profile,
     disconnect_facebook_profile,
     facebook_alert_settings,
+    facebook_options,
+    get_facebook_job,
     get_facebook_object,
     get_facebook_rule,
+    give_up_facebook_job,
     list_facebook_accounts,
     list_facebook_people,
     list_facebook_profiles,
@@ -26,13 +32,20 @@ from avant_core.facebook.services import (
     set_facebook_person,
     set_facebook_rule,
     set_facebook_status,
+    start_facebook_create,
+    start_facebook_duplicate,
+    start_facebook_edit,
     update_facebook_account,
+    upload_facebook_media,
 )
 from avant_core.ports import SecretBox
 from avant_core.shared.clock import Clock
 
-from avant_api.app.errors import FacebookNotConfigured
+from avant_api.app.errors import FacebookNotConfigured, QueueUnavailable
 from avant_api.app.ports import UnitOfWorkFactory
+from avant_api.app.reward_cache import RewardCache
+from avant_api.app.tasks import RUN_FACEBOOK_JOB, TaskQueue
+from avant_api.modules.facebook.drafts import FacebookDraftIn, FacebookEditIn
 from avant_api.modules.facebook.dto import (
     FacebookAccountIn,
     FacebookAccountOut,
@@ -42,8 +55,11 @@ from avant_api.modules.facebook.dto import (
     FacebookBudgetOut,
     FacebookChangeOut,
     FacebookControlOut,
+    FacebookJobOut,
+    FacebookMediaOut,
     FacebookObjectDetailOut,
     FacebookObjectOut,
+    FacebookOptionOut,
     FacebookPersonIn,
     FacebookPersonOut,
     FacebookProfileOut,
@@ -55,6 +71,11 @@ from avant_api.modules.facebook.dto import (
 )
 from avant_api.shared.dto import PageOut, page_out
 
+LISTS_KEY = "avant:facebook:lists:{account}:{kind}:{query}"
+LISTS_TTL_SECONDS = 600
+QUEUE_DOWN = "queue_unavailable"
+QUEUE_RETRY_AFTER = 30
+
 
 class FacebookService:
     """Perfis, contas, pessoas, campanhas, histórico e avisos da Empresa ativa."""
@@ -65,11 +86,15 @@ class FacebookService:
         clock: Clock,
         gateway: FacebookGateway | None,
         box: SecretBox | None,
+        tasks: TaskQueue,
+        cache: RewardCache,
     ) -> None:
         self._uows = uows
         self._clock = clock
         self._gateway = gateway
         self._box = box
+        self._tasks = tasks
+        self._cache = cache
 
     def ensure_available(self) -> None:
         """Recusa com ``facebook_not_configured`` quando a API não tem o app da Meta."""
@@ -277,8 +302,121 @@ class FacebookService:
         )
         return page_out(found, FacebookRuleDecisionOut.of)
 
+    def create(self, actor: Actor, body: FacebookDraftIn) -> FacebookJobOut:
+        """Confere o rascunho, grava o job de criação e manda para o worker."""
+        self._adapters()
+        job = start_facebook_create(
+            self._uows.uow(actor.company_id),
+            actor=actor,
+            account_id=body.account_id,
+            draft=body.to_core(),
+            clock=self._clock,
+        )
+        return self._enqueue(actor, job.id)
+
+    def duplicate(self, actor: Actor, external_id: str) -> FacebookJobOut:
+        """Grava o job que duplica o objeto, com tudo dentro e pausado, e manda para o worker."""
+        self._adapters()
+        job = start_facebook_duplicate(
+            self._uows.uow(actor.company_id),
+            actor=actor,
+            external_id=external_id,
+            clock=self._clock,
+        )
+        return self._enqueue(actor, job.id)
+
+    def edit(self, actor: Actor, external_id: str, body: FacebookEditIn) -> FacebookJobOut:
+        """Confere a edição do nível, grava o job e manda para o worker."""
+        self._adapters()
+        job = start_facebook_edit(
+            self._uows.uow(actor.company_id),
+            actor=actor,
+            external_id=external_id,
+            edit=body.to_core(),
+            clock=self._clock,
+        )
+        return self._enqueue(actor, job.id)
+
+    def job(self, actor: Actor, job_id: uuid.UUID) -> FacebookJobOut:
+        """O job com o passo, os ids criados e o erro, se houve."""
+        found = get_facebook_job(self._uows.uow(actor.company_id), actor=actor, job_id=job_id)
+        return FacebookJobOut.of(found)
+
+    def options(
+        self, actor: Actor, account_id: uuid.UUID, kind: FacebookListKind, query: str
+    ) -> list[FacebookOptionOut]:
+        """Uma lista do Facebook da conta, guardada 10 minutos no Redis."""
+        gateway, box = self._adapters()
+        key = LISTS_KEY.format(account=account_id, kind=kind.value, query=query.strip().lower())
+        options = facebook_options(
+            self._uows.uow(actor.company_id),
+            actor=actor,
+            gateway=cast(FacebookGateway, _CachedOptions(gateway, self._cache, key)),
+            box=box,
+            account_id=account_id,
+            kind=kind,
+            query=query,
+        )
+        return [FacebookOptionOut.of(option) for option in options]
+
+    def upload(
+        self,
+        actor: Actor,
+        account_id: uuid.UUID,
+        filename: str,
+        content_type: str,
+        content: bytes,
+    ) -> FacebookMediaOut:
+        """Manda a imagem ou o vídeo para a conta no Facebook; o Avant guarda só a referência."""
+        gateway, box = self._adapters()
+        media = upload_facebook_media(
+            self._uows.uow(actor.company_id),
+            actor=actor,
+            gateway=gateway,
+            box=box,
+            account_id=account_id,
+            filename=filename,
+            content_type=content_type,
+            content=content,
+        )
+        return FacebookMediaOut.of(media)
+
+    def _enqueue(self, actor: Actor, job_id: uuid.UUID) -> FacebookJobOut:
+        """Manda o job ao worker; com a fila fora, o job termina como falho e a rota pede para
+        tentar de novo."""
+        if not self._tasks.send(RUN_FACEBOOK_JOB, str(actor.company_id), str(job_id)):
+            give_up_facebook_job(
+                self._uows.uow(actor.company_id), job_id=job_id, code=QUEUE_DOWN, clock=self._clock
+            )
+            raise QueueUnavailable(retry_after=QUEUE_RETRY_AFTER)
+        return self.job(actor, job_id)
+
     def _adapters(self) -> tuple[FacebookGateway, SecretBox]:
         """A Graph API e a cifra dos tokens, ou recusa quando não estão configuradas."""
         if self._gateway is None or self._box is None:
             raise FacebookNotConfigured("integração com o Facebook não configurada")
         return self._gateway, self._box
+
+
+class _CachedOptions:
+    """A Graph API com o cache das listas: devolve o que está no Redis ou busca e guarda."""
+
+    def __init__(self, gateway: FacebookGateway, cache: RewardCache, key: str) -> None:
+        self._gateway = gateway
+        self._cache = cache
+        self._key = key
+
+    def __getattr__(self, name: str) -> Any:
+        """O resto da Graph API passa direto, sem cache."""
+        return getattr(self._gateway, name)
+
+    def options(
+        self, token: str, account_external_id: str, kind: FacebookListKind, query: str
+    ) -> list[FacebookOption]:
+        """A lista guardada, ou a do Facebook (que fica guardada 10 minutos)."""
+        cached = self._cache.get(self._key)
+        if cached:
+            return [FacebookOption(**item) for item in json.loads(cached)]
+        found = self._gateway.options(token, account_external_id, kind, query)
+        self._cache.set(self._key, json.dumps([asdict(item) for item in found]), LISTS_TTL_SECONDS)
+        return found
