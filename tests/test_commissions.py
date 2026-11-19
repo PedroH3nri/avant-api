@@ -17,7 +17,7 @@ from sqlalchemy import Engine
 
 from tests.conftest import CapturingMailer, browser
 from tests.test_api import PASSWORD, _csrf, _onboard_owner
-from tests.test_internal import _staff
+from tests.test_internal import _staff, _support
 from tests.test_mfa import _enable
 
 
@@ -208,26 +208,6 @@ def test_groone_role_with_the_whole_catalog(client: TestClient, engine: Engine) 
         headers=_csrf(staff),
     )
     assert too_many.status_code == 422
-
-
-def _support(client: TestClient, staff: TestClient, mailer: CapturingMailer) -> TestClient:
-    """Uma pessoa da equipe Groone com o papel de suporte (sem as permissões da comissão)."""
-    roles = staff.get("/api/v1/roles").json()["items"]
-    support_role = next(role for role in roles if role["key"] == "groone_support")
-    invited = staff.post(
-        "/api/v1/internal/staff/invitations",
-        json={"email": "suporte@groone.com", "role_id": support_role["id"]},
-        headers=_csrf(staff),
-    )
-    assert invited.status_code == 201, invited.text
-    support = browser(client.app)
-    accepted = support.post(
-        f"/api/v1/auth/invitations/{mailer.sent[-1].token}/accept",
-        json={"name": "Suporte", "password": PASSWORD},
-    )
-    assert accepted.status_code == 200, accepted.text
-    _enable(support)
-    return support
 
 
 def test_who_sees_and_changes_commissions(

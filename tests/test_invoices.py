@@ -14,8 +14,7 @@ from sqlalchemy import Engine
 
 from tests.conftest import CapturingMailer, browser
 from tests.test_api import _csrf, _onboard_owner
-from tests.test_commissions import _support
-from tests.test_internal import _staff
+from tests.test_internal import _staff, _support
 
 MONTH = "2026-09"
 PAYEE = {
