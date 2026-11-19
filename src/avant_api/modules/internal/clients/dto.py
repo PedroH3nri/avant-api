@@ -33,14 +33,16 @@ class ClientProfileOut(BaseModel):
     referred_by_company_id: uuid.UUID | None
     referral_percentage: Decimal | None
     notes: str | None
+    # Só no detalhe e para quem vê os documentos do cliente: tem os dados bancários.
     fiscal: FiscalDataOut | None
 
     @classmethod
-    def of(cls, profile: ClientProfile) -> "ClientProfileOut":
-        """Monta o cadastro do cliente para o painel interno."""
+    def of(cls, profile: ClientProfile, *, with_fiscal: bool) -> "ClientProfileOut":
+        """Monta o cadastro do cliente para o painel interno; os dados fiscais e bancários só
+        com ``with_fiscal`` (detalhe, para quem vê os documentos do cliente)."""
         return cls(
             **{name: getattr(profile, name) for name in CLIENT_FIELDS},
-            fiscal=FiscalDataOut.of(profile),
+            fiscal=FiscalDataOut.of(profile) if with_fiscal else None,
         )
 
 
@@ -80,8 +82,9 @@ class ClientOut(BaseModel):
     revenue_status: RevenueStatusOut | None = None
 
     @classmethod
-    def of(cls, summary: ClientSummary) -> "ClientOut":
-        """Monta a Empresa cliente com dono, cadastro e vagas para o painel interno."""
+    def of(cls, summary: ClientSummary, *, with_fiscal: bool = False) -> "ClientOut":
+        """Monta a Empresa cliente com dono, cadastro e vagas para o painel interno; os dados
+        fiscais e bancários só com ``with_fiscal``."""
         company, owner = summary.company, summary.owner
         # Empresa de cliente sempre tem limite.
         assert company.seat_limit is not None
@@ -93,7 +96,11 @@ class ClientOut(BaseModel):
             seat_limit=company.seat_limit,
             seats_used=summary.seats_used,
             owner=(UserOut.of(owner) if owner else None),
-            profile=ClientProfileOut.of(summary.profile) if summary.profile else None,
+            profile=(
+                ClientProfileOut.of(summary.profile, with_fiscal=with_fiscal)
+                if summary.profile
+                else None
+            ),
             image_url=image_url(f"/internal/clients/{company.id}/image", company.image_version),
         )
 

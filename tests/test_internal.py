@@ -36,6 +36,26 @@ def _staff(client: TestClient, engine: Engine) -> TestClient:
     return staff
 
 
+def _support(client: TestClient, staff: TestClient, mailer: CapturingMailer) -> TestClient:
+    """Uma pessoa da equipe Groone com o papel de suporte (sem as permissões da comissão)."""
+    roles = staff.get("/api/v1/roles").json()["items"]
+    support_role = next(role for role in roles if role["key"] == "groone_support")
+    invited = staff.post(
+        "/api/v1/internal/staff/invitations",
+        json={"email": "suporte@groone.com", "role_id": support_role["id"]},
+        headers=_csrf(staff),
+    )
+    assert invited.status_code == 201, invited.text
+    support = browser(client.app)
+    accepted = support.post(
+        f"/api/v1/auth/invitations/{mailer.sent[-1].token}/accept",
+        json={"name": "Suporte", "password": PASSWORD},
+    )
+    assert accepted.status_code == 200, accepted.text
+    _enable(support)
+    return support
+
+
 def test_internal_clients(client: TestClient, engine: Engine, mailer: CapturingMailer) -> None:
     staff = _staff(client, engine)
     # A Company Groone não tem limite de vagas: limites valem só para clientes.
@@ -145,7 +165,15 @@ def test_fiscal_data_only_by_the_client(
     assert r.json()["fiscal"]["legal_name"] == "Açaí Sites Ltda."
     staff = _staff(client, engine)
     (listed,) = staff.get("/api/v1/internal/clients").json()["items"]
-    assert listed["profile"]["fiscal"]["tax_id"] == "11.222.333/0001-81"
+    # A lista nunca leva os dados bancários; o detalhe só para quem vê os documentos.
+    assert listed["profile"]["fiscal"] is None
+    detail = staff.get(f"/api/v1/internal/clients/{listed['id']}").json()
+    assert detail["profile"]["fiscal"]["tax_id"] == "11.222.333/0001-81"
+    support = _support(client, staff, mailer)
+    seen = support.get(f"/api/v1/internal/clients/{listed['id']}")
+    assert seen.status_code == 200 and seen.json()["profile"]["fiscal"] is None
+    (listed_by_support,) = support.get("/api/v1/internal/clients").json()["items"]
+    assert listed_by_support["profile"]["fiscal"] is None
 
 
 def test_client_owner_cannot_reach_internal(

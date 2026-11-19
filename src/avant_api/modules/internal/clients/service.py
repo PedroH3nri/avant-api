@@ -28,6 +28,9 @@ from avant_core.internal.services import (
     set_client_status,
     update_client,
 )
+from avant_core.internal.services.client_document_service import (
+    PERMISSION as DOCUMENTS_PERMISSION,
+)
 from avant_core.ports import ImageProcessor, Mailer
 from avant_core.revenue_status.services import client_revenue_statuses
 from avant_core.shared.clock import Clock
@@ -53,6 +56,11 @@ from avant_api.shared.dto import (
     page_out,
 )
 from avant_api.shared.invitations import invitation_mail
+
+
+def sees_fiscal(actor: Actor) -> bool:
+    """Diz se a pessoa vê os dados fiscais e bancários do cliente: só quem vê os documentos."""
+    return actor.grants.can(DOCUMENTS_PERMISSION)
 
 
 def owner_invitation_out(invitation: Invitation) -> OwnerInvitationOut:
@@ -110,7 +118,7 @@ class ClientService:
             data=body.profile.to_data(),
             clock=self._clock,
         )
-        return ClientOut.of(summary)
+        return ClientOut.of(summary, with_fiscal=sees_fiscal(actor))
 
     def invite_owner(self, actor: Actor, company_id: uuid.UUID) -> OwnerInvitationOut:
         """Envia ao contato do cadastro o convite de dono, ou um link novo; se o e-mail não sai,
@@ -149,7 +157,7 @@ class ClientService:
         """Uma Empresa cliente com membros e convites."""
         detail = get_client(self._uows.trusted_uow(), actor=actor, company_id=company_id)
         return ClientDetailOut(
-            **ClientOut.of(detail).model_dump(),
+            **ClientOut.of(detail, with_fiscal=sees_fiscal(actor)).model_dump(),
             members=[MemberOut.of(member) for member in detail.members],
             invitations=[InvitationOut.of(invitation) for invitation in detail.invitations],
         )
@@ -177,7 +185,7 @@ class ClientService:
             data=body.profile.to_data() if body.profile else None,
             keep_manager=keep,
         )
-        return ClientOut.of(view)
+        return ClientOut.of(view, with_fiscal=sees_fiscal(actor))
 
     def manager_change(
         self, actor: Actor, company_id: uuid.UUID, user_id: uuid.UUID | None
