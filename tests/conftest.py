@@ -192,6 +192,16 @@ def client(engine: Engine, mailer: CapturingMailer) -> Iterator[TestClient]:
         conn.execute(text("ALTER TABLE invoices ENABLE TRIGGER invoices_immutable"))
         conn.execute(text("ALTER TABLE invoice_items ENABLE TRIGGER invoice_items_immutable"))
         for table in (
+            "metrics.facebook_insights_daily",
+            "metrics.facebook_adset_country_daily",
+            "facebook_alert_reads",
+            "facebook_alerts",
+            "facebook_alert_settings",
+            "facebook_changes",
+            "facebook_objects",
+            "facebook_user_limits",
+            "facebook_ad_accounts",
+            "facebook_profiles",
             "daily_commissions",
             "commission_deductions",
             "commission_adjustments",

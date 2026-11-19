@@ -92,6 +92,24 @@ class GoogleUnavailable(DomainError):
     code = "google_unavailable"
 
 
+class FacebookNotConfigured(DomainError):
+    """A API sobe sem o app da Meta ou sem a chave dos tokens: não há como conectar perfis."""
+
+    code = "facebook_not_configured"
+
+
+class FacebookStateInvalid(DomainError):
+    """O retorno do Facebook chegou sem o ``state`` do cookie ou com outro."""
+
+    code = "facebook_state_invalid"
+
+
+class FacebookDenied(DomainError):
+    """A pessoa cancelou o login ou não deu as permissões no Facebook."""
+
+    code = "facebook_denied"
+
+
 class GoogleFailed(DomainError):
     """O Google recusou o código ou devolveu um id_token que não confere."""
 
@@ -158,6 +176,13 @@ STATUS: dict[str, int] = {
     "weak_password": 422,
     "too_many_attempts": 429,
     "invalid_token": 422,
+    "facebook_not_configured": 503,
+    "facebook_unavailable": 503,
+    "facebook_token_invalid": 409,
+    "facebook_rejected": 422,
+    "facebook_error": 502,
+    "facebook_state_invalid": 400,
+    "facebook_denied": 400,
     "google_unavailable": 503,
     "google_failed": 502,
     "google_not_linked": 403,
