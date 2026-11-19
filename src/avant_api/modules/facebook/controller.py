@@ -1,7 +1,8 @@
-"""Facebook da Empresa ativa (decisão 16), em /api/v1/facebook. Fase F1: só leitura.
+"""Facebook da Empresa ativa (decisão 16), em /api/v1/facebook.
 
-Ver pede ``facebook.view``; conectar perfis pede ``facebook.connect``; passar contas para
-pessoas, limites e quem recebe os avisos pedem ``facebook.accounts.manage``. Quem não tem
+Ver pede ``facebook.view``; conectar perfis pede ``facebook.connect``; ligar, pausar, mudar
+orçamento e regras pede ``facebook.manage``; passar contas para pessoas, limites e quem recebe
+os avisos pedem ``facebook.accounts.manage``. Quem não tem
 ``facebook.accounts.manage`` vê só as contas que usa e os perfis que conectou (o core confere).
 """
 
@@ -25,12 +26,19 @@ from avant_api.modules.facebook.dto import (
     FacebookAccountOut,
     FacebookAlertOut,
     FacebookAlertSettingOut,
+    FacebookBudgetIn,
+    FacebookBudgetOut,
     FacebookChangeOut,
+    FacebookControlOut,
     FacebookObjectDetailOut,
     FacebookObjectOut,
     FacebookPersonIn,
     FacebookPersonOut,
     FacebookProfileOut,
+    FacebookRuleDecisionOut,
+    FacebookRuleIn,
+    FacebookRuleOut,
+    FacebookStatusIn,
 )
 from avant_api.modules.facebook.http import object_filter, period
 from avant_api.modules.facebook.oauth import FACEBOOK_COOKIE, FacebookRedirects
@@ -40,6 +48,7 @@ from avant_api.shared.dto import PageOut
 VIEW = "facebook.view"
 CONNECT = "facebook.connect"
 ACCOUNTS = "facebook.accounts.manage"
+MANAGE = "facebook.manage"
 
 router = APIRouter(prefix="/facebook", tags=["facebook"])
 
@@ -148,6 +157,59 @@ def objects(
 ) -> PageOut[FacebookObjectOut]:
     """Uma página das campanhas, conjuntos ou anúncios, com gasto, receita, lucro e ROI."""
     return service.objects(actor, filters, dates[0], dates[1], page)
+
+
+@router.post("/objects/status")
+def set_status(
+    body: FacebookStatusIn,
+    actor: Actor = Depends(require(MANAGE)),
+    service: FacebookService = Depends(facebook_service),
+) -> FacebookControlOut:
+    """Liga ou pausa campanhas, conjuntos ou anúncios; ligar confere os limites antes."""
+    return service.set_status(actor, body)
+
+
+@router.put("/objects/{external_id}/budget")
+def set_budget(
+    external_id: str,
+    body: FacebookBudgetIn,
+    actor: Actor = Depends(require(MANAGE)),
+    service: FacebookService = Depends(facebook_service),
+) -> FacebookBudgetOut:
+    """Troca o orçamento diário ou o vitalício da campanha ou do conjunto."""
+    return service.set_budget(actor, external_id, body)
+
+
+@router.get("/objects/{external_id}/rules")
+def rule(
+    external_id: str,
+    actor: Actor = Depends(require(VIEW)),
+    service: FacebookService = Depends(facebook_service),
+) -> FacebookRuleOut:
+    """As regras automáticas do objeto (as sugeridas, desligadas, quando não há)."""
+    return service.rule(actor, external_id)
+
+
+@router.put("/objects/{external_id}/rules")
+def set_rule(
+    external_id: str,
+    body: FacebookRuleIn,
+    actor: Actor = Depends(require(MANAGE)),
+    service: FacebookService = Depends(facebook_service),
+) -> FacebookRuleOut:
+    """Grava as regras automáticas do objeto: escalar, pausar e duplicar pelo ROI."""
+    return service.set_rule(actor, external_id, body)
+
+
+@router.get("/objects/{external_id}/rule-decisions")
+def rule_decisions(
+    external_id: str,
+    page: int = Query(default=1, ge=1),
+    actor: Actor = Depends(require(VIEW)),
+    service: FacebookService = Depends(facebook_service),
+) -> PageOut[FacebookRuleDecisionOut]:
+    """Uma página do que as regras decidiram, a decisão mais nova primeiro."""
+    return service.rule_decisions(actor, external_id, page)
 
 
 @router.get("/objects/{external_id}")
