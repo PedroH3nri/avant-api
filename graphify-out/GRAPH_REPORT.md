@@ -1,37 +1,37 @@
 # Graph Report - avant-api  (2026-11-19)
 
 ## Corpus Check
-- 402 files · ~134,245 words
+- 415 files · ~140,164 words
 - Verdict: corpus is large enough that graph structure adds value.
 - Unclassified: 12 file(s) not represented in the graph (top: (none) 7, .ttf 2, .toml 1)
 
 ## Summary
-- 5980 nodes · 16722 edges · 296 communities (138 shown, 158 thin omitted)
-- Extraction: 84% EXTRACTED · 16% INFERRED · 0% AMBIGUOUS · INFERRED: 2602 edges (avg confidence: 0.91)
+- 6296 nodes · 17614 edges · 293 communities (151 shown, 142 thin omitted)
+- Extraction: 84% EXTRACTED · 16% INFERRED · 0% AMBIGUOUS · INFERRED: 2781 edges (avg confidence: 0.91)
 - Token cost: 0 input · 0 output
 
 ## Graph Freshness
-- Built from commit: `13c27235`
+- Built from commit: `a5eda24b`
 - Run `git rev-parse HEAD` and compare to check if the graph is stale.
 - Run `graphify update .` after code changes (no API cost).
 
 ## Community Hubs (Navigation)
-- reward_public/controller.py
-- InvoiceOut
-- RoleService
+- ClientGoogleAdsService
+- .trusted_uow
+- roles/controller.py
 - DashboardService
 - AlertService
-- _member_client
+- _csrf
 - PageOut
-- ExportsBusy
+- modules/google_ads/controller.py
 - steps
 - schedules/controller.py
-- Avant: conexão com o GAM
+- Avant: models do MVP
 - test_mfa.py
-- AdTagOut
+- GoogleAdsService
 - GroupService
-- inventory/dto.py
-- .uow
+- inventory/controller.py
+- FacebookService
 - api_keys/controller.py
 - InvitationOut
 - security.py
@@ -44,233 +44,232 @@
 - clients
 - modules/facebook/dto.py
 - AdTagService
-- mfa/controller.py
+- MfaService
 - currencies/controller.py
-- ReportService
-- test_reward_public.py
-- RewardIn
+- .uow
+- browser
+- RewardService
 - session-start.sh
 - avant-api
 - test_price_rules.py
-- ad_tag_public/dto.py
-- Actor
-- modules/price_rules/service.py
-- TaskQueue
+- ad_tag_public/service.py
+- FacebookRuleOut
+- modules/price_rules/dto.py
+- mcm/controller.py
 - ClientService
 - auth/controller.py
 - PriceRuleService
-- AdTagUnitDayOut
+- modules/ad_tags/dto.py
 - Services
-- test_reports.py
-- views/controller.py
-- InvoiceService
+- CapturingMailer
+- SavedViewService
+- Actor
 - modules/facebook/controller.py
 - client_notes/controller.py
-- GamToolService
-- modules/rewards/dto.py
-- Avant: endpoints da API do MVP
-- download
-- members/controller.py
-- test_api_keys.py
-- checklist_items/controller.py
-- RewardCache
 - modules/rewards/controller.py
+- edit
+- DocumentService
+- members/controller.py
+- test_account.py
+- checklist_items/controller.py
+- Bucket
+- Actor
 - account/controller.py
 - export.py
 - RedisRewardCache
-- checklists/controller.py
-- contracts
+- DomainError
+- SessionCookies
+- Actor
 - ClientLoaderService
-- ProfileService
+- UserOut
 - clean_code.py
 - Limiter
-- .of_detail
+- SupportTaskService
 - ClientAdTagService
 - avant-api
-- tasks.py
-- UnitOfWorkFactory
+- CeleryQueue
+- RewardCache
 - pool_metrics.py
-- FacebookService
+- Actor
 - ClientPriceRuleService
 - costs/controller.py
-- shared/dto.py
-- modules/ad_tags/dto.py
+- GoogleFailed
+- clients/service.py
+- .of
 - test_events.py
-- CascadeHourOut
-- GoogleService
+- PriceRuleHourOut
+- google/controller.py
 - AdUnitOut
 - Avant: grupos na Empresa e imagem da Empresa
 - RedisCounter
 - Groone Avant: contexto do projeto
 - documents/controller.py
-- Actor
-- ClientRewardService
-- tasks/dto.py
-- _csrf
+- checklists/controller.py
+- tasks/controller.py
+- _staff
 - PublicRewardService
+- ClientDocumentService
 - dollars
-- profiles
+- _marketing_client
 - updates
 - download
 - Avant: repositório e plano do MVP
 - TaskQueue
-- Avant: conexão com o GAM
+- objects
 - test_dashboards.py
-- FiscalDataIn
+- .update_fiscal
 - conftest.py
 - test_mail_queue.py
-- AdTagVersionOut
-- contracts/dto.py
+- company/controller.py
+- contracts/controller.py
 - commissions/controller.py
-- get
-- Settings
+- settings_for_tests
 - Arquitetura do MVP do Avant
-- CompanyService
-- gam_tools/controller.py
-- tasks/controller.py
-- LoaderOut
+- GamToolService
+- tasks
+- modules/loaders/dto.py
 - LoaderService
 - test_invitation_mail.py
-- .build
+- events/controller.py
 - test_company_image.py
-- avant_core_access_models
-- CapturingMailer
-- image_response
-- ContractService
+- results/dto.py
+- _onboard_owner
+- shared/http.py
+- pydantic
 - sites/controller.py
-- mark
+- .build
 - create
 - SiteService
 - test_facebook.py
 - reports/service.py
 - people/controller.py
 - main.py
-- swagger_assets.py
-- events/controller.py
-- install
+- test_swagger_assets.py
+- StreamLimiter
+- errors.py
 - audit/controller.py
-- .upload
-- GamToolNetworkOut
-- PriceRuleDetailsOut
-- PayeeDetailsOut
-- receive
-- alert_settings
-- ContractClientRefOut
+- document_response
+- .of_detail
+- PriceRuleConfigIn
+- test_database.py
+- key_values/controller.py
+- FacebookAlertSettingOut
+- settings.py
 - BaseModel
 - checklists
 - limits.py
-- _record
-- gam_tools/dto.py
+- logs.py
+- gam_tools/service.py
+- ReportResultOut
 - mine
-- test_metrics.py
-- .run_guarded
+- Settings
+- FakeGoogleAds
+- events.py
 - RedisEvents
-- .health
+- AdTagHealthOut
 - goals/controller.py
 - .options
-- client_documents/controller.py
-- PriceRuleHourOut
+- client_documents/dto.py
+- test_google_ads_panel
 - GoalService
 - internal/rewards/controller.py
-- mcm/service.py
+- networks/service.py
 - FakeFacebook
 - objects
-- floor_cache.py
+- PriceRuleSiteOut
 - image
-- gam_tools/service.py
-- SyncRunOut
+- rewards/http.py
+- .classify
+- RedisKeyValueBuffer
+- NetworkService
 - health/controller.py
 - _BrokenAuthService
-- avant_core_shared_clock
-- RewardAdUnitGroupOut
+- UnitOfWorkFactory
+- get
 - ItemsOut
-- .change
-- SiteListOut
-- DomainError
-- ContractService
-- RateLimited
-- SupportTaskService
-- test_account.py
-- SiteOut
+- TaskPatchIn
+- .of
+- typing
+- edit_image
+- test_key_values.py
+- checklists/dto.py
+- .assign
 - networks/controller.py
 - LoaderOptionOut
 - test_ad_tags_and_loaders_panel
-- goals/service.py
-- GoalTemplateIn
-- facebook/http.py
-- SiteService
-- role_goals
-- test_templates_need_the_permission_and_the_groone_company
-- get
-- _contract_fields
-- SiteDetailOut
-- count_pool_timeout
-- .start
-- capped
-- ads_txt
-- ClientProfileIn
-- _BrokenReleaseCounter
+- media.py
+- GoalTemplateOut
+- client_image
+- postgres
+- RedisRewardBuffer
+- delete_template
+- Actor
+- invoices/controller.py
+- account_service
+- GeoLiteCountries
+- create
+- networks/dependencies.py
 
 ## God Nodes (most connected - your core abstractions)
-1. `CapturingMailer` - 241 edges
-2. `PageOut` - 213 edges
-3. `_csrf()` - 197 edges
-4. `get()` - 195 edges
-5. `_onboard_owner()` - 191 edges
-6. `Services` - 167 edges
-7. `UnitOfWorkFactory` - 167 edges
-8. `_staff()` - 92 edges
-9. `page_out()` - 89 edges
-10. `FacebookService` - 85 edges
+1. `CapturingMailer` - 244 edges
+2. `PageOut` - 233 edges
+3. `get()` - 214 edges
+4. `_csrf()` - 199 edges
+5. `_onboard_owner()` - 194 edges
+6. `UnitOfWorkFactory` - 175 edges
+7. `Services` - 174 edges
+8. `page_out()` - 97 edges
+9. `_staff()` - 94 edges
+10. `FacebookService` - 88 edges
 
 ## Surprising Connections (you probably didn't know these)
 - `Onde está o trabalho` --references--> `PriceRuleSiteOut`  [INFERRED]
   docs/contexto.md → src/avant_api/modules/price_rules/dto.py
-- `Empresa` --references--> `edit()`  [INFERRED]
-  docs/decisoes/06-endpoints-api.md → src/avant_api/modules/company/controller.py
 - `Como funciona` --references--> `Services`  [INFERRED]
   README.md → src/avant_api/app/container.py
 - `Estrutura` --references--> `Services`  [INFERRED]
   README.md → src/avant_api/app/container.py
 - `Company` --references--> `edit()`  [INFERRED]
   docs/decisoes/03-models.md → src/avant_api/modules/company/controller.py
+- `Empresa` --references--> `edit()`  [INFERRED]
+  docs/decisoes/06-endpoints-api.md → src/avant_api/modules/company/controller.py
 
 ## Import Cycles
 - None detected.
 
-## Communities (296 total, 158 thin omitted)
+## Communities (293 total, 142 thin omitted)
 
-### Community 0 - "reward_public/controller.py"
-Cohesion: 0.14
-Nodes (9): client_address(), cors(), events(), icon(), leads(), page(), preflight(), read_body() (+1 more)
+### Community 0 - "ClientGoogleAdsService"
+Cohesion: 0.06
+Nodes (9): keywords(), GoogleAdsKeywordOut, accounts(), alerts(), changes(), keywords(), objects(), show_object() (+1 more)
 
-### Community 1 - "InvoiceOut"
-Cohesion: 0.11
-Nodes (5): add_item(), delete(), remove_item(), InvoiceOut, InvoiceService
+### Community 1 - ".trusted_uow"
+Cohesion: 0.08
+Nodes (4): services(), invoice_service(), InvoiceOut, InvoiceService
 
-### Community 2 - "RoleService"
+### Community 2 - "roles/controller.py"
 Cohesion: 0.08
 Nodes (12): create(), edit(), index(), options(), permissions(), remove(), PermissionOut, RoleIn (+4 more)
 
 ### Community 3 - "DashboardService"
 Cohesion: 0.05
-Nodes (27): choose(), create(), create_from_template(), delete(), duplicate(), home(), index(), run() (+19 more)
+Nodes (26): choose(), create(), create_from_template(), delete(), duplicate(), home(), index(), run() (+18 more)
 
 ### Community 4 - "AlertService"
 Cohesion: 0.06
 Nodes (18): create(), delete(), events(), index(), mute(), preview(), show(), update() (+10 more)
 
-### Community 5 - "_member_client"
-Cohesion: 0.07
-Nodes (23): _membership_ids(), test_groups_lifecycle(), _assert_denied(), _queue(), test_cost_writes_need_permission(), test_member_writes_need_permission(), test_network_sync_and_disconnect_need_permission(), test_role_writes_need_permission() (+15 more)
+### Community 5 - "_csrf"
+Cohesion: 0.06
+Nodes (41): _csrf(), test_busy_export_answers_503_with_retry_after(), _membership_ids(), test_groups_lifecycle(), _png(), test_appearance_belongs_to_the_person(), test_profile_picture(), _result() (+33 more)
 
 ### Community 6 - "PageOut"
 Cohesion: 0.06
-Nodes (18): alerts(), rule_decisions(), FacebookAlertOut, FacebookChangeOut, FacebookObjectDetailOut, FacebookObjectOut, FacebookRuleDecisionOut, accounts() (+10 more)
+Nodes (15): FacebookAlertOut, FacebookChangeOut, FacebookObjectDetailOut, FacebookObjectOut, FacebookRuleDecisionOut, accounts(), alerts(), changes() (+7 more)
 
-### Community 7 - "ExportsBusy"
-Cohesion: 0.22
-Nodes (4): ExportsBusy, export_slot(), test_busy_export_is_refused_without_holding_the_thread(), test_export_slots_refuse_a_third_export_while_two_run()
+### Community 7 - "modules/google_ads/controller.py"
+Cohesion: 0.09
+Nodes (16): GoogleAdsAccountIn, GoogleAdsAccountRefOut, GoogleAdsAlertOut, GoogleAdsAlertSettingOut, GoogleAdsChangeOut, GoogleAdsDailyOut, GoogleAdsLoginOut, GoogleAdsObjectDetailOut (+8 more)
 
 ### Community 8 - "steps"
 Cohesion: 0.07
@@ -278,47 +277,47 @@ Nodes (33): AVANT_CORE_ACCESS, AVANT_TEST_DATABASE_URL, AVANT_TEST_MIGRATIONS_UR
 
 ### Community 9 - "schedules/controller.py"
 Cohesion: 0.07
-Nodes (13): create(), delete(), index(), pause(), show(), update(), schedule_service(), ScheduleDeliveryOut (+5 more)
+Nodes (12): create(), delete(), index(), pause(), show(), update(), ScheduleDeliveryOut, ScheduleIn (+4 more)
 
-### Community 10 - "Avant: conexão com o GAM"
-Cohesion: 0.12
-Nodes (16): Acesso, ApiKey, AuditLog, Avant: models do MVP, Decisões de Pedro (22/10/2026), Identidade, MemberPermission, PasswordReset (+8 more)
+### Community 10 - "Avant: models do MVP"
+Cohesion: 0.09
+Nodes (21): Acesso, AdUnit, ApiKey, AuditLog, Avant: models do MVP, Decisões de Pedro (22/10/2026), GAM, Identidade (+13 more)
 
 ### Community 11 - "test_mfa.py"
-Cohesion: 0.18
+Cohesion: 0.19
 Nodes (16): run_password_reset_tasks(), _networks(), test_contract_crud(), test_contracts_need_staff_and_their_permission(), _enable(), _now_code(), _password_login(), test_client_can_disable() (+8 more)
 
-### Community 12 - "AdTagOut"
-Cohesion: 0.13
-Nodes (4): forget_tag(), update(), AdTagIn, AdTagService
+### Community 12 - "GoogleAdsService"
+Cohesion: 0.09
+Nodes (5): GoogleAdsNotConfigured, accounts(), update_account(), GoogleAdsAccountOut, GoogleAdsService
 
 ### Community 13 - "GroupService"
 Cohesion: 0.07
-Nodes (14): add_members(), create(), edit(), index(), options(), remove(), remove_member(), show() (+6 more)
+Nodes (15): add_members(), create(), edit(), index(), options(), remove(), remove_member(), show() (+7 more)
 
-### Community 14 - "inventory/dto.py"
-Cohesion: 0.13
+### Community 14 - "inventory/controller.py"
+Cohesion: 0.12
 Nodes (7): networks(), sites(), client_inventory_service(), ClientNetworkOut, ClientSiteChecklistOut, ClientSiteOut, ClientInventoryService
 
-### Community 15 - ".uow"
-Cohesion: 0.06
-Nodes (7): accounts(), create(), duplicate(), update_account(), FacebookAccountIn, FacebookAccountOut, FacebookJobOut
+### Community 15 - "FacebookService"
+Cohesion: 0.05
+Nodes (12): FacebookNotConfigured, alerts(), people(), profiles(), rule_decisions(), set_budget(), set_status(), FacebookBudgetIn (+4 more)
 
 ### Community 16 - "api_keys/controller.py"
-Cohesion: 0.10
+Cohesion: 0.11
 Nodes (8): create(), index(), revoke(), api_key_service(), ApiKeyCreatedOut, ApiKeyIn, ApiKeyOut, ApiKeyService
 
 ### Community 17 - "InvitationOut"
 Cohesion: 0.06
-Nodes (14): InvitationMailNotSent, invite(), options(), StaffInviteIn, StaffService, cancel(), create_invitation(), list_invitations() (+6 more)
+Nodes (13): invite(), options(), StaffInviteIn, StaffService, cancel(), create_invitation(), list_invitations(), resend() (+5 more)
 
 ### Community 18 - "security.py"
-Cohesion: 0.05
-Nodes (22): CsrfFailed, api_key_actor(), bearer_token(), check_csrf(), check_fetch_site(), check_tab_company(), get_actor(), get_auth() (+14 more)
+Cohesion: 0.06
+Nodes (25): CompanyChanged, CsrfFailed, NoActiveCompany, api_key_actor(), bearer_token(), check_csrf(), check_fetch_site(), check_tab_company() (+17 more)
 
 ### Community 19 - "custom_metrics/controller.py"
-Cohesion: 0.08
-Nodes (11): check(), create(), delete(), index(), update(), CustomMetricCheckIn, CustomMetricCheckOut, CustomMetricIn (+3 more)
+Cohesion: 0.07
+Nodes (12): check(), create(), delete(), index(), update(), custom_metric_service(), CustomMetricCheckIn, CustomMetricCheckOut (+4 more)
 
 ### Community 20 - "Requisitos do novo SaaS AdTech Groone"
 Cohesion: 0.17
@@ -333,8 +332,8 @@ Cohesion: 0.19
 Nodes (10): _gam_viewer(), _network(), _network_of(), test_a_run_the_queue_did_not_take_frees_the_network(), test_gam_tool_runs_refuse_what_they_should(), test_gam_tools_need_permission(), test_install_zip_for_several_sites(), test_staff_lists_runs_and_downloads() (+2 more)
 
 ### Community 23 - "dashboard_templates/controller.py"
-Cohesion: 0.06
-Nodes (14): create(), delete(), index(), roles(), set_home(), show(), update(), dashboard_template_service() (+6 more)
+Cohesion: 0.07
+Nodes (13): create(), delete(), index(), roles(), set_home(), show(), update(), DashboardTemplateIn (+5 more)
 
 ### Community 24 - "invoice_pdf.py"
 Cohesion: 0.12
@@ -342,211 +341,239 @@ Nodes (11): _block(), _dates(), _footer(), _header(), _items(), _line(), _logo()
 
 ### Community 26 - "modules/facebook/dto.py"
 Cohesion: 0.06
-Nodes (8): set_budget(), FacebookAccountRefOut, FacebookBudgetIn, FacebookBudgetOut, FacebookCountryOut, FacebookDailyOut, FacebookParentOut, FacebookTotalsOut
+Nodes (12): set_person(), FacebookAccountRefOut, FacebookCountryOut, FacebookDailyOut, FacebookParentOut, FacebookPersonIn, FacebookPersonOut, FacebookProfileOut (+4 more)
 
 ### Community 27 - "AdTagService"
-Cohesion: 0.12
-Nodes (11): create(), delete(), health(), index(), publish(), restore(), set_active(), show() (+3 more)
+Cohesion: 0.09
+Nodes (13): create(), delete(), health(), index(), publish(), restore(), set_active(), show() (+5 more)
 
-### Community 28 - "mfa/controller.py"
+### Community 28 - "MfaService"
 Cohesion: 0.07
-Nodes (9): confirm(), disable(), new_recovery_codes(), setup(), verify(), MfaCodeIn, MfaSetupOut, RecoveryCodesOut (+1 more)
+Nodes (10): confirm(), disable(), new_recovery_codes(), setup(), verify(), mfa_service(), MfaCodeIn, MfaSetupOut (+2 more)
 
 ### Community 29 - "currencies/controller.py"
-Cohesion: 0.15
+Cohesion: 0.13
 Nodes (6): list_currencies(), update_preferences(), currency_service(), CurrencyOut, PreferencesIn, CurrencyService
 
-### Community 30 - "ReportService"
+### Community 30 - ".uow"
 Cohesion: 0.05
-Nodes (22): create(), create_from_template(), delete(), duplicate(), export(), export_saved(), index(), pin() (+14 more)
+Nodes (8): create(), duplicate(), pinned(), update(), SavedReportIn, SavedReportOut, export_slot(), ReportService
 
-### Community 31 - "test_reward_public.py"
-Cohesion: 0.10
-Nodes (23): reward_cache_key(), MemoryRewardBuffer, _buffer(), _cascade_reward(), test_events_and_leads_go_to_the_buffer(), test_icon_route_has_the_ip_limit(), test_price_rule_settings_forget_reward_page(), test_public_config_is_cached_and_cleared() (+15 more)
+### Community 31 - "browser"
+Cohesion: 0.07
+Nodes (34): reward_cache_key(), browser(), _rendered(), test_api_key_never_reaches_the_log(), test_docs_only_for_the_groone_session_with_2fa(), test_every_response_has_the_content_security_policy(), test_every_response_has_the_security_headers(), test_invalid_bearer_is_limited_per_ip_before_the_database() (+26 more)
 
-### Community 32 - "RewardIn"
-Cohesion: 0.18
-Nodes (3): create(), create(), RewardIn
+### Community 32 - "RewardService"
+Cohesion: 0.09
+Nodes (6): forget_pages(), create(), update(), RewardIn, RewardOut, RewardService
 
 ### Community 36 - "test_price_rules.py"
 Cohesion: 0.12
 Nodes (27): FixedCountries, _cascade_rule(), _cascade_site(), _company_of(), _config(), _hours(), _offerwall_unit(), _present() (+19 more)
 
-### Community 37 - "ad_tag_public/dto.py"
+### Community 37 - "ad_tag_public/service.py"
 Cohesion: 0.06
-Nodes (15): ad_tag_cache_key(), BucketRule, RewardBuffer, config(), page_views(), preflight(), public_ad_tag_service(), PageViewBlockIn (+7 more)
+Nodes (14): RateLimited, RewardBuffer, config(), page_views(), preflight(), public_ad_tag_service(), PageViewBlockIn, PageViewIn (+6 more)
 
-### Community 38 - "Actor"
-Cohesion: 0.08
-Nodes (10): changes(), disconnect(), edit(), job(), read_alert(), rule(), set_alert_settings(), set_rule() (+2 more)
+### Community 38 - "FacebookRuleOut"
+Cohesion: 0.17
+Nodes (4): rule(), set_rule(), FacebookRuleIn, FacebookRuleOut
 
-### Community 39 - "modules/price_rules/service.py"
-Cohesion: 0.22
-Nodes (11): CascadeHourOut, CascadeTryOut, PriceRuleBlockOut, PriceRuleBlocksIn, PriceRuleConfigIn, PriceRuleConfigOut, PriceRuleFloorIn, PriceRuleOut (+3 more)
+### Community 39 - "modules/price_rules/dto.py"
+Cohesion: 0.13
+Nodes (11): CascadeHourOut, CascadeTryOut, PriceRuleBlockOut, PriceRuleBlocksIn, PriceRuleConfigOut, PriceRuleDetailsOut, PriceRuleFloorIn, PriceRuleOut (+3 more)
 
-### Community 40 - "TaskQueue"
-Cohesion: 0.10
-Nodes (9): confirm_network(), register_network(), reject_network(), unassigned_networks(), mcm_service(), ClientNetworkIn, McmCandidateOut, McmService (+1 more)
+### Community 40 - "mcm/controller.py"
+Cohesion: 0.11
+Nodes (8): confirm_network(), register_network(), reject_network(), unassigned_networks(), ClientNetworkIn, McmCandidateOut, McmService, NetworkOut
 
 ### Community 41 - "ClientService"
-Cohesion: 0.05
-Nodes (31): audit(), cancel_owner(), change_status(), client(), client_image(), client_options(), client_teams(), edit_client() (+23 more)
+Cohesion: 0.06
+Nodes (22): audit(), cancel_owner(), change_status(), client(), client_options(), client_teams(), edit_client(), edit_client_image() (+14 more)
 
 ### Community 42 - "auth/controller.py"
-Cohesion: 0.06
-Nodes (15): accept(), company_image(), do_logout(), get_invitation(), login(), me(), set_active_company(), AcceptInvitationIn (+7 more)
+Cohesion: 0.07
+Nodes (17): accept(), company_image(), do_logout(), get_invitation(), login(), me(), set_active_company(), auth_service() (+9 more)
 
 ### Community 43 - "PriceRuleService"
-Cohesion: 0.09
+Cohesion: 0.10
 Nodes (15): cascade_hours(), history(), hours(), index(), set_floor(), set_status(), settings(), show() (+7 more)
 
+### Community 44 - "modules/ad_tags/dto.py"
+Cohesion: 0.19
+Nodes (12): AdTagActiveIn, AdTagBlockIO, AdTagClientOut, AdTagCreateIn, AdTagHealthDayOut, AdTagIn, AdTagLiveOut, AdTagPublishIn (+4 more)
+
 ### Community 45 - "Services"
-Cohesion: 0.03
-Nodes (24): Services, SessionCookies, get_cookies(), get_services(), get_session_auth(), auth_service(), company_service(), cost_service() (+16 more)
+Cohesion: 0.04
+Nodes (14): Services, NoCountries, get_services(), ad_tag_service(), client_document_service(), dashboard_template_service(), mcm_service(), saved_view_service() (+6 more)
 
-### Community 46 - "test_reports.py"
-Cohesion: 0.06
-Nodes (57): _definition(), _form(), test_alerts_of_a_client(), test_groone_alerts_preview_every_client(), test_members_without_alerts_manage_only_see_what_they_receive(), _csrf(), _onboard_owner(), _owner_invite() (+49 more)
-
-### Community 47 - "views/controller.py"
+### Community 46 - "CapturingMailer"
 Cohesion: 0.07
-Nodes (12): catalog(), create(), delete(), index(), update(), saved_view_service(), SavedViewIn, SavedViewOut (+4 more)
+Nodes (30): CapturingMailer, client(), engine(), mailer(), _definition(), _form(), test_alerts_of_a_client(), test_groone_alerts_preview_every_client() (+22 more)
 
-### Community 48 - "InvoiceService"
-Cohesion: 0.13
-Nodes (13): create_service(), services(), update_item(), update_service(), AvailableMonthOut, InvoiceItemOut, InvoiceServiceIn, InvoiceServiceOptionOut (+5 more)
+### Community 47 - "SavedViewService"
+Cohesion: 0.07
+Nodes (11): catalog(), create(), delete(), index(), update(), SavedViewIn, SavedViewOut, ScreenCatalogOut (+3 more)
+
+### Community 48 - "Actor"
+Cohesion: 0.09
+Nodes (10): catalog(), create_from_template(), delete(), export(), export_saved(), index(), pin(), run() (+2 more)
 
 ### Community 49 - "modules/facebook/controller.py"
-Cohesion: 0.05
-Nodes (13): set_status(), FacebookAdIn, FacebookAdsetIn, FacebookCardIn, FacebookDraftIn, FacebookEditIn, FacebookPickIn, FacebookAlertSettingOut (+5 more)
+Cohesion: 0.04
+Nodes (18): FacebookDenied, FacebookStateInvalid, create(), edit(), oauth_callback(), oauth_start(), facebook_redirects(), facebook_service() (+10 more)
 
 ### Community 50 - "client_notes/controller.py"
-Cohesion: 0.09
+Cohesion: 0.08
 Nodes (9): add(), delete(), edit(), notes(), client_note_service(), ClientNoteIn, ClientNoteOut, NotePersonOut (+1 more)
 
-### Community 52 - "modules/rewards/dto.py"
+### Community 52 - "modules/rewards/controller.py"
 Cohesion: 0.09
-Nodes (12): RewardActiveIn, RewardAdUnitOut, RewardAnswerOut, RewardClientOut, RewardDayOut, RewardLeadAnswerOut, RewardLeadIO, RewardLeadOut (+4 more)
+Nodes (14): ad_units(), RewardActiveIn, RewardAdUnitGroupOut, RewardAdUnitOut, RewardAnswerOut, RewardClientOut, RewardDayOut, RewardLeadAnswerOut (+6 more)
 
-### Community 53 - "Avant: endpoints da API do MVP"
-Cohesion: 0.15
-Nodes (12): API first e chaves de API, Avant: endpoints da API do MVP, Catálogo de permissões, Convenções, Convites, Decisões de Pedro (23/10/2026), Empresa, Empresa e equipe (+4 more)
+### Community 53 - "edit"
+Cohesion: 0.10
+Nodes (18): Company, Empresa e equipe, Invitation, Membership, API first e chaves de API, Avant: endpoints da API do MVP, Catálogo de permissões, Convenções (+10 more)
 
-### Community 54 - "download"
-Cohesion: 0.18
+### Community 54 - "DocumentService"
+Cohesion: 0.11
 Nodes (5): documents(), download(), upload(), document_service(), DocumentService
 
 ### Community 55 - "members/controller.py"
-Cohesion: 0.07
-Nodes (15): edit(), index(), leave(), options(), remove(), set_permissions(), show(), member_service() (+7 more)
+Cohesion: 0.06
+Nodes (16): edit(), index(), leave(), options(), remove(), set_permissions(), show(), member_service() (+8 more)
 
-### Community 56 - "test_api_keys.py"
-Cohesion: 0.20
-Nodes (13): MemoryBucket, _bearer(), _create(), _exercise(), _insert_key(), _keys_in_two_companies(), test_change_password_revokes_keys_in_every_company(), test_create_use_and_revoke() (+5 more)
+### Community 56 - "test_account.py"
+Cohesion: 0.13
+Nodes (17): _BrokenReleaseCounter, _google_round(), _login(), test_change_password_and_sessions(), test_change_password_attempts_are_limited(), test_forgot_and_reset_password(), test_google_link_and_login(), test_login_attempts_are_limited() (+9 more)
 
 ### Community 57 - "checklist_items/controller.py"
 Cohesion: 0.11
 Nodes (9): create(), items(), move(), update(), checklist_item_service(), ChecklistItemIn, ChecklistItemMoveIn, ChecklistItemOut (+1 more)
 
-### Community 58 - "RewardCache"
-Cohesion: 0.06
-Nodes (9): CountryLookup, Bucket, is_cascade_shape(), safe_site_cascades(), site_cascades(), RewardCache, prices(), PublicPriceFloorsOut (+1 more)
+### Community 58 - "Bucket"
+Cohesion: 0.09
+Nodes (6): CountryLookup, Bucket, prices(), public_price_floor_service(), PublicPriceFloorsOut, PublicPriceFloorService
 
-### Community 59 - "modules/rewards/controller.py"
-Cohesion: 0.07
-Nodes (14): ad_units(), delete(), delete_lead(), export_leads(), index(), leads(), metrics(), set_active() (+6 more)
+### Community 59 - "Actor"
+Cohesion: 0.11
+Nodes (9): delete(), delete_lead(), export_leads(), index(), leads(), metrics(), set_active(), set_icon() (+1 more)
 
 ### Community 60 - "account/controller.py"
-Cohesion: 0.08
-Nodes (14): delete_session(), do_change_password(), do_reset_password(), forgot_password(), get_sessions(), revoke_others(), account_service(), ChangePasswordIn (+6 more)
+Cohesion: 0.09
+Nodes (12): delete_session(), do_change_password(), do_reset_password(), forgot_password(), get_sessions(), revoke_others(), ChangePasswordIn, ForgotPasswordIn (+4 more)
 
 ### Community 61 - "export.py"
-Cohesion: 0.09
-Nodes (13): dimension_text(), _csv_cell(), _header(), _metric_label(), _rows(), to_csv(), to_xlsx(), _xlsx_cell() (+5 more)
+Cohesion: 0.11
+Nodes (8): dimension_text(), _csv_cell(), _header(), _metric_label(), _rows(), to_csv(), to_xlsx(), _xlsx_cell()
 
-### Community 63 - "checklists/controller.py"
-Cohesion: 0.24
-Nodes (9): ChecklistDetailOut, ChecklistMarkIn, ChecklistMonthOut, ChecklistNoteIn, ChecklistNoteOut, ChecklistOut, ChecklistPersonOut, ChecklistProgressOut (+1 more)
+### Community 62 - "RedisRewardCache"
+Cohesion: 0.14
+Nodes (3): RedisRewardCache, _BrokenRedis, test_cache_down_does_not_break_the_page_or_the_save()
 
-### Community 65 - "contracts"
-Cohesion: 0.20
-Nodes (5): contract(), contracts(), finish_contract(), new_contract(), remove_contract()
+### Community 63 - "DomainError"
+Cohesion: 0.10
+Nodes (7): GoogleAdsDenied, GoogleAdsStateInvalid, oauth_callback(), oauth_start(), google_ads_redirects(), google_ads_service(), GoogleAdsRedirects
+
+### Community 65 - "Actor"
+Cohesion: 0.10
+Nodes (8): apply_suffix(), changes(), disconnect(), people(), read_alert(), set_alert_settings(), set_person(), GoogleAdsPersonOut
 
 ### Community 66 - "ClientLoaderService"
-Cohesion: 0.13
-Nodes (6): delete(), index(), options(), show(), update(), ClientLoaderService
+Cohesion: 0.18
+Nodes (7): delete(), index(), options(), show(), update(), client_loader_service(), ClientLoaderService
 
-### Community 67 - "ProfileService"
-Cohesion: 0.08
-Nodes (8): edit_appearance(), edit_image(), image(), remove_image(), AppearanceIn, AppearanceOut, ProfileService, UserOut
+### Community 67 - "UserOut"
+Cohesion: 0.09
+Nodes (9): edit_appearance(), edit_image(), image(), remove_image(), profile_service(), AppearanceIn, AppearanceOut, ProfileService (+1 more)
 
 ### Community 68 - "clean_code.py"
 Cohesion: 0.15
 Nodes (7): check_file(), docstring_problems(), inline_comments(), is_exempt(), main(), single_letter_names(), source_files()
 
 ### Community 69 - "Limiter"
-Cohesion: 0.09
+Cohesion: 0.10
 Nodes (10): Counter, Limiter, Rule, _attempt_round(), _limiter_round(), _refused_attempt_round(), test_memory_limiter(), test_redis_limiter() (+2 more)
 
-### Community 71 - "ClientAdTagService"
-Cohesion: 0.10
-Nodes (12): AdTagOut, create(), delete(), health(), index(), publish(), restore(), set_active() (+4 more)
+### Community 70 - "SupportTaskService"
+Cohesion: 0.17
+Nodes (3): comment(), TaskDetailOut, SupportTaskService
 
-### Community 74 - "tasks.py"
-Cohesion: 0.13
+### Community 71 - "ClientAdTagService"
+Cohesion: 0.08
+Nodes (13): create(), delete(), health(), index(), publish(), restore(), set_active(), show() (+5 more)
+
+### Community 74 - "CeleryQueue"
+Cohesion: 0.19
 Nodes (5): CeleryQueue, masked_args(), _CapturingCelery, test_password_reset_task_masks_the_email_in_the_message(), test_tasks_with_ids_only_are_not_masked()
 
-### Community 76 - "pool_metrics.py"
-Cohesion: 0.15
-Nodes (7): _checked_in(), _checked_out(), _closed(), _opened(), watch_pool(), _sample(), test_pool_gauges_follow_checkout_and_close()
+### Community 75 - "RewardCache"
+Cohesion: 0.05
+Nodes (8): ad_tag_cache_key(), RewardCache, forget_tag(), forget_tags(), forget_cascades(), forget_floors(), forget_rule(), forget_site()
 
-### Community 77 - "FacebookService"
-Cohesion: 0.09
-Nodes (9): FacebookNotConfigured, people(), set_person(), upload_media(), facebook_service(), FacebookMediaOut, FacebookPersonIn, FacebookPersonOut (+1 more)
+### Community 76 - "pool_metrics.py"
+Cohesion: 0.08
+Nodes (11): _checked_in(), _checked_out(), _closed(), _opened(), watch_pool(), exposition(), test_metrics_add_up_every_process(), test_metrics_of_a_single_process() (+3 more)
+
+### Community 77 - "Actor"
+Cohesion: 0.07
+Nodes (11): accounts(), changes(), disconnect(), duplicate(), job(), read_alert(), set_alert_settings(), update_account() (+3 more)
 
 ### Community 78 - "ClientPriceRuleService"
 Cohesion: 0.12
-Nodes (13): cascade_hours(), history(), hours(), index(), set_floor(), set_status(), settings(), show() (+5 more)
+Nodes (14): cascade_hours(), history(), hours(), index(), set_floor(), set_status(), settings(), show() (+6 more)
 
 ### Community 79 - "costs/controller.py"
 Cohesion: 0.08
-Nodes (11): check_formula(), create(), delete(), index(), update(), CostIn, CostOut, FormulaCheckIn (+3 more)
+Nodes (12): check_formula(), create(), delete(), index(), update(), cost_service(), CostIn, CostOut (+4 more)
 
-### Community 81 - "shared/dto.py"
-Cohesion: 0.08
-Nodes (4): ClientProfileOut, FiscalDataOut, image_url(), RoleRefOut
+### Community 80 - "GoogleFailed"
+Cohesion: 0.10
+Nodes (8): GoogleFailed, challenge(), _claims(), GoogleOAuth, identity_from_id_token(), FakeGoogle, _jwt(), test_id_token_claims()
 
-### Community 82 - "modules/ad_tags/dto.py"
-Cohesion: 0.08
-Nodes (9): AdTagActiveIn, AdTagBlockIO, AdTagClientOut, AdTagCreateIn, AdTagDraftIO, AdTagHealthDayOut, AdTagLiveOut, AdTagSettingsIO (+1 more)
+### Community 81 - "clients/service.py"
+Cohesion: 0.11
+Nodes (13): ClientIn, ClientMemberOut, ClientOptionOut, ClientPatchIn, ClientProfileIn, ClientProfileOut, ClientStatusIn, ManagerChangeOut (+5 more)
 
 ### Community 83 - "test_events.py"
-Cohesion: 0.14
-Nodes (14): channel(), _parse(), sse(), _collect(), _event(), ListEvents, test_events_route(), test_events_route_is_session_only_and_frees_the_slot() (+6 more)
+Cohesion: 0.29
+Nodes (11): _collect(), _event(), ListEvents, test_events_route(), test_events_route_is_session_only_and_frees_the_slot(), test_events_route_refuses_above_the_cap(), test_facebook_job_updates_reach_who_sees_facebook(), test_gam_tool_runs_reach_who_sees_the_gam_tools() (+3 more)
 
-### Community 85 - "GoogleService"
-Cohesion: 0.03
-Nodes (26): _google(), CompanyChanged, FacebookMediaTooLarge, GoogleFailed, GoogleUnavailable, NoActiveCompany, challenge(), _claims() (+18 more)
+### Community 85 - "google/controller.py"
+Cohesion: 0.08
+Nodes (8): GoogleUnavailable, GoogleAuth, new_verifier(), google_callback(), google_start(), google_redirects(), google_service(), GoogleService
 
 ### Community 87 - "Avant: grupos na Empresa e imagem da Empresa"
-Cohesion: 0.12
-Nodes (14): Company, Empresa e equipe, Invitation, Membership, Avant: grupos na Empresa e imagem da Empresa, Decisões do Pedro (26/10), Herança de comissão e meta, Imagem da Empresa (+6 more)
+Cohesion: 0.22
+Nodes (8): Avant: grupos na Empresa e imagem da Empresa, Decisões do Pedro (26/10), Herança de comissão e meta, Issues, Modelo de dados, Regras, Resumo, Telas
+
+### Community 88 - "RedisCounter"
+Cohesion: 0.17
+Nodes (3): RedisCounter, test_redis_decr_without_key_creates_nothing(), test_redis_down_is_a_503_not_a_500()
 
 ### Community 89 - "Groone Avant: contexto do projeto"
 Cohesion: 0.12
 Nodes (15): Arquitetura, Como trabalhar nos repositórios, Dicas de ambiente para o agente, Documentos de decisão, GAM, Groone Avant: contexto do projeto, Identidade visual, Infraestrutura e operação (+7 more)
 
-### Community 91 - "documents/controller.py"
-Cohesion: 0.19
-Nodes (3): document_upload(), DocumentOut, DocumentsOut
+### Community 92 - "checklists/controller.py"
+Cohesion: 0.09
+Nodes (10): add_note(), check(), checklist(), delete_note(), edit_note(), mark(), site_checklist_service(), ChecklistDetailOut (+2 more)
 
-### Community 96 - "_csrf"
-Cohesion: 0.07
-Nodes (33): _admin_role(), NextMonthClock, test_client_edit_without_the_manager_keeps_it(), test_client_owner_cannot_touch_commissions(), test_commission_input_is_checked(), test_groone_role_with_internal_permissions(), test_groone_role_with_the_whole_catalog(), test_manager_change_preview() (+25 more)
+### Community 95 - "tasks/controller.py"
+Cohesion: 0.17
+Nodes (4): support_task_service(), TaskDataIn, TaskIn, TaskOut
+
+### Community 96 - "_staff"
+Cohesion: 0.06
+Nodes (37): _send(), test_client_sends_documents_and_staff_reviews(), test_staff_writes_notes_and_only_author_or_manager_changes(), _admin_role(), NextMonthClock, _support(), test_client_edit_without_the_manager_keeps_it(), test_client_owner_cannot_touch_commissions() (+29 more)
 
 ### Community 97 - "PublicRewardService"
-Cohesion: 0.09
-Nodes (14): CachedPage, PublicAdUnitsOut, PublicIconOut, PublicLeadOut, PublicPageOut, PublicQuestionOut, PublicRewardOut, PublicRewardPriceOut (+6 more)
+Cohesion: 0.06
+Nodes (23): client_address(), cors(), events(), icon(), leads(), page(), preflight(), read_body() (+15 more)
+
+### Community 123 - "_marketing_client"
+Cohesion: 0.11
+Nodes (13): _manage_inventory(), _marketing_client(), _month_of_revenue(), test_costs_crud_and_formula_check(), test_results_for_the_company_and_for_groone(), test_custom_metrics_crud_check_catalog_and_query(), _assert_denied(), _queue() (+5 more)
 
 ### Community 127 - "updates"
 Cohesion: 0.11
@@ -561,256 +588,280 @@ Cohesion: 0.22
 Nodes (8): Avant: repositório e plano do MVP, Decisões de Pedro (23/10/2026), Estrutura de pastas, Pipeline, Plano até 31/12, Primeira semana (23/10 a 02/11), Resumo, Serviços e ferramentas
 
 ### Community 130 - "TaskQueue"
-Cohesion: 0.11
-Nodes (7): avant-api, Como funciona, Desenvolvimento, Estrutura, Imagem, TaskMailQueue, TaskQueue
+Cohesion: 0.09
+Nodes (8): avant-api, Como funciona, Desenvolvimento, Estrutura, Imagem, QueueUnavailable, TaskMailQueue, TaskQueue
 
-### Community 131 - "Avant: conexão com o GAM"
+### Community 131 - "objects"
 Cohesion: 0.11
-Nodes (16): AdUnit, GAM, Network, NetworkSyncRun, Site, SiteAssignment, Avant: conexão com o GAM, Caminho conta de serviço (+8 more)
+Nodes (4): objects(), placements(), search_terms(), show_object()
 
 ### Community 132 - "test_dashboards.py"
-Cohesion: 0.29
-Nodes (8): _form(), _kpi(), _run(), _template(), test_dashboards_of_a_client(), test_groone_dashboards_sum_every_client(), test_members_see_shared_dashboards_but_need_manage_to_edit(), test_whole_dashboard_runs_in_one_request()
-
-### Community 133 - "FiscalDataIn"
-Cohesion: 0.13
-Nodes (5): edit_fiscal(), edit_image(), fiscal(), CompanyFiscalOut, FiscalDataIn
+Cohesion: 0.14
+Nodes (11): _form(), test_staff_manage_templates_and_clients_see_them_by_role(), test_templates_need_the_permission_and_the_groone_company(), _form(), _kpi(), _run(), _template(), test_dashboards_of_a_client() (+3 more)
 
 ### Community 134 - "conftest.py"
-Cohesion: 0.04
-Nodes (31): browser(), refresh_levels(), _error_code(), test_cookies_are_always_secure_with_the_host_prefix(), test_every_write_route_refuses_another_site(), _manage_inventory(), _send(), test_client_sends_documents_and_staff_reviews() (+23 more)
+Cohesion: 0.06
+Nodes (7): refresh_levels(), MemoryRewardBuffer, MemoryRewardCache, NoEvents, _scaling_client(), test_client_owner_cannot_list_client_networks_or_sites(), test_staff_sees_client_networks_sites_and_revenue_status()
 
 ### Community 135 - "test_mail_queue.py"
-Cohesion: 0.05
-Nodes (13): MemoryCounter, MemoryRewardCache, NoEvents, RecordingQueue, _SpyCounter, _account(), _NoDatabase, _NoMail (+5 more)
+Cohesion: 0.06
+Nodes (13): memory_services(), MemoryCounter, RecordingQueue, _SpyCounter, _account(), _NoDatabase, _NoMail, _services() (+5 more)
 
-### Community 137 - "contracts/dto.py"
-Cohesion: 0.16
-Nodes (7): contract_networks(), ContractIn, ContractNetworkOut, ContractNetworkRefOut, ContractSummaryOut, _network_ref(), ContractClientRefOut
+### Community 136 - "company/controller.py"
+Cohesion: 0.21
+Nodes (7): show(), company_service(), CompanyDetailOut, CompanyFiscalOut, CompanyPatchIn, FiscalDataIn, CompanyService
+
+### Community 137 - "contracts/controller.py"
+Cohesion: 0.07
+Nodes (19): O que já tem, contract(), contract_networks(), contracts(), edit_contract(), finish_contract(), new_contract(), remove_contract() (+11 more)
 
 ### Community 138 - "commissions/controller.py"
 Cohesion: 0.06
 Nodes (23): adjust(), create_rule(), delete_rule(), mine(), _month(), person(), rules(), set_settings() (+15 more)
 
-### Community 139 - "get"
-Cohesion: 0.15
-Nodes (4): openapi(), swagger(), swagger_asset(), _swagger_page()
-
-### Community 142 - "Settings"
-Cohesion: 0.04
-Nodes (32): engine_settings(), _mailer(), restricted_engine(), _are_proxy_addresses(), invalid_variable_names(), InvalidVariables, _is_smtp_url(), load_settings() (+24 more)
+### Community 142 - "settings_for_tests"
+Cohesion: 0.18
+Nodes (13): load_settings(), settings_for_tests(), _environment(), _refused_names(), test_api_starts_with_each_transport(), test_each_transport_builds_its_mailer(), test_environment_name_changes_nothing(), test_malformed_smtp_url_never_shows_the_value() (+5 more)
 
 ### Community 143 - "Arquitetura do MVP do Avant"
 Cohesion: 0.14
 Nodes (13): Ambientes, deploy e backup, Arquitetura do MVP do Avant, Controle de acesso no estilo do Defender, Decisões e perguntas em aberto, Endpoints da API REST, Estrutura do repositório, Fluxos, Isolamento, autenticação e permissões (+5 more)
 
-### Community 144 - "CompanyService"
-Cohesion: 0.17
-Nodes (5): remove_image(), show(), CompanyDetailOut, CompanyPatchIn, CompanyService
+### Community 145 - "GamToolService"
+Cohesion: 0.12
+Nodes (11): ads_txt(), install(), network(), networks(), run(), runs(), gam_tool_service(), AdsTxtOut (+3 more)
 
-### Community 145 - "gam_tools/controller.py"
-Cohesion: 0.19
-Nodes (6): install(), network(), networks(), run(), runs(), GamToolRunOut
-
-### Community 146 - "tasks/controller.py"
-Cohesion: 0.22
-Nodes (4): change(), comment(), create(), task()
+### Community 146 - "tasks"
+Cohesion: 0.16
+Nodes (4): change(), create(), task(), tasks()
 
 ### Community 148 - "LoaderService"
-Cohesion: 0.12
-Nodes (9): create(), delete(), index(), show(), update(), loader_service(), LoaderIn, LoaderOut (+1 more)
+Cohesion: 0.14
+Nodes (8): create(), delete(), index(), show(), update(), LoaderIn, LoaderOut, LoaderService
 
 ### Community 149 - "test_invitation_mail.py"
 Cohesion: 0.24
 Nodes (10): _assert_mail_not_sent(), _client_with_owner_invitation(), _invite(), _owner_invitation_emails(), _pending_emails(), test_invite_answers_503_when_the_mail_fails(), test_owner_invitation_answers_503_when_the_mail_fails(), test_owner_invitation_resend_answers_503_when_the_mail_fails() (+2 more)
 
-### Community 150 - ".build"
-Cohesion: 0.05
-Nodes (12): _facebook(), GeoLiteCountries, NoCountries, EventSource, StreamLimiter, RedisKeyValueBuffer, RedisBucket, RedisRewardBuffer (+4 more)
+### Community 150 - "events/controller.py"
+Cohesion: 0.13
+Nodes (4): EventSource, events(), event_service(), EventService
 
 ### Community 152 - "test_company_image.py"
 Cohesion: 0.08
 Nodes (20): _check_jpeg_size(), _end_of_scan_data(), _has_many_scans(), PillowImageProcessor, _after_first_segment(), _jpeg(), _png(), _put_image() (+12 more)
 
-### Community 153 - "avant_core_access_models"
-Cohesion: 0.07
-Nodes (8): results(), client_result_service(), ClientResultService, show(), result_service(), ResultsOut, default_period(), ResultService
+### Community 153 - "results/dto.py"
+Cohesion: 0.05
+Nodes (11): results(), client_result_service(), ClientResultService, show(), result_service(), CostLineOut, MonthResultOut, ResultsOut (+3 more)
 
-### Community 155 - "CapturingMailer"
+### Community 155 - "_onboard_owner"
 Cohesion: 0.12
-Nodes (20): CapturingMailer, mailer(), Sent, _clients_viewer(), _queue(), _second_owner(), test_connect_sync_and_disconnect(), test_internal_registers_the_network_of_a_client() (+12 more)
+Nodes (29): Sent, _onboard_owner(), _owner_invite(), test_csrf_is_required_for_writes(), test_health_and_metrics(), test_owner_onboarding_and_login(), test_seat_limit(), test_tab_company_must_match_the_session() (+21 more)
+
+### Community 160 - "pydantic"
+Cohesion: 0.11
+Nodes (3): google_status(), google_unlink(), GoogleStatusOut
 
 ### Community 161 - "sites/controller.py"
-Cohesion: 0.19
-Nodes (6): site_service(), AdUnitPatchIn, MemberSitesIn, SiteIn, SitePatchIn, SitesPatchIn
+Cohesion: 0.20
+Nodes (9): create(), AdUnitPatchIn, MemberSitesIn, SiteDetailOut, SiteIn, SiteListOut, SiteOut, SitePatchIn (+1 more)
 
-### Community 162 - "mark"
-Cohesion: 0.13
-Nodes (7): add_note(), check(), checklist(), delete_note(), edit_note(), mark(), months()
+### Community 162 - ".build"
+Cohesion: 0.10
+Nodes (4): _facebook(), _google(), _google_ads(), _mailer()
+
+### Community 164 - "SiteService"
+Cohesion: 0.21
+Nodes (4): members(), site_service(), SiteMemberOut, SiteService
 
 ### Community 165 - "test_facebook.py"
-Cohesion: 0.20
+Cohesion: 0.25
 Nodes (9): _configure(), _connect(), _draft(), _services(), _sync(), test_facebook_control_and_rules(), test_facebook_create_edit_duplicate_lists_and_media(), test_facebook_panel() (+1 more)
 
 ### Community 166 - "reports/service.py"
-Cohesion: 0.05
-Nodes (18): catalog(), templates(), CustomCatalogMetricOut, DimensionOut, FilterIn, LabelOut, MetricCatalogOut, MetricOut (+10 more)
+Cohesion: 0.06
+Nodes (24): QueryTooHeavy, query_batch(), templates(), CustomCatalogMetricOut, DimensionOut, FilterIn, LabelOut, MetricCatalogOut (+16 more)
 
 ### Community 167 - "people/controller.py"
-Cohesion: 0.11
-Nodes (9): disable(), enable(), reset_mfa(), users(), people_service(), PersonOut, PeopleService, person_out() (+1 more)
+Cohesion: 0.12
+Nodes (7): disable(), enable(), reset_mfa(), users(), people_service(), PersonOut, PeopleService
 
 ### Community 168 - "main.py"
-Cohesion: 0.20
-Nodes (3): _content_security_policy(), observe(), _route_template()
+Cohesion: 0.08
+Nodes (9): configure_logging(), _content_security_policy(), observe(), _route_template(), create_app(), openapi(), swagger(), swagger_asset() (+1 more)
 
-### Community 171 - "swagger_assets.py"
-Cohesion: 0.15
-Nodes (5): ExpectedAsset, load_assets(), SwaggerAsset, SwaggerAssetChanged, test_changed_asset_stops_the_start()
+### Community 171 - "test_swagger_assets.py"
+Cohesion: 0.10
+Nodes (8): ExpectedAsset, load_assets(), SwaggerAsset, SwaggerAssetChanged, _error_code(), test_every_write_route_refuses_another_site(), test_changed_asset_stops_the_start(), test_page_loads_only_checked_files_from_the_api()
 
-### Community 172 - "events/controller.py"
-Cohesion: 0.14
-Nodes (3): TooManyAttempts, events(), test_stream_limiter_caps_each_person_and_the_process()
+### Community 172 - "StreamLimiter"
+Cohesion: 0.25
+Nodes (3): TooManyAttempts, StreamLimiter, test_stream_limiter_caps_each_person_and_the_process()
 
-### Community 174 - "install"
-Cohesion: 0.18
-Nodes (10): error_body(), install(), domain_error(), http_error(), redis_unavailable(), unexpected(), validation_error(), _limit_details() (+2 more)
+### Community 174 - "errors.py"
+Cohesion: 0.07
+Nodes (15): error_body(), ExportsBusy, install(), domain_error(), http_error(), redis_unavailable(), unexpected(), validation_error() (+7 more)
 
 ### Community 175 - "audit/controller.py"
-Cohesion: 0.17
+Cohesion: 0.15
 Nodes (3): index(), audit_service(), AuditService
 
-### Community 177 - "GamToolNetworkOut"
-Cohesion: 0.18
-Nodes (4): GamToolClientOut, GamToolNetworkDetailOut, GamToolNetworkOut, GamToolSiteOut
+### Community 179 - "test_database.py"
+Cohesion: 0.13
+Nodes (8): engine_settings(), restricted_engine(), test_api_does_not_start_with_a_role_that_ignores_rls(), test_database_url_cannot_override_the_timeouts(), test_default_numbers_fit_the_connection_budget(), test_engine_settings_come_from_the_settings(), test_engine_settings_refuse_zero_and_above_the_ceiling(), test_every_connection_has_the_timeouts_and_the_service_name()
 
-### Community 178 - "PriceRuleDetailsOut"
-Cohesion: 0.09
-Nodes (3): PriceRuleDetailsOut, forget_rule(), stored_drop_tiers()
+### Community 180 - "key_values/controller.py"
+Cohesion: 0.27
+Nodes (3): cors(), preflight(), receive()
 
-### Community 180 - "receive"
-Cohesion: 0.16
-Nodes (9): POSTGRES_PASSWORD, env, image, options, ports, postgres, cors(), preflight() (+1 more)
-
-### Community 183 - "ContractClientRefOut"
-Cohesion: 0.14
-Nodes (3): CostLineOut, MonthResultOut, ResultTotalsOut
+### Community 183 - "settings.py"
+Cohesion: 0.12
+Nodes (4): _are_proxy_addresses(), invalid_variable_names(), InvalidVariables, _is_smtp_url()
 
 ### Community 184 - "BaseModel"
 Cohesion: 0.11
 Nodes (6): TaskClientOut, TaskCommentIn, TaskEventOut, TaskNetworkOut, TaskPersonOut, TaskSiteOut
 
-### Community 188 - "_record"
-Cohesion: 0.17
-Nodes (5): configure_logging(), JsonFormatter, _record(), test_log_keeps_ordinary_messages(), test_log_masks_database_values_in_message_and_stack()
+### Community 185 - "checklists"
+Cohesion: 0.14
+Nodes (4): checklists(), months(), summary(), ChecklistMonthOut
+
+### Community 186 - "limits.py"
+Cohesion: 0.14
+Nodes (7): BucketResult, BucketRule, RedisBucket, MemoryBucket, _exercise(), test_memory_bucket(), test_redis_bucket()
+
+### Community 188 - "logs.py"
+Cohesion: 0.19
+Nodes (4): JsonFormatter, _record(), test_log_keeps_ordinary_messages(), test_log_masks_database_values_in_message_and_stack()
+
+### Community 189 - "gam_tools/service.py"
+Cohesion: 0.11
+Nodes (6): start(), GamStepOut, GamToolPersonOut, GamToolRunIn, GamToolRunNetworkOut, GamToolRunOut
 
 ### Community 191 - "mine"
 Cohesion: 0.16
 Nodes (3): mine(), GoalProgressOut, PersonGoalOut
 
-### Community 192 - "test_metrics.py"
-Cohesion: 0.18
-Nodes (4): metrics(), exposition(), test_metrics_add_up_every_process(), test_metrics_of_a_single_process()
+### Community 192 - "Settings"
+Cohesion: 0.15
+Nodes (3): Settings, GoogleRedirects, test_google_flow_cookie_is_always_secure()
+
+### Community 194 - "events.py"
+Cohesion: 0.22
+Nodes (3): channel(), _parse(), sse()
 
 ### Community 195 - "RedisEvents"
-Cohesion: 0.31
+Cohesion: 0.27
 Nodes (3): RedisEvents, test_redis_source_delivers_published_messages(), run()
 
 ### Community 197 - "goals/controller.py"
-Cohesion: 0.21
-Nodes (4): delete_template(), set_role_goal(), templates(), update_template()
+Cohesion: 0.19
+Nodes (4): set_role_goal(), update_template(), goal_service(), RoleGoalIn
 
 ### Community 198 - ".options"
-Cohesion: 0.16
+Cohesion: 0.10
 Nodes (3): options(), FacebookOptionOut, _CachedOptions
 
-### Community 201 - "client_documents/controller.py"
-Cohesion: 0.26
-Nodes (5): client_document_service(), ClientDocumentOut, ClientDocumentsOut, RejectDocumentIn, ClientDocumentService
+### Community 201 - "client_documents/dto.py"
+Cohesion: 0.18
+Nodes (4): ClientDocumentOut, ClientDocumentsOut, RejectDocumentIn, DocumentOut
+
+### Community 202 - "test_google_ads_panel"
+Cohesion: 0.24
+Nodes (6): _configure(), _connect(), _services(), _sync(), test_google_ads_panel(), test_without_the_google_client_the_login_is_unavailable()
 
 ### Community 204 - "GoalService"
 Cohesion: 0.19
 Nodes (4): _month(), team(), TeamGoalsOut, GoalService
 
 ### Community 210 - "internal/rewards/controller.py"
-Cohesion: 0.08
-Nodes (13): delete(), delete_lead(), export_leads(), index(), leads(), metrics(), set_active(), set_icon() (+5 more)
+Cohesion: 0.10
+Nodes (14): ad_units(), create(), delete(), delete_lead(), export_leads(), index(), leads(), metrics() (+6 more)
 
-### Community 214 - "floor_cache.py"
-Cohesion: 0.23
-Nodes (3): forget_cascades(), forget_floors(), forget_site()
+### Community 211 - "networks/service.py"
+Cohesion: 0.14
+Nodes (4): NetworkIn, ServiceAccountOut, SyncRunOut, enqueue_sync()
+
+### Community 218 - "rewards/http.py"
+Cohesion: 0.18
+Nodes (3): csv_response(), lead_filter(), period()
+
+### Community 223 - "health/controller.py"
+Cohesion: 0.14
+Nodes (4): metrics(), ready(), health_service(), HealthService
+
+### Community 225 - "UnitOfWorkFactory"
+Cohesion: 0.07
+Nodes (5): UnitOfWorkFactory, is_cascade_shape(), safe_site_cascades(), site_cascades(), page_out()
+
+### Community 226 - "get"
+Cohesion: 0.20
+Nodes (5): alert_settings(), alerts(), logins(), health(), get()
 
 ### Community 227 - "ItemsOut"
-Cohesion: 0.15
-Nodes (8): assign_sites(), classify(), classify_many(), link(), show(), site_options(), unlinked(), ItemsOut
-
-### Community 231 - "SiteListOut"
-Cohesion: 0.15
-Nodes (3): create(), index(), SiteListOut
-
-### Community 233 - "DomainError"
-Cohesion: 0.14
-Nodes (5): FacebookDenied, FacebookStateInvalid, oauth_callback(), oauth_start(), FacebookRedirects
-
-### Community 240 - "ContractService"
-Cohesion: 0.19
-Nodes (4): edit_contract(), contract_service(), ContractPatchIn, ContractService
-
-### Community 242 - "RateLimited"
-Cohesion: 0.10
-Nodes (4): RateLimited, KeyValueBuffer, KeyValueIn, receive_key_values()
-
-### Community 243 - "SupportTaskService"
-Cohesion: 0.15
-Nodes (4): tasks(), support_task_service(), TaskOut, SupportTaskService
-
-### Community 245 - "test_account.py"
 Cohesion: 0.12
-Nodes (12): MemoryKeyValueBuffer, _google_round(), _login(), test_change_password_and_sessions(), test_change_password_attempts_are_limited(), test_forgot_and_reset_password(), test_google_link_and_login(), test_login_attempts_are_limited() (+4 more)
+Nodes (9): ad_units(), assign_sites(), delete(), index(), show(), site_options(), sites_of_member(), unlinked() (+1 more)
 
-### Community 247 - "SiteOut"
-Cohesion: 0.13
-Nodes (6): Atribuição de sites, GAM, Networks, Sites e ad units, sites_of_member(), SiteOut
+### Community 242 - "typing"
+Cohesion: 0.07
+Nodes (14): Network, Avant: conexão com o GAM, Caminho conta de serviço, Caminho MCM, Decisões de Pedro (23/10/2026), Erros e estados, Fontes, Importação (+6 more)
+
+### Community 244 - "edit_image"
+Cohesion: 0.22
+Nodes (3): edit_image(), fiscal(), remove_image()
+
+### Community 245 - "test_key_values.py"
+Cohesion: 0.19
+Nodes (5): MemoryKeyValueBuffer, _buffer(), test_clean_values_of_connected_networks_go_to_the_buffer(), test_four_requests_per_second_per_ip(), test_the_preflight_answers_with_cors()
+
+### Community 246 - "checklists/dto.py"
+Cohesion: 0.10
+Nodes (6): ChecklistMarkIn, ChecklistNoteIn, ChecklistNoteOut, ChecklistPersonOut, ChecklistProgressOut, ChecklistRowOut
+
+### Community 247 - ".assign"
+Cohesion: 0.10
+Nodes (4): Atribuição de sites, GAM, Networks, Sites e ad units
 
 ### Community 250 - "networks/controller.py"
-Cohesion: 0.11
-Nodes (12): connect(), disconnect(), index(), options(), service_account(), show(), sync(), sync_runs() (+4 more)
+Cohesion: 0.12
+Nodes (9): connect(), disconnect(), index(), options(), service_account(), show(), sync(), sync_runs() (+1 more)
 
 ### Community 253 - "test_ad_tags_and_loaders_panel"
 Cohesion: 0.33
 Nodes (5): _page_views(), _site(), test_ad_tags_and_loaders_panel(), test_internal_ad_tags_and_loaders(), test_page_views_go_to_the_buffer_and_health_reads_back()
 
-### Community 256 - "GoalTemplateIn"
-Cohesion: 0.16
-Nodes (4): create_template(), template_options(), GoalTemplateIn, GoalTemplateOut
+### Community 256 - "GoalTemplateOut"
+Cohesion: 0.13
+Nodes (5): create_template(), template_options(), templates(), GoalTemplateIn, GoalTemplateOut
 
-### Community 265 - "test_templates_need_the_permission_and_the_groone_company"
-Cohesion: 0.38
-Nodes (3): _form(), test_staff_manage_templates_and_clients_see_them_by_role(), test_templates_need_the_permission_and_the_groone_company()
+### Community 258 - "postgres"
+Cohesion: 0.33
+Nodes (6): POSTGRES_PASSWORD, env, image, options, ports, postgres
 
-### Community 266 - "get"
+### Community 266 - "invoices/controller.py"
 Cohesion: 0.08
-Nodes (13): health(), available_months(), create(), delete_service(), get(), issue(), mine(), pay() (+5 more)
+Nodes (27): add_item(), available_months(), create_service(), delete(), delete_service(), issue(), mine(), pay() (+19 more)
 
 ## Knowledge Gaps
 - **1 isolated node(s):** `avant-api`
-  These have ≤1 connection - possible missing edges or undocumented components. (Counts symbols only; 2726 node(s) total have ≤1 connection when file, concept and rationale nodes are included.)
-- **158 thin communities (<3 nodes) omitted from report** — run `graphify query` to explore isolated nodes.
+  These have ≤1 connection - possible missing edges or undocumented components. (Counts symbols only; 2878 node(s) total have ≤1 connection when file, concept and rationale nodes are included.)
+- **142 thin communities (<3 nodes) omitted from report** — run `graphify query` to explore isolated nodes.
 
 ## Suggested Questions
 _Questions this graph is uniquely positioned to answer:_
 
-- **Why does `UnitOfWorkFactory` connect `UnitOfWorkFactory` to `InvoiceOut`, `TaskQueue`, `DashboardService`, `AlertService`, `RoleService`, `PageOut`, `SiteService`, `contracts/dto.py`, `commissions/controller.py`, `schedules/controller.py`, `AdTagOut`, `GroupService`, `inventory/dto.py`, `.uow`, `.__init__`, `api_keys/controller.py`, `CompanyService`, `custom_metrics/controller.py`, `.__init__`, `InvitationOut`, `LoaderService`, `dashboard_templates/controller.py`, `avant_core_access_models`, `mfa/controller.py`, `currencies/controller.py`, `ReportService`, `sites/controller.py`, `ad_tag_public/dto.py`, `reports/service.py`, `people/controller.py`, `TaskQueue`, `ClientService`, `auth/controller.py`, `modules/price_rules/service.py`, `PriceRuleService`, `audit/controller.py`, `InvoiceService`, `modules/facebook/controller.py`, `client_notes/controller.py`, `GamToolService`, `views/controller.py`, `modules/rewards/dto.py`, `download`, `members/controller.py`, `checklist_items/controller.py`, `RewardCache`, `modules/rewards/controller.py`, `account/controller.py`, `checklists/controller.py`, `ClientLoaderService`, `ProfileService`, `Limiter`, `ClientAdTagService`, `client_documents/controller.py`, `GoalService`, `ClientPriceRuleService`, `costs/controller.py`, `mcm/service.py`, `GoogleService`, `gam_tools/service.py`, `documents/controller.py`, `.__init__`, `Actor`, `.__init__`, `ClientRewardService`, `tasks/dto.py`, `avant_core_shared_clock`, `PublicRewardService`, `.__init__`, `ContractService`, `SupportTaskService`, `networks/controller.py`, `goals/service.py`?**
-  _High betweenness centrality (0.107) - this node is a cross-community bridge._
-- **Are the 177 inferred relationships involving `CapturingMailer` (e.g. with `test_change_password_and_sessions()` and `test_change_password_attempts_are_limited()`) actually correct?**
-  _`CapturingMailer` has 177 INFERRED edges - model-reasoned connections that need verification._
+- **Why does `UnitOfWorkFactory` connect `UnitOfWorkFactory` to `ClientGoogleAdsService`, `.trusted_uow`, `TaskQueue`, `DashboardService`, `AlertService`, `roles/controller.py`, `PageOut`, `modules/google_ads/controller.py`, `company/controller.py`, `contracts/controller.py`, `commissions/controller.py`, `invoices/controller.py`, `GoogleAdsService`, `GroupService`, `inventory/controller.py`, `FacebookService`, `.__init__`, `api_keys/controller.py`, `.__init__`, `custom_metrics/controller.py`, `GamToolService`, `.__init__`, `InvitationOut`, `dashboard_templates/controller.py`, `LoaderService`, `results/dto.py`, `AdTagService`, `MfaService`, `currencies/controller.py`, `.uow`, `.__init__`, `RewardService`, `.__init__`, `.__init__`, `sites/controller.py`, `SiteService`, `ad_tag_public/service.py`, `reports/service.py`, `people/controller.py`, `mcm/controller.py`, `ClientService`, `auth/controller.py`, `PriceRuleService`, `schedules/controller.py`, `audit/controller.py`, `SavedViewService`, `modules/facebook/controller.py`, `client_notes/controller.py`, `DocumentService`, `members/controller.py`, `checklist_items/controller.py`, `Bucket`, `account/controller.py`, `gam_tools/service.py`, `ClientLoaderService`, `UserOut`, `.options`, `ClientAdTagService`, `SupportTaskService`, `RewardCache`, `GoalService`, `ClientPriceRuleService`, `costs/controller.py`, `clients/service.py`, `internal/rewards/controller.py`, `networks/service.py`, `google/controller.py`, `documents/controller.py`, `.__init__`, `checklists/controller.py`, `NetworkService`, `tasks/controller.py`, `PublicRewardService`, `ClientDocumentService`, `.__init__`, `goals/service.py`?**
+  _High betweenness centrality (0.105) - this node is a cross-community bridge._
+- **Are the 192 inferred relationships involving `CapturingMailer` (e.g. with `test_change_password_and_sessions()` and `test_change_password_attempts_are_limited()`) actually correct?**
+  _`CapturingMailer` has 192 INFERRED edges - model-reasoned connections that need verification._
 - **What connects `avant-api` to the rest of the system?**
   _1 weakly-connected nodes found - possible documentation gaps or missing edges._
-- **Should `reward_public/controller.py` be split into smaller, more focused modules?**
-  _Cohesion score 0.14245014245014245 - nodes in this community are weakly interconnected._
-- **Why does `PageOut` connect `PageOut` to `InvoiceOut`, `RoleService`, `DashboardService`, `AlertService`, `SiteService`, `contracts/dto.py`, `get`, `schedules/controller.py`, `AdTagOut`, `GroupService`, `inventory/dto.py`, `.uow`, `api_keys/controller.py`, `gam_tools/controller.py`, `security.py`, `InvitationOut`, `tasks/controller.py`, `LoaderService`, `clients`, `avant_core_access_models`, `AdTagService`, `ReportService`, `ContractService`, `sites/controller.py`, `Actor`, `people/controller.py`, `TaskQueue`, `ClientService`, `modules/price_rules/service.py`, `PriceRuleService`, `reports/service.py`, `Services`, `audit/controller.py`, `InvoiceService`, `modules/facebook/controller.py`, `client_notes/controller.py`, `GamToolService`, `PriceRuleDetailsOut`, `modules/rewards/dto.py`, `members/controller.py`, `checklists`, `modules/rewards/controller.py`, `checklists/controller.py`, `contracts`, `ClientLoaderService`, `goals/controller.py`, `ClientAdTagService`, `GoalService`, `ClientPriceRuleService`, `costs/controller.py`, `shared/dto.py`, `internal/rewards/controller.py`, `mcm/service.py`, `objects`, `AdUnitOut`, `gam_tools/service.py`, `Actor`, `ClientRewardService`, `tasks/dto.py`, `avant_core_shared_clock`, `ItemsOut`, `SiteListOut`, `ContractService`, `SupportTaskService`, `networks/controller.py`, `goals/service.py`?**
-  _High betweenness centrality (0.079) - this node is a cross-community bridge._
-- **Are the 79 inferred relationships involving `PageOut` (e.g. with `index()` and `AdTagService`) actually correct?**
-  _`PageOut` has 79 INFERRED edges - model-reasoned connections that need verification._
-- **Should `InvoiceOut` be split into smaller, more focused modules?**
-  _Cohesion score 0.10676532769556026 - nodes in this community are weakly interconnected._
+- **Should `ClientGoogleAdsService` be split into smaller, more focused modules?**
+  _Cohesion score 0.06352941176470588 - nodes in this community are weakly interconnected._
+- **Why does `PageOut` connect `PageOut` to `GoalTemplateOut`, `ClientGoogleAdsService`, `.trusted_uow`, `DashboardService`, `AlertService`, `objects`, `roles/controller.py`, `modules/google_ads/controller.py`, `contracts/controller.py`, `invoices/controller.py`, `schedules/controller.py`, `GoogleAdsService`, `GroupService`, `inventory/controller.py`, `FacebookService`, `api_keys/controller.py`, `GamToolService`, `security.py`, `InvitationOut`, `tasks`, `LoaderService`, `clients`, `results/dto.py`, `AdTagService`, `RewardService`, `sites/controller.py`, `SiteService`, `reports/service.py`, `people/controller.py`, `mcm/controller.py`, `ClientService`, `PriceRuleService`, `audit/controller.py`, `modules/facebook/controller.py`, `client_notes/controller.py`, `.runs`, `modules/rewards/controller.py`, `members/controller.py`, `checklists`, `Actor`, `gam_tools/service.py`, `Actor`, `ClientLoaderService`, `goals/controller.py`, `SupportTaskService`, `ClientAdTagService`, `RewardCache`, `GoalService`, `Actor`, `ClientPriceRuleService`, `costs/controller.py`, `clients/service.py`, `internal/rewards/controller.py`, `networks/service.py`, `objects`, `PriceRuleSiteOut`, `checklists/controller.py`, `Actor`, `tasks/controller.py`, `NetworkService`, `UnitOfWorkFactory`, `get`, `ItemsOut`, `.update`, `.assign`, `networks/controller.py`, `goals/service.py`?**
+  _High betweenness centrality (0.081) - this node is a cross-community bridge._
+- **Are the 97 inferred relationships involving `PageOut` (e.g. with `index()` and `AdTagService`) actually correct?**
+  _`PageOut` has 97 INFERRED edges - model-reasoned connections that need verification._
+- **Should `.trusted_uow` be split into smaller, more focused modules?**
+  _Cohesion score 0.07622504537205081 - nodes in this community are weakly interconnected._

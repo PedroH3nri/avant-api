@@ -192,6 +192,19 @@ def client(engine: Engine, mailer: CapturingMailer) -> Iterator[TestClient]:
         conn.execute(text("ALTER TABLE invoices ENABLE TRIGGER invoices_immutable"))
         conn.execute(text("ALTER TABLE invoice_items ENABLE TRIGGER invoice_items_immutable"))
         for table in (
+            "metrics.google_ads_daily",
+            "metrics.google_ads_keyword_daily",
+            "metrics.google_ads_search_term_daily",
+            "metrics.google_ads_placement_daily",
+            "google_ads_alert_reads",
+            "google_ads_alerts",
+            "google_ads_alert_settings",
+            "google_ads_changes",
+            "google_ads_keywords",
+            "google_ads_objects",
+            "google_ads_user_limits",
+            "google_ads_accounts",
+            "google_ads_logins",
             "metrics.facebook_insights_daily",
             "metrics.facebook_adset_country_daily",
             "facebook_alert_reads",

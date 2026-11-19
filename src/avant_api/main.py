@@ -28,6 +28,7 @@ from avant_api.modules.documents.controller import router as documents
 from avant_api.modules.events.controller import router as events
 from avant_api.modules.facebook.controller import router as facebook
 from avant_api.modules.google.controller import router as google
+from avant_api.modules.google_ads.controller import router as google_ads
 from avant_api.modules.groups.controller import router as groups
 from avant_api.modules.health.controller import router as health
 from avant_api.modules.internal.router import router as internal
@@ -100,6 +101,7 @@ def create_app(services: Services | None = None) -> FastAPI:
         results,
         api_keys,
         facebook,
+        google_ads,
         events,
         internal,
     ):

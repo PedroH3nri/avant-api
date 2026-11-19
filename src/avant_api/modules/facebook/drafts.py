@@ -19,7 +19,7 @@ from avant_core.facebook.models import (
 )
 from pydantic import BaseModel, Field
 
-from avant_api.modules.facebook.dto import MAX_LIMIT, micros
+from avant_api.shared.ads import MAX_LIMIT, micros
 
 NAME = 400
 TEXT = 2_000
