@@ -12,8 +12,7 @@ from sqlalchemy import Engine
 
 from tests.conftest import CapturingMailer
 from tests.test_api import _csrf, _onboard_owner
-from tests.test_commissions import _support
-from tests.test_internal import _staff
+from tests.test_internal import _staff, _support
 
 PDF = b"%PDF-1.7\n" + b"0" * 200
 PNG = b"\x89PNG\r\n\x1a\n" + b"0" * 200

@@ -13,6 +13,7 @@ from avant_core.shared.errors import DomainError
 from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
+from sqlalchemy.exc import DataError
 from starlette.exceptions import HTTPException
 
 from avant_api.app.logs import masked_path
@@ -256,6 +257,9 @@ STATUS: dict[str, int] = {
 }
 
 
+NUL_MARKER = "NUL (0x00)"
+
+
 def error_body(code: str, message: str, details: dict[str, Any] | None = None) -> dict[str, Any]:
     """Monta o corpo de erro no formato ``{"error": {...}}``."""
     return {"error": {"code": code, "message": message, "details": details or {}}}
@@ -308,6 +312,17 @@ def install(app: FastAPI) -> None:
         """Devolve 404, 405 e outros erros HTTP no formato da API."""
         code = {404: "not_found", 405: "method_not_allowed"}.get(exc.status_code, "http_error")
         return JSONResponse(error_body(code, str(exc.detail)), status_code=exc.status_code)
+
+    @app.exception_handler(DataError)
+    async def database_data_error(request: Request, exc: DataError) -> JSONResponse:
+        """Texto com byte nulo, que o Postgres recusa, é entrada inválida (422); outro erro de
+        dado do banco segue como erro inesperado."""
+        if NUL_MARKER not in str(exc.orig):
+            return await unexpected(request, exc)
+        return JSONResponse(
+            error_body("validation_error", "dados inválidos: texto com caractere nulo"),
+            status_code=422,
+        )
 
     @app.exception_handler(redis.RedisError)
     async def redis_unavailable(request: Request, exc: redis.RedisError) -> JSONResponse:
